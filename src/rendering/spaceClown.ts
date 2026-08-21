@@ -6,6 +6,7 @@
  */
 
 import { markOverlayDirty } from './dirtyFlags';
+import { withBase } from '../basePath';
 
 interface SpaceClown {
   x: number;        // current position (px)
@@ -31,7 +32,7 @@ function ensureClownImage(): void {
   const img = new Image();
   img.onload = () => { clownImg = img; };
   img.onerror = () => { clownLoading = false; };
-  img.src = '/images/clown.png';
+  img.src = withBase('/images/clown.png');
 }
 
 /** Spawn a clown that enters from a random edge and drifts across the viewport. */

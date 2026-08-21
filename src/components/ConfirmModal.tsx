@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
+import { withBase } from '../basePath';
 
 interface Props {
   title: string;
@@ -46,7 +47,7 @@ export const ConfirmModal: React.FC<Props> = ({
         onClick={(e) => e.stopPropagation()}
       >
         <img
-          src="/images/chief_engineer.png"
+          src={withBase('/images/chief_engineer.png')}
           alt=""
           style={{ height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }}
         />

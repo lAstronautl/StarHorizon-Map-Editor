@@ -1,5 +1,6 @@
 import React, { useReducer, useCallback, useRef, useEffect, useState, useMemo } from 'react';
 import type { ToolType, PaletteItem } from './types';
+import { withBase } from './basePath';
 import { editorReducer } from './state/editorReducer';
 import { createInitialState, ensureGridContainsBounds } from './state/editorState';
 import type { ITool } from './tools/toolTypes';
@@ -115,14 +116,14 @@ export const App: React.FC = () => {
 
   // Probe for built-in resources availability
   useEffect(() => {
-    fetch('/resources-list?dir=Prototypes/Entities&ext=.yml')
+    fetch(withBase('/resources-list?dir=Prototypes/Entities&ext=.yml'))
       .then(r => { if (r.ok) setBuiltInAvailable(true); })
       .catch(() => { });
-    fetch('/resources/_manifests/entities.json')
+    fetch(withBase('/resources/_manifests/entities.json'))
       .then(r => { if (r.ok) setBuiltInAvailable(true); })
       .catch(() => { });
     // Built-in resources may carry a fork name written at pre-bake time.
-    fetch('/resources/_manifests/fork.json')
+    fetch(withBase('/resources/_manifests/fork.json'))
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.name) setBuiltInForkName(data.name); })
       .catch(() => { });
@@ -568,7 +569,7 @@ export const App: React.FC = () => {
             borderRadius: 8, padding: '32px 40px', maxWidth: 480,
             color: '#ccc', fontSize: 14, lineHeight: 1.7, textAlign: 'center',
           }}>
-            <img src="/images/clown.png" alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
+            <img src={withBase('/images/clown.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
             <h2 style={{ color: '#fff', margin: '0 0 16px', fontSize: 20 }}>
               Early Development
             </h2>

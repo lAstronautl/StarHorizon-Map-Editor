@@ -6,13 +6,15 @@
  * 1. Scans Resources/Prototypes/ for YAML files and generates manifest JSONs
  * 2. Copies required Resources into public/resources/ for static serving
  *
- * Usage: node scripts/prebuild-resources.mjs [--textures=minimal|full|none] [--fork-name=Name]
+ * Usage: node scripts/prebuild-resources.mjs [--textures=minimal|full|none] [--fork-name=Name] [--resources-path=Path]
  *   --textures=minimal  (default) Tiles + Structures + Markers + fork content (~27 MB)
  *   --textures=full     All textures (~150 MB)
  *   --textures=none     Prototypes only, no textures (~8 MB)
  *   --fork-name=Name    Label shown for the built-in resources in the UI. If omitted,
  *                       it is auto-detected from a single fork directory under
  *                       Prototypes/ (e.g. _MyFork -> "MyFork"), else "Built-in".
+ *   --resources-path=Path  Path to the fork's Resources/ directory. Defaults to
+ *                       ../../Resources (sibling checkout layout).
  */
 
 import fs from 'fs';
@@ -21,12 +23,15 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
-const resourcesRoot = path.resolve(projectRoot, '../../Resources');
 const publicResources = path.join(projectRoot, 'public/resources');
 
 // Parse args
 const textureMode = process.argv.find(a => a.startsWith('--textures='))?.split('=')[1] ?? 'minimal';
 const forkNameArg = process.argv.find(a => a.startsWith('--fork-name='))?.split('=')[1];
+const resourcesPathArg = process.argv.find(a => a.startsWith('--resources-path='))?.split('=')[1];
+const resourcesRoot = resourcesPathArg
+  ? path.resolve(projectRoot, resourcesPathArg)
+  : path.resolve(projectRoot, '../../Resources');
 
 const TEXTURE_SETS = {
   none: [],

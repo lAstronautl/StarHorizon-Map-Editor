@@ -4,6 +4,7 @@ import { loadImage } from '../loaders/rsiLoader';
 import { getActiveProvider } from '../loaders/resourceProvider';
 import { Camera } from './camera';
 import { markSceneDirty } from './dirtyFlags';
+import { withBase } from '../basePath';
 
 const TILE_SIZE = 32;
 
@@ -103,8 +104,8 @@ export function loadSpaceBg(): void {
   stars.onload = () => { spaceStarsImg = stars; spaceBgCache.starCanvases = []; markSceneDirty(); };
   dust.onerror = () => { spaceBgLoading = false; };
   stars.onerror = () => { };
-  dust.src = '/images/space-bg.png';
-  stars.src = '/images/space-stars.png';
+  dust.src = withBase('/images/space-bg.png');
+  stars.src = withBase('/images/space-stars.png');
 }
 
 /**

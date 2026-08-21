@@ -3,6 +3,7 @@ import type { ToolType } from '../types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import { triggerSpaceClown } from '../rendering/spaceClown';
+import { withBase } from '../basePath';
 import {
   faHandPaper,
   faPaintBrush,
@@ -100,7 +101,7 @@ export const Toolbar: React.FC<Props> = ({ activeTool, onSelectTool }) => {
           className="flex flex-col items-center justify-center w-full py-2 text-[10px] cursor-pointer border-none bg-transparent text-muted hover:bg-hover hover:text-primary gap-0.5"
           title="Honk!"
         >
-          <img src="/images/clown.png" alt="🤡" style={{ width: 20, height: 20, imageRendering: 'pixelated' }} />
+          <img src={withBase('/images/clown.png')} alt="🤡" style={{ width: 20, height: 20, imageRendering: 'pixelated' }} />
           <span className="leading-tight">Clown?</span>
         </button>
       </div>

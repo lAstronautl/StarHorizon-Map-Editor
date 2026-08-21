@@ -12,6 +12,7 @@ import {
   summarizeRepository,
 } from '../loaders/directoryScanner';
 import type { RepositorySummary } from '../loaders/directoryScanner';
+import { BASE_URL, withBase } from '../basePath';
 
 type SelectorState = 'idle' | 'scanning' | 'summary' | 'error';
 
@@ -137,7 +138,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
   }, [fileMap, forkName, onReady]);
 
   const handleUseBuiltIn = useCallback(() => {
-    const provider = new HttpResourceProvider('', builtInForkName);
+    const provider = new HttpResourceProvider(BASE_URL, builtInForkName);
     onReady(provider, builtInForkName);
   }, [onReady, builtInForkName]);
 
@@ -202,9 +203,9 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
     let lastT = 0;
 
     Promise.all([
-      loadImg('/images/space-bg.png').then(i => { dustImg = i; }),
-      loadImg('/images/space-stars.png').then(i => { starsImg = i; }),
-      loadImg('/images/clown.png').then(i => { clownImg = i; }),
+      loadImg(withBase('/images/space-bg.png')).then(i => { dustImg = i; }),
+      loadImg(withBase('/images/space-stars.png')).then(i => { starsImg = i; }),
+      loadImg(withBase('/images/clown.png')).then(i => { clownImg = i; }),
     ]).then(() => {
       if (!running) return;
       lastT = performance.now();
