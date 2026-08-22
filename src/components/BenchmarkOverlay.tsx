@@ -79,7 +79,7 @@ export const BenchmarkOverlay: React.FC = () => {
             : '0 0 8px rgba(46, 125, 50, 0.4)',
         }}
       >
-        {capturing ? `⏹ Stop (${remaining}s)` : '▶ Benchmark (15s)'}
+        {capturing ? `⏹ Стоп (${remaining}с)` : '▶ Бенчмарк (15с)'}
       </button>
 
       {/* Recording indicator */}
@@ -93,7 +93,7 @@ export const BenchmarkOverlay: React.FC = () => {
           borderRadius: 4,
           animation: 'benchPulse 1.5s ease-in-out infinite',
         }}>
-          ● Recording... {remaining}s remaining
+          ● Запись... осталось {remaining}с
         </div>
       )}
 
@@ -112,50 +112,50 @@ export const BenchmarkOverlay: React.FC = () => {
           border: '1px solid rgba(255,255,255,0.1)',
         }}>
           <div style={{ color: '#90caf9', fontWeight: 'bold', marginBottom: 4, fontSize: 12 }}>
-            Benchmark Results
+            Результаты бенчмарка
           </div>
 
-          <Section title="Timing">
-            <Row label="Duration" value={`${(result.durationMs / 1000).toFixed(1)}s`} />
-            <Row label="Total Frames" value={String(result.totalFrames)} />
-            <Row label="Rendered" value={String(result.renderedFrames)} />
-            <Row label="Skipped (idle)" value={String(result.skippedFrames)} />
+          <Section title="Время">
+            <Row label="Длительность" value={`${(result.durationMs / 1000).toFixed(1)}с`} />
+            <Row label="Всего кадров" value={String(result.totalFrames)} />
+            <Row label="Отрисовано" value={String(result.renderedFrames)} />
+            <Row label="Пропущено (простой)" value={String(result.skippedFrames)} />
           </Section>
 
           <Section title="FPS">
-            <Row label="Average" value={String(result.avgFps)} color={fpsColor(result.avgFps)} />
-            <Row label="1% Low" value={String(result.p1Fps)} color={fpsColor(result.p1Fps)} />
-            <Row label="Minimum" value={String(result.minFps)} color={fpsColor(result.minFps)} />
+            <Row label="Среднее" value={String(result.avgFps)} color={fpsColor(result.avgFps)} />
+            <Row label="1% минимум" value={String(result.p1Fps)} color={fpsColor(result.p1Fps)} />
+            <Row label="Минимум" value={String(result.minFps)} color={fpsColor(result.minFps)} />
           </Section>
 
-          <Section title="Frame Time (rendered)">
-            <Row label="Average" value={`${result.avgFrameTime} ms`} color={ftColor(result.avgFrameTime)} />
-            <Row label="Median" value={`${result.medianFrameTime} ms`} />
-            <Row label="P95" value={`${result.p95FrameTime} ms`} color={ftColor(result.p95FrameTime)} />
-            <Row label="P99" value={`${result.p99FrameTime} ms`} color={ftColor(result.p99FrameTime)} />
-            <Row label="Max" value={`${result.maxFrameTime} ms`} color={ftColor(result.maxFrameTime)} />
+          <Section title="Время кадра (отрисованные)">
+            <Row label="Среднее" value={`${result.avgFrameTime} мс`} color={ftColor(result.avgFrameTime)} />
+            <Row label="Медиана" value={`${result.medianFrameTime} мс`} />
+            <Row label="P95" value={`${result.p95FrameTime} мс`} color={ftColor(result.p95FrameTime)} />
+            <Row label="P99" value={`${result.p99FrameTime} мс`} color={ftColor(result.p99FrameTime)} />
+            <Row label="Макс." value={`${result.maxFrameTime} мс`} color={ftColor(result.maxFrameTime)} />
           </Section>
 
-          <Section title="Draw Calls">
-            <Row label="Average" value={String(result.avgDrawCalls)} />
-            <Row label="Max" value={String(result.maxDrawCalls)} />
+          <Section title="Вызовы отрисовки">
+            <Row label="Среднее" value={String(result.avgDrawCalls)} />
+            <Row label="Макс." value={String(result.maxDrawCalls)} />
           </Section>
 
-          <Section title="Scene">
-            <Row label="Total Entities" value={result.totalEntities.toLocaleString()} />
-            <Row label="Avg Visible" value={result.avgVisibleEntities.toLocaleString()} />
-            <Row label="Zoom" value={`${result.zoom}x`} />
-            <Row label="px/tile" value={String(result.pxPerTile)} />
+          <Section title="Сцена">
+            <Row label="Всего сущностей" value={result.totalEntities.toLocaleString()} />
+            <Row label="Ср. видимых" value={result.avgVisibleEntities.toLocaleString()} />
+            <Row label="Масштаб" value={`${result.zoom}x`} />
+            <Row label="пикс/тайл" value={String(result.pxPerTile)} />
           </Section>
 
-          <Section title="Cache Efficiency">
+          <Section title="Эффективность кэша">
             <Row
-              label="Tile Redraws"
+              label="Перерисовка тайлов"
               value={`${result.tileRedrawRate}%`}
               color={result.tileRedrawRate < 20 ? '#4caf50' : result.tileRedrawRate < 50 ? '#ff9800' : '#f44336'}
             />
             <Row
-              label="Entity Redraws"
+              label="Перерисовка сущностей"
               value={`${result.entityRedrawRate}%`}
               color={result.entityRedrawRate < 20 ? '#4caf50' : result.entityRedrawRate < 50 ? '#ff9800' : '#f44336'}
             />
@@ -176,7 +176,7 @@ export const BenchmarkOverlay: React.FC = () => {
                 backgroundColor: 'rgba(255,255,255,0.08)',
               }}
             >
-              Copy to Clipboard
+              Скопировать в буфер
             </button>
             <button
               onClick={() => setResult(null)}
@@ -191,7 +191,7 @@ export const BenchmarkOverlay: React.FC = () => {
                 backgroundColor: 'rgba(255,255,255,0.05)',
               }}
             >
-              Dismiss
+              Скрыть
             </button>
           </div>
         </div>
@@ -242,35 +242,35 @@ function ftColor(ms: number): string {
 
 function formatResultText(r: BenchmarkResult): string {
   return [
-    `=== Benchmark Results ===`,
-    `Date: ${r.startTime}`,
-    `Duration: ${(r.durationMs / 1000).toFixed(1)}s`,
+    `=== Результаты бенчмарка ===`,
+    `Дата: ${r.startTime}`,
+    `Длительность: ${(r.durationMs / 1000).toFixed(1)}с`,
     ``,
     `--- FPS ---`,
-    `Average: ${r.avgFps}`,
-    `1% Low:  ${r.p1Fps}`,
-    `Minimum: ${r.minFps}`,
+    `Среднее: ${r.avgFps}`,
+    `1% минимум: ${r.p1Fps}`,
+    `Минимум: ${r.minFps}`,
     ``,
-    `--- Frame Time ---`,
-    `Average: ${r.avgFrameTime} ms`,
-    `Median:  ${r.medianFrameTime} ms`,
-    `P95:     ${r.p95FrameTime} ms`,
-    `P99:     ${r.p99FrameTime} ms`,
-    `Max:     ${r.maxFrameTime} ms`,
+    `--- Время кадра ---`,
+    `Среднее: ${r.avgFrameTime} мс`,
+    `Медиана: ${r.medianFrameTime} мс`,
+    `P95:     ${r.p95FrameTime} мс`,
+    `P99:     ${r.p99FrameTime} мс`,
+    `Макс.:   ${r.maxFrameTime} мс`,
     ``,
-    `--- Scene ---`,
-    `Total Entities:  ${r.totalEntities}`,
-    `Avg Visible:     ${r.avgVisibleEntities}`,
-    `Zoom: ${r.zoom}x (${r.pxPerTile} px/tile)`,
+    `--- Сцена ---`,
+    `Всего сущностей: ${r.totalEntities}`,
+    `Ср. видимых:     ${r.avgVisibleEntities}`,
+    `Масштаб: ${r.zoom}x (${r.pxPerTile} пикс/тайл)`,
     ``,
-    `--- Frames ---`,
-    `Total:    ${r.totalFrames}`,
-    `Rendered: ${r.renderedFrames}`,
-    `Skipped:  ${r.skippedFrames}`,
+    `--- Кадры ---`,
+    `Всего:      ${r.totalFrames}`,
+    `Отрисовано: ${r.renderedFrames}`,
+    `Пропущено:  ${r.skippedFrames}`,
     ``,
-    `--- Cache Efficiency ---`,
-    `Tile Redraws:   ${r.tileRedrawRate}%`,
-    `Entity Redraws: ${r.entityRedrawRate}%`,
-    `Draw Calls: avg ${r.avgDrawCalls}, max ${r.maxDrawCalls}`,
+    `--- Эффективность кэша ---`,
+    `Перерисовка тайлов:    ${r.tileRedrawRate}%`,
+    `Перерисовка сущностей: ${r.entityRedrawRate}%`,
+    `Вызовы отрисовки: ср. ${r.avgDrawCalls}, макс. ${r.maxDrawCalls}`,
   ].join('\n');
 }

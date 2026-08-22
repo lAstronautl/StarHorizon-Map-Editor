@@ -38,11 +38,11 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
 
   return (
     <div className="flex-1 bg-surface flex flex-col overflow-hidden">
-      <div className="px-2 pt-2 pb-1 text-xs text-muted">Tiles</div>
+      <div className="px-2 pt-2 pb-1 text-xs text-muted">Тайлы</div>
 
       {selectedItem && selectedItem.type === 'tile' && (
         <div className="px-2 pb-2 border-b border-subtle text-[11px] text-primary">
-          Selected: <strong>{selectedItem.id}</strong>
+          Выбрано: <strong>{selectedItem.id}</strong>
         </div>
       )}
 
@@ -51,7 +51,7 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search tiles..."
+          placeholder="Поиск тайлов..."
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
@@ -78,7 +78,7 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
       )}
 
       <div className="px-2 py-1 text-[10px] text-muted border-t border-subtle">
-        {filtered.length} tiles
+        Тайлов: {filtered.length}
       </div>
     </div>
   );
@@ -249,7 +249,7 @@ const TilePreviewPopup: React.FC<{
           className="bg-surface rounded flex items-center justify-center text-muted text-xs"
           style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
         >
-          No sprite
+          Нет спрайта
         </div>
       )}
       <div className="text-primary text-[11px] text-center mt-1 truncate" style={{ maxWidth: PREVIEW_SIZE }}>

@@ -145,7 +145,7 @@ export const MenuBar: React.FC<Props> = ({
   };
 
   const handleNewMap = () => {
-    if (dirty && !window.confirm('Unsaved changes will be lost. Continue?')) return;
+    if (dirty && !window.confirm('Несохранённые изменения будут потеряны. Продолжить?')) return;
     onNewMap();
   };
 
@@ -153,33 +153,33 @@ export const MenuBar: React.FC<Props> = ({
   const closeMenu = useCallback(() => setOpenMenu(null), []);
 
   const fileItems: MenuItem[] = [
-    { label: 'New Map', shortcut: 'Ctrl+N', action: handleNewMap },
+    { label: 'Новая карта', shortcut: 'Ctrl+N', action: handleNewMap },
     { label: 'separator', separator: true },
-    { label: 'Import .yml...', shortcut: 'Ctrl+O', action: handleImportClick },
-    { label: 'Export .yml', shortcut: 'Ctrl+S', action: onExport },
+    { label: 'Импорт .yml...', shortcut: 'Ctrl+O', action: handleImportClick },
+    { label: 'Экспорт .yml', shortcut: 'Ctrl+S', action: onExport },
   ];
 
   const editItems: MenuItem[] = [
-    { label: 'Undo', shortcut: 'Ctrl+Z', action: onUndo, disabled: !canUndo },
-    { label: 'Redo', shortcut: 'Ctrl+Y', action: onRedo, disabled: !canRedo },
+    { label: 'Отменить', shortcut: 'Ctrl+Z', action: onUndo, disabled: !canUndo },
+    { label: 'Повторить', shortcut: 'Ctrl+Y', action: onRedo, disabled: !canRedo },
   ];
 
   const viewItems: MenuItem[] = [
-    { label: 'Show Grid', action: onToggleGrid, checked: showGrid },
-    { label: 'Show Entities', action: onToggleEntities, checked: showEntities },
-    { label: 'Space Background', action: onToggleSpaceBackground, checked: showSpaceBackground },
-    { label: 'Lighting Preview', action: onToggleLighting, checked: showLighting },
+    { label: 'Показать сетку', action: onToggleGrid, checked: showGrid },
+    { label: 'Показать сущности', action: onToggleEntities, checked: showEntities },
+    { label: 'Фон космоса', action: onToggleSpaceBackground, checked: showSpaceBackground },
+    { label: 'Предпросмотр освещения', action: onToggleLighting, checked: showLighting },
     { label: 'separator', separator: true },
-    { label: 'Performance HUD', action: onTogglePerfHUD, checked: showPerfHUD },
-    { label: 'Benchmark Tool', action: onToggleBenchmark, checked: showBenchmark },
+    { label: 'HUD производительности', action: onTogglePerfHUD, checked: showPerfHUD },
+    { label: 'Инструмент бенчмарка', action: onToggleBenchmark, checked: showBenchmark },
     { label: 'separator', separator: true },
-    { label: 'Controls', shortcut: '?', action: onShowShortcuts },
+    { label: 'Управление', shortcut: '?', action: onShowShortcuts },
   ];
 
   const menus: { name: string; items: MenuItem[] }[] = [
-    { name: 'File', items: fileItems },
-    { name: 'Edit', items: editItems },
-    { name: 'View', items: viewItems },
+    { name: 'Файл', items: fileItems },
+    { name: 'Правка', items: editItems },
+    { name: 'Вид', items: viewItems },
   ];
 
   return (
@@ -206,7 +206,7 @@ export const MenuBar: React.FC<Props> = ({
           <button
             onClick={() => setShowForkMenu(!showForkMenu)}
             className="flex items-center gap-1.5 text-[11px] text-muted hover:text-primary cursor-pointer bg-transparent border border-subtle rounded-sm px-2 py-0.5"
-            title="Active fork"
+            title="\u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0439 \u0444\u043E\u0440\u043A"
           >
             <span className="text-[10px]">{'\uD83D\uDCC1'}</span>
             <span>{forkName}</span>
@@ -217,7 +217,7 @@ export const MenuBar: React.FC<Props> = ({
                 onClick={() => { setShowForkMenu(false); onSwitchFork?.(); }}
                 className="w-full text-left px-3 py-1.5 text-[11px] text-primary hover:bg-hover cursor-pointer bg-transparent border-none"
               >
-                Switch Fork...
+                \u0421\u043C\u0435\u043D\u0438\u0442\u044C \u0444\u043E\u0440\u043A...
               </button>
             </div>
           )}
@@ -227,7 +227,7 @@ export const MenuBar: React.FC<Props> = ({
       <div className="flex-1" />
 
       {dirty && (
-        <span className="text-warning text-[10px]">Unsaved changes</span>
+        <span className="text-warning text-[10px]">\u0415\u0441\u0442\u044C \u043D\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F</span>
       )}
 
       <input
@@ -247,64 +247,64 @@ export const MenuBar: React.FC<Props> = ({
 
 const SHORTCUT_SECTIONS: { title: string; rows: [string, string][] }[] = [
   {
-    title: 'Tool Selection',
+    title: '\u0412\u044b\u0431\u043e\u0440 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u0430',
     rows: [
-      ['B', 'Paint'],
-      ['E', 'Erase'],
-      ['I', 'Eyedropper'],
-      ['H', 'Pan'],
-      ['G', 'Fill'],
-      ['R', 'Rectangle'],
-      ['L', 'Line'],
-      ['C', 'Circle'],
-      ['S', 'Select (tiles + entities)'],
-      ['V', 'Entity Select'],
-      ['P', 'Entity Place'],
-      ['K', 'Cable Draw'],
-      ['J', 'Pipe Draw'],
-      ['D', 'Device Link'],
+      ['B', '\u041a\u0438\u0441\u0442\u044c'],
+      ['E', '\u041b\u0430\u0441\u0442\u0438\u043a'],
+      ['I', '\u041f\u0438\u043f\u0435\u0442\u043a\u0430'],
+      ['H', '\u0420\u0443\u043a\u0430'],
+      ['G', '\u0417\u0430\u043b\u0438\u0432\u043a\u0430'],
+      ['R', '\u041f\u0440\u044f\u043c\u043e\u0443\u0433\u043e\u043b\u044c\u043d\u0438\u043a'],
+      ['L', '\u041b\u0438\u043d\u0438\u044f'],
+      ['C', '\u041a\u0440\u0443\u0433'],
+      ['S', '\u0412\u044b\u0431\u043e\u0440 (\u0442\u0430\u0439\u043b\u044b + \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438)'],
+      ['V', '\u0412\u044b\u0431\u043e\u0440 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438'],
+      ['P', '\u0420\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438'],
+      ['K', '\u0420\u0438\u0441\u043e\u0432\u0430\u043d\u0438\u0435 \u043a\u0430\u0431\u0435\u043b\u0435\u0439'],
+      ['J', '\u0420\u0438\u0441\u043e\u0432\u0430\u043d\u0438\u0435 \u0442\u0440\u0443\u0431'],
+      ['D', '\u0421\u0432\u044f\u0437\u044c \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432'],
     ],
   },
   {
-    title: 'General',
+    title: '\u041e\u0431\u0449\u0435\u0435',
     rows: [
-      ['Ctrl+Z', 'Undo'],
-      ['Ctrl+Y / Ctrl+Shift+Z', 'Redo'],
-      ['Ctrl+N', 'New Map'],
-      ['Ctrl+O', 'Import .yml'],
-      ['Ctrl+S', 'Export .yml'],
-      ['Ctrl+F', 'Search entities on map'],
-      ['Space (hold)', 'Pan mode'],
-      ['Escape', 'Cancel / close menu'],
-      ['?', 'This dialog'],
+      ['Ctrl+Z', '\u041e\u0442\u043c\u0435\u043d\u0438\u0442\u044c'],
+      ['Ctrl+Y / Ctrl+Shift+Z', '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c'],
+      ['Ctrl+N', '\u041d\u043e\u0432\u0430\u044f \u043a\u0430\u0440\u0442\u0430'],
+      ['Ctrl+O', '\u0418\u043c\u043f\u043e\u0440\u0442 .yml'],
+      ['Ctrl+S', '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 .yml'],
+      ['Ctrl+F', '\u041f\u043e\u0438\u0441\u043a \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439 \u043d\u0430 \u043a\u0430\u0440\u0442\u0435'],
+      ['Space (\u0443\u0434\u0435\u0440\u0436\u0430\u043d\u0438\u0435)', '\u0420\u0435\u0436\u0438\u043c \u043f\u0430\u043d\u043e\u0440\u0430\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f'],
+      ['Escape', '\u041e\u0442\u043c\u0435\u043d\u0430 / \u0437\u0430\u043a\u0440\u044b\u0442\u044c \u043c\u0435\u043d\u044e'],
+      ['?', '\u042d\u0442\u043e \u043e\u043a\u043d\u043e'],
     ],
   },
   {
-    title: 'Clipboard (Select Tool)',
+    title: '\u0411\u0443\u0444\u0435\u0440 \u043e\u0431\u043c\u0435\u043d\u0430 (\u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442 "\u0412\u044b\u0431\u043e\u0440")',
     rows: [
-      ['Ctrl+C', 'Copy'],
-      ['Ctrl+X', 'Cut'],
-      ['Ctrl+V', 'Paste'],
-      ['Delete / Backspace', 'Delete selection'],
+      ['Ctrl+C', '\u041a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c'],
+      ['Ctrl+X', '\u0412\u044b\u0440\u0435\u0437\u0430\u0442\u044c'],
+      ['Ctrl+V', '\u0412\u0441\u0442\u0430\u0432\u0438\u0442\u044c'],
+      ['Delete / Backspace', '\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0432\u044b\u0434\u0435\u043b\u0435\u043d\u043d\u043e\u0435'],
     ],
   },
   {
-    title: 'Entity Rotation',
+    title: '\u041f\u043e\u0432\u043e\u0440\u043e\u0442 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438',
     rows: [
-      ['R', 'Rotate CW (90\u00b0)'],
-      ['Shift+R', 'Rotate CCW (90\u00b0)'],
+      ['R', '\u041f\u043e\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u043f\u043e \u0447\u0430\u0441\u043e\u0432\u043e\u0439 (90\u00b0)'],
+      ['Shift+R', '\u041f\u043e\u0432\u0435\u0440\u043d\u0443\u0442\u044c \u043f\u0440\u043e\u0442\u0438\u0432 \u0447\u0430\u0441\u043e\u0432\u043e\u0439 (90\u00b0)'],
     ],
   },
   {
-    title: 'Mouse',
+    title: '\u041c\u044b\u0448\u044c',
     rows: [
-      ['Scroll', 'Zoom in / out'],
-      ['Middle drag', 'Pan'],
-      ['Click + drag', 'Use active tool'],
-      ['Shift + click', 'Free placement / toggle select'],
-      ['Shift + drag', 'Free-move entity (fractional)'],
-      ['Right click', 'Deselect / context menu / erase'],
-      ['Scroll on entity stack', 'Cycle overlapping entities'],
+      ['\u041f\u0440\u043e\u043a\u0440\u0443\u0442\u043a\u0430', '\u041f\u0440\u0438\u0431\u043b\u0438\u0436\u0435\u043d\u0438\u0435 / \u043e\u0442\u0434\u0430\u043b\u0435\u043d\u0438\u0435'],
+      ['\u041f\u0435\u0440\u0435\u0442\u0430\u0441\u043a\u0438\u0432\u0430\u043d\u0438\u0435 \u0421\u041a\u041c', '\u041f\u0430\u043d\u043e\u0440\u0430\u043c\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435'],
+      ['\u041a\u043b\u0438\u043a + \u043f\u0435\u0440\u0435\u0442\u0430\u0441\u043a\u0438\u0432\u0430\u043d\u0438\u0435', '\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0439 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442'],
+      ['Shift + \u043a\u043b\u0438\u043a', '\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u043e\u0435 \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u0435 / \u043f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0432\u044b\u0431\u043e\u0440\u0430'],
+      ['Shift + \u043f\u0435\u0440\u0435\u0442\u0430\u0441\u043a\u0438\u0432\u0430\u043d\u0438\u0435', '\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u043e\u0435 \u043f\u0435\u0440\u0435\u043c\u0435\u0449\u0435\u043d\u0438\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0438 (\u0434\u0440\u043e\u0431\u043d\u043e\u0435)'],
+      ['\u041f\u041a\u041c', '\u0421\u043d\u044f\u0442\u044c \u0432\u044b\u0434\u0435\u043b\u0435\u043d\u0438\u0435 / \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043d\u043e\u0435 \u043c\u0435\u043d\u044e / \u0441\u0442\u0435\u0440\u0435\u0442\u044c'],
+      ['\u041f\u0440\u043e\u043a\u0440\u0443\u0442\u043a\u0430 \u043d\u0430 \u0441\u0442\u043e\u043f\u043a\u0435 \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439', '\u041f\u0435\u0440\u0435\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043f\u0435\u0440\u0435\u043a\u0440\u044b\u0432\u0430\u044e\u0449\u0438\u0445\u0441\u044f \u0441\u0443\u0449\u043d\u043e\u0441\u0442\u0435\u0439'],
     ],
   },
 ];
@@ -327,7 +327,7 @@ const ShortcutsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     >
       <div className="bg-elevated border border-subtle rounded-lg p-6 max-w-[560px] w-full max-h-[80vh] overflow-y-auto text-primary text-[13px]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-accent m-0">Controls</h2>
+          <h2 className="text-base font-semibold text-accent m-0">Управление</h2>
           <button
             onClick={onClose}
             className="bg-transparent border-none text-muted hover:text-primary cursor-pointer text-lg leading-none px-1"
@@ -357,7 +357,7 @@ const ShortcutsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             onClick={onClose}
             className="bg-active border border-subtle rounded text-primary text-[13px] px-6 py-2 cursor-pointer hover:bg-hover"
           >
-            Close
+            Закрыть
           </button>
         </div>
       </div>

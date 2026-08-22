@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const ConfirmModal: React.FC<Props> = ({
-  title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
+  title, message, confirmLabel = 'Подтвердить', cancelLabel = 'Отмена',
   danger = false, onConfirm, onCancel,
 }) => {
   const confirmRef = useRef<HTMLButtonElement>(null);

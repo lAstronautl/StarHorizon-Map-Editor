@@ -84,15 +84,15 @@ export const PIPE_COLORS: Record<'supply' | 'return', string> = {
 };
 
 export const CABLE_DISPLAY: Record<CableType, { label: string; color: string }> = {
-  CableHV: { label: 'HV Cable', color: '#ff8800' },
-  CableMV: { label: 'MV Cable', color: '#ffcc00' },
-  CableApcExtension: { label: 'APC Cable', color: '#00cc44' },
+  CableHV: { label: 'Кабель ВН', color: '#ff8800' },
+  CableMV: { label: 'Кабель СН', color: '#ffcc00' },
+  CableApcExtension: { label: 'Кабель APC', color: '#00cc44' },
 };
 
 export const PIPE_DISPLAY: Record<PipeType, { label: string; color: string }> = {
-  supply: { label: 'Supply Pipe', color: '#0088ff' },
-  return: { label: 'Return Pipe', color: '#cc2200' },
-  disposal: { label: 'Disposal Pipe', color: '#886644' },
+  supply: { label: 'Труба подачи', color: '#0088ff' },
+  return: { label: 'Труба возврата', color: '#cc2200' },
+  disposal: { label: 'Труба утилизации', color: '#886644' },
 };
 
 export interface PaletteItem {

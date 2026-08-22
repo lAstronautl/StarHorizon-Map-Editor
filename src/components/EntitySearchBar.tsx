@@ -103,18 +103,18 @@ export const EntitySearchBar: React.FC<Props> = ({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (query.trim()) setDropdownOpen(true); }}
-          placeholder="Search entities..."
+          placeholder="Поиск сущностей..."
           className="w-[200px] px-2 py-1 bg-transparent border-none text-primary text-xs outline-none placeholder:text-muted"
         />
         {query && (
           <>
             <span className="text-[10px] text-muted px-1 whitespace-nowrap">
-              {results.length} result{results.length !== 1 ? 's' : ''}
+              Найдено: {results.length}
             </span>
             <button
               onClick={handleClear}
               className="px-1.5 py-0.5 bg-transparent border-none text-muted hover:text-primary cursor-pointer text-xs leading-none"
-              title="Clear search"
+              title="Очистить поиск"
             >
               ×
             </button>
@@ -128,7 +128,7 @@ export const EntitySearchBar: React.FC<Props> = ({
           className="absolute top-full right-0 mt-0.5 w-[320px] max-h-[280px] overflow-y-auto bg-elevated border border-subtle rounded-sm shadow-lg z-50"
         >
           {results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted italic">No results</div>
+            <div className="px-3 py-2 text-xs text-muted italic">Ничего не найдено</div>
           ) : (
             results.map((result, i) => (
               <button

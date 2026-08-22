@@ -208,11 +208,11 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="px-2 pt-2 pb-1 text-xs text-muted">Decals</div>
+      <div className="px-2 pt-2 pb-1 text-xs text-muted">Декали</div>
 
       {selectedItem?.type === 'decal' && (
         <div className="px-2 pb-2 border-b border-subtle text-[11px] text-primary">
-          Selected: <strong>{selectedItem.id}</strong>
+          Выбрано: <strong>{selectedItem.id}</strong>
         </div>
       )}
 
@@ -221,7 +221,7 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search decals..."
+          placeholder="Поиск декалей..."
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
@@ -230,7 +230,7 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
         {filteredDecals ? (
           <div className="px-2">
             {filteredDecals.length === 0 && (
-              <div className="text-muted text-xs p-3 italic text-center">No results</div>
+              <div className="text-muted text-xs p-3 italic text-center">Ничего не найдено</div>
             )}
             {filteredDecals.map(d => (
               <DecalRow
@@ -281,11 +281,11 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
 
       {/* Placement controls */}
       <div className="border-t border-subtle px-2 py-2 space-y-1.5">
-        <div className="text-[10px] text-muted uppercase tracking-wider">Placement</div>
+        <div className="text-[10px] text-muted uppercase tracking-wider">Размещение</div>
 
         {showColorPicker && (
           <div className="flex items-center gap-2">
-            <label className="text-[11px] text-primary w-12">Color</label>
+            <label className="text-[11px] text-primary w-12">Цвет</label>
             <input
               type="color"
               value={colorHex}
@@ -306,7 +306,7 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
         )}
 
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-primary w-12">Angle</label>
+          <label className="text-[11px] text-primary w-12">Угол</label>
           <input
             type="number"
             min={0}
@@ -315,11 +315,11 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
             onChange={e => setAngleDeg(Number(e.target.value))}
             className="flex-1 px-1 py-0.5 bg-surface border border-subtle rounded-sm text-primary text-[11px] outline-none focus:border-accent w-16"
           />
-          <span className="text-[10px] text-muted">deg</span>
+          <span className="text-[10px] text-muted">град</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-[11px] text-primary w-12">Z-Index</label>
+          <label className="text-[11px] text-primary w-12">Z-индекс</label>
           <input
             type="number"
             value={zIndex}
@@ -336,7 +336,7 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
               onChange={e => setSnap(e.target.checked)}
               className="accent-accent"
             />
-            Snap
+            Прилипание
           </label>
           <label className="flex items-center gap-1 text-[11px] text-primary cursor-pointer">
             <input
@@ -345,13 +345,13 @@ export const DecalPalette: React.FC<Props> = ({ registry, selectedItem, onSelect
               onChange={e => setCleanable(e.target.checked)}
               className="accent-accent"
             />
-            Cleanable
+            Смываемая
           </label>
         </div>
       </div>
 
       <div className="px-2 py-1 text-[10px] text-muted border-t border-subtle">
-        {registry?.decalCount ?? 0} decals
+        Декалей: {registry?.decalCount ?? 0}
       </div>
 
       {/* Hover preview popup */}
@@ -382,7 +382,7 @@ const DecalRow: React.FC<{
       onMouseLeave={onHoverLeave}
       className={`flex items-center gap-1.5 px-2 py-0.5 text-xs cursor-pointer w-full text-left border-none rounded-sm mb-px ${selected ? 'bg-active text-accent border border-accent' : 'text-primary hover:bg-hover bg-transparent border border-transparent'
         }`}
-      title={`${decal.id}\nTags: ${decal.tags.join(', ')}`}
+      title={`${decal.id}\nТеги: ${decal.tags.join(', ')}`}
     >
       <DecalThumbnail decal={decal} />
       <span className="truncate">{decal.id}</span>
@@ -451,7 +451,7 @@ const DecalPreviewPopup: React.FC<{
           className="bg-surface rounded flex items-center justify-center text-muted text-xs"
           style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
         >
-          No sprite
+          Нет спрайта
         </div>
       )}
       <div className="text-primary text-[11px] text-center mt-1 truncate" style={{ maxWidth: PREVIEW_SIZE }}>

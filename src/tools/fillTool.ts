@@ -44,7 +44,7 @@ export class FillTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Fill tiles',
+          label: 'Заливка тайлов',
           tileChanges: changes,
           entityChanges: [],
         },

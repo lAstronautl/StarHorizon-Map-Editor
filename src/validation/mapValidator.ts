@@ -94,7 +94,7 @@ const ALLOWED_WALL_TILES = new Set(['Plating', 'Lattice', 'Space']);
 
 const floorUnderWallRule: ValidationRule = {
   id: 'floor-under-wall',
-  label: 'Floor Tiles Under Walls',
+  label: 'Тайлы пола под стенами',
   severity: 'warning',
   run(grid, entities, registry) {
     const issues: ValidationIssue[] = [];
@@ -106,7 +106,7 @@ const floorUnderWallRule: ValidationRule = {
       if (cell && !ALLOWED_WALL_TILES.has(cell.tileId)) {
         issues.push({
           ruleId: 'floor-under-wall', severity: 'warning',
-          message: `Floor tile (${cell.tileId}) under wall at (${x}, ${y}). Walls should be on Plating.`,
+          message: `Тайл пола (${cell.tileId}) под стеной на (${x}, ${y}). Стены должны стоять на Plating.`,
           x, y, entityUid: entity.uid,
         });
       }
@@ -117,7 +117,7 @@ const floorUnderWallRule: ValidationRule = {
 
 const doorWithoutFloorRule: ValidationRule = {
   id: 'door-without-floor',
-  label: 'Doors Without Floor Tiles',
+  label: 'Двери без тайлов пола',
   severity: 'warning',
   run(grid, entities) {
     const issues: ValidationIssue[] = [];
@@ -130,7 +130,7 @@ const doorWithoutFloorRule: ValidationRule = {
       if (!cell || NO_FLOOR_TILES.has(cell.tileId)) {
         issues.push({
           ruleId: 'door-without-floor', severity: 'warning',
-          message: `Door (${entity.prototype}) has no floor tile at (${x}, ${y}).`,
+          message: `Дверь (${entity.prototype}) без тайла пола на (${x}, ${y}).`,
           x, y, entityUid: entity.uid,
         });
       }
@@ -141,7 +141,7 @@ const doorWithoutFloorRule: ValidationRule = {
 
 const danglingDeviceRefRule: ValidationRule = {
   id: 'dangling-device-ref',
-  label: 'Dangling Device References',
+  label: 'Битые ссылки на устройства',
   severity: 'error',
   run(_grid, entities) {
     const issues: ValidationIssue[] = [];
@@ -158,7 +158,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) references non-existent entity UID ${uid} in DeviceList.`,
+                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceList.`,
                 x, y, entityUid: entity.uid,
               });
             }
@@ -171,7 +171,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!isNaN(uid) && !validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) references non-existent entity UID ${uid} in DeviceLinkSource.`,
+                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceLinkSource.`,
                 x, y, entityUid: entity.uid,
               });
             }
@@ -183,7 +183,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) references non-existent entity UID ${uid} in DeviceNetwork.`,
+                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceNetwork.`,
                 x, y, entityUid: entity.uid,
               });
             }
@@ -199,7 +199,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
   const id = alarmType === 'AirAlarm' ? 'unlinked-air-alarm' : 'unlinked-fire-alarm';
   return {
     id,
-    label: `Unlinked ${alarmType === 'AirAlarm' ? 'Air' : 'Fire'} Alarms`,
+    label: alarmType === 'AirAlarm' ? 'Несвязанные датчики воздуха' : 'Несвязанные пожарные датчики',
     severity: 'warning',
     run(_grid, entities, registry) {
       const issues: ValidationIssue[] = [];
@@ -215,7 +215,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
           if (!Array.isArray(devices) || devices.length === 0) {
             issues.push({
               ruleId: id, severity: 'warning',
-              message: `${entity.prototype} at (${x}, ${y}) has no linked devices.`,
+              message: `${entity.prototype} на (${x}, ${y}) не имеет связанных устройств.`,
               x, y, entityUid: entity.uid,
             });
           }
@@ -229,7 +229,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
           // Prototype has DeviceList but instance doesn't, means no devices linked
           issues.push({
             ruleId: id, severity: 'warning',
-            message: `${entity.prototype} at (${x}, ${y}) has no linked devices.`,
+            message: `${entity.prototype} на (${x}, ${y}) не имеет связанных устройств.`,
             x, y, entityUid: entity.uid,
           });
         }

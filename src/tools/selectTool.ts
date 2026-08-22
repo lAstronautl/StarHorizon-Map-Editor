@@ -278,7 +278,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Delete selection',
+          label: 'Удаление выделения',
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -611,7 +611,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Paste',
+          label: 'Вставка',
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -741,7 +741,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Move selection',
+          label: 'Перемещение выделения',
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -774,13 +774,13 @@ export class SelectTool implements ITool {
     const items: ContextMenuItem[] = [];
 
     if (this.phase === 'selected') {
-      items.push({ label: 'Copy', shortcut: 'Ctrl+C', action: () => this.copy(ctx) });
-      items.push({ label: 'Cut', shortcut: 'Ctrl+X', action: () => this.cut(ctx) });
-      items.push({ label: 'Delete', shortcut: 'Del', action: () => this.deleteSelection(ctx) });
+      items.push({ label: 'Копировать', shortcut: 'Ctrl+C', action: () => this.copy(ctx) });
+      items.push({ label: 'Вырезать', shortcut: 'Ctrl+X', action: () => this.cut(ctx) });
+      items.push({ label: 'Удалить', shortcut: 'Del', action: () => this.deleteSelection(ctx) });
       items.push({
-        label: 'Save as Prefab...',
+        label: 'Сохранить как префаб...',
         action: () => {
-          const name = window.prompt('Prefab name:');
+          const name = window.prompt('Название префаба:');
           if (!name) return;
           const prefab = serializePrefab({
             name,
@@ -799,7 +799,7 @@ export class SelectTool implements ITool {
 
     const clip = getClipboard();
     if (clip) {
-      items.push({ label: 'Paste', shortcut: 'Ctrl+V', action: () => this.paste(ctx) });
+      items.push({ label: 'Вставить', shortcut: 'Ctrl+V', action: () => this.paste(ctx) });
     }
 
     return items;

@@ -83,11 +83,11 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="px-2 pt-2 pb-1 text-xs text-muted">Entities</div>
+      <div className="px-2 pt-2 pb-1 text-xs text-muted">Сущности</div>
 
       {selectedItem?.type === 'entity' && (
         <div className="px-2 pb-2 border-b border-subtle text-[11px] text-primary">
-          Selected: <strong>{selectedItem.id}</strong>
+          Выбрано: <strong>{selectedItem.id}</strong>
         </div>
       )}
 
@@ -96,7 +96,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search entities..."
+          placeholder="Поиск сущностей..."
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
@@ -106,7 +106,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
           // Search results (flat list)
           <div className="px-2">
             {filteredEntities.length === 0 && (
-              <div className="text-muted text-xs p-3 italic text-center">No results</div>
+              <div className="text-muted text-xs p-3 italic text-center">Ничего не найдено</div>
             )}
             {filteredEntities.map(e => (
               <EntityRow
@@ -160,7 +160,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
       </div>
 
       <div className="px-2 py-1 text-[10px] text-muted border-t border-subtle">
-        {registry?.entityCount ?? 0} entities
+        Сущностей: {registry?.entityCount ?? 0}
       </div>
 
       {/* Hover preview popup */}

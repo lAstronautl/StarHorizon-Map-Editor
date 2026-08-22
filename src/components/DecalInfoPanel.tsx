@@ -23,7 +23,7 @@ export const DecalInfoPanel: React.FC<Props> = ({ selectedDecalIds, decals, regi
     dispatch({
       type: 'APPLY_COMMAND',
       command: {
-        label: 'Edit decal',
+        label: 'Изменение декали',
         tileChanges: [],
         entityChanges: [],
         decalChanges: [{
@@ -39,7 +39,7 @@ export const DecalInfoPanel: React.FC<Props> = ({ selectedDecalIds, decals, regi
     dispatch({
       type: 'APPLY_COMMAND',
       command: {
-        label: `Edit ${updates.length} decals`,
+        label: `Изменение декалей: ${updates.length}`,
         tileChanges: [],
         entityChanges: [],
         decalChanges: updates.map(u => ({
@@ -132,11 +132,11 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
   return (
     <div className="p-3 flex flex-col gap-2 text-xs">
       <div className="flex justify-between items-center">
-        <span className="font-bold text-xs">Decal Info</span>
+        <span className="font-bold text-xs">Информация о декали</span>
         <button
           onClick={onDeselect}
           className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none"
-          title="Deselect"
+          title="Снять выделение"
         >
           &times;
         </button>
@@ -176,12 +176,12 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
       )}
 
       {/* Position (read-only) */}
-      <InfoRow label="Position" value={`${decal.position.x.toFixed(2)}, ${decal.position.y.toFixed(2)}`} />
+      <InfoRow label="Позиция" value={`${decal.position.x.toFixed(2)}, ${decal.position.y.toFixed(2)}`} />
       <InfoRow label="ID" value={String(decal.id)} />
 
       {/* Color */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Color</span>
+        <span className="text-[11px] text-muted">Цвет</span>
         <div className="flex items-center gap-1">
           <input
             type="color"
@@ -209,7 +209,7 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
             <button
               onClick={() => onUpdate({ ...decal, color: null })}
               className="text-[10px] text-muted hover:text-primary cursor-pointer px-1"
-              title="Reset to default (no custom color)"
+              title="Сбросить к значению по умолчанию (без своего цвета)"
             >
               ✕
             </button>
@@ -225,7 +225,7 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
 
       {/* Angle */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Angle</span>
+        <span className="text-[11px] text-muted">Угол</span>
         <div className="flex items-center gap-1">
           <input
             type="number"
@@ -244,7 +244,7 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
 
       {/* Z-Index */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Z-Index</span>
+        <span className="text-[11px] text-muted">Z-индекс</span>
         <input
           type="number"
           value={decal.zIndex}
@@ -264,7 +264,7 @@ const SingleDecalView: React.FC<SingleDecalViewProps> = ({ decal, proto, onUpdat
           onChange={(e) => onUpdate({ ...decal, cleanable: e.target.checked })}
           className="accent-accent w-3 h-3"
         />
-        <span className="text-[11px] text-primary">Cleanable</span>
+        <span className="text-[11px] text-primary">Смываемая</span>
       </label>
     </div>
   );
@@ -309,11 +309,11 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
   return (
     <div className="p-3 flex flex-col gap-2 text-xs">
       <div className="flex justify-between items-center">
-        <span className="font-bold text-xs">{decals.length} Decals Selected</span>
+        <span className="font-bold text-xs">Выбрано декалей: {decals.length}</span>
         <button
           onClick={onDeselect}
           className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none"
-          title="Deselect all"
+          title="Снять выделение со всех"
         >
           &times;
         </button>
@@ -325,7 +325,7 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
 
       {/* Color */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Color</span>
+        <span className="text-[11px] text-muted">Цвет</span>
         {allSupportColor ? (
           <div className="flex items-center gap-1">
             <input
@@ -353,7 +353,7 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
             />
           </div>
         ) : (
-          <span className="text-[10px] text-muted italic">Mixed color support</span>
+          <span className="text-[10px] text-muted italic">Разная поддержка цвета</span>
         )}
         {sharedColor !== undefined && (
           <ColorBulkActions
@@ -367,7 +367,7 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
 
       {/* Angle */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Angle</span>
+        <span className="text-[11px] text-muted">Угол</span>
         <div className="flex items-center gap-1">
           <input
             type="number"
@@ -387,7 +387,7 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
 
       {/* Z-Index */}
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] text-muted">Z-Index</span>
+        <span className="text-[11px] text-muted">Z-индекс</span>
         <input
           type="number"
           value={sharedZIndex ?? ''}
@@ -412,7 +412,7 @@ const MultiDecalView: React.FC<MultiDecalViewProps> = ({ decals, registry, onUpd
           className="accent-accent w-3 h-3"
         />
         <span className="text-[11px] text-primary">
-          Cleanable{sharedCleanable === undefined ? ' (mixed)' : ''}
+          Смываемая{sharedCleanable === undefined ? ' (разное)' : ''}
         </span>
       </label>
     </div>
@@ -441,16 +441,16 @@ const ColorBulkActions: React.FC<ColorBulkActionsProps> = ({ color, matchCount, 
         <button
           onClick={onSelectAll}
           className="bg-transparent border border-subtle rounded-sm text-muted text-[10px] cursor-pointer px-1.5 py-0.5 hover:text-primary hover:border-primary"
-          title={`Select all ${matchCount} decals with this color`}
+          title={`Выбрать все декали этого цвета (${matchCount})`}
         >
-          Select All ({matchCount})
+          Выбрать все ({matchCount})
         </button>
         <button
           onClick={() => setShowRecolor(!showRecolor)}
           className="bg-transparent border border-subtle rounded-sm text-muted text-[10px] cursor-pointer px-1.5 py-0.5 hover:text-primary hover:border-primary"
-          title={`Recolor all ${matchCount} decals with this color`}
+          title={`Перекрасить все декали этого цвета (${matchCount})`}
         >
-          Recolor All
+          Перекрасить все
         </button>
       </div>
       {showRecolor && (
@@ -477,7 +477,7 @@ const ColorBulkActions: React.FC<ColorBulkActionsProps> = ({ color, matchCount, 
             }}
             className="bg-accent text-white border-none rounded-sm text-[10px] cursor-pointer px-1.5 py-0.5 hover:opacity-90"
           >
-            Apply
+            Применить
           </button>
         </div>
       )}
@@ -513,7 +513,7 @@ function summarizeDecalPrototypes(decals: DecalInstance[]): string {
   }
   const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   const top3 = sorted.slice(0, 3).map(([proto, count]) => `${proto} x${count}`);
-  if (sorted.length > 3) top3.push(`+${sorted.length - 3} more types`);
+  if (sorted.length > 3) top3.push(`+${sorted.length - 3} типов`);
   return top3.join(', ');
 }
 

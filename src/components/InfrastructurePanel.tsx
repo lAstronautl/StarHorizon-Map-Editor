@@ -13,7 +13,7 @@ const PIPES: PipeType[] = ['supply', 'return', 'disposal'];
 export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) => {
   return (
     <div className="p-3">
-      <div className="text-muted text-[10px] uppercase tracking-wider mb-1">Cables</div>
+      <div className="text-muted text-[10px] uppercase tracking-wider mb-1">Кабели</div>
       {CABLES.map(type => {
         const { label, color } = CABLE_DISPLAY[type];
         const active = selection.mode === 'cable' && selection.cableType === type;
@@ -34,7 +34,7 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
         );
       })}
 
-      <div className="text-muted text-[10px] uppercase tracking-wider mb-1 mt-3">Pipes</div>
+      <div className="text-muted text-[10px] uppercase tracking-wider mb-1 mt-3">Трубы</div>
       {PIPES.map(type => {
         const { label, color } = PIPE_DISPLAY[type];
         const active = selection.mode === 'pipe' && selection.pipeType === type;

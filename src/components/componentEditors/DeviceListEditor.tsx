@@ -45,17 +45,17 @@ export const DeviceListEditor: React.FC<ComponentEditorProps> = ({ component, on
       <div className="text-muted text-[10px] mb-0.5">devices</div>
       {devices.length === 0 && (
         <div className="text-[#666] text-[10px] italic mb-0.5">
-          No devices
+          Нет устройств
         </div>
       )}
       {devices.map((uid, i) => (
         <div key={i} className="flex items-center gap-1 mb-px text-[10px] pr-3">
           <span className="text-primary text-[10px] flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{resolveUid(uid)}</span>
-          {isMissing(uid) && <span className="text-[#ff6666] text-[9px] shrink-0">(missing)</span>}
+          {isMissing(uid) && <span className="text-[#ff6666] text-[9px] shrink-0">(не найдено)</span>}
           <button
             onClick={() => handleRemove(i)}
             className="bg-transparent border-none text-[#ff6666] text-[10px] cursor-pointer px-1 py-0.5 leading-none shrink-0 hover:text-[#ff4444]"
-            title="Remove device"
+            title="Удалить устройство"
           >
             ✕
           </button>
@@ -75,7 +75,7 @@ export const DeviceListEditor: React.FC<ComponentEditorProps> = ({ component, on
         </div>
       ) : (
         <button onClick={() => setAdding(true)} className="bg-transparent border border-subtle rounded-sm text-muted text-[10px] cursor-pointer px-1.5 py-0.5 mt-0.5">
-          + Add Device
+          + Добавить устройство
         </button>
       )}
     </div>

@@ -24,10 +24,10 @@ export const PalettePanel: React.FC<Props> = ({ registry, selectedItem, onSelect
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex border-b border-subtle bg-surface">
-        <TabButton label="Tiles" active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
-        <TabButton label="Entities" active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
-        <TabButton label="Decals" active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
-        <TabButton label="Prefabs" active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
+        <TabButton label="Тайлы" active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
+        <TabButton label="Сущности" active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
+        <TabButton label="Декали" active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
+        <TabButton label="Префабы" active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
       </div>
 
       {activeTab === 'tiles' ? (

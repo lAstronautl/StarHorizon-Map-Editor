@@ -99,12 +99,12 @@ export const ContainerContentsEditor: React.FC<Props> = ({
   return (
     <div className="mt-2">
       <div className="text-muted text-[10px] mb-1">
-        Contents ({containedEntities.length} item{containedEntities.length !== 1 ? 's' : ''})
+        Содержимое (элементов: {containedEntities.length})
       </div>
 
       {isRuntimeFilled && (
         <div className="text-[9px] text-muted italic mb-1">
-          Runtime-filled, items below are hand-placed additions
+          Заполняется во время игры, элементы ниже — добавленные вручную
         </div>
       )}
 
@@ -122,14 +122,14 @@ export const ContainerContentsEditor: React.FC<Props> = ({
             <button
               onClick={() => onRemove(entity.uid, child.uid)}
               className="bg-transparent border-none text-red-500 text-[11px] cursor-pointer px-1 opacity-0 group-hover:opacity-100"
-              title="Remove from container"
+              title="Удалить из контейнера"
             >
               &times;
             </button>
           </div>
         ))}
         {containedEntities.length === 0 && !isRuntimeFilled && (
-          <div className="text-muted text-[9px] italic px-1">Empty</div>
+          <div className="text-muted text-[9px] italic px-1">Пусто</div>
         )}
       </div>
 
@@ -139,7 +139,7 @@ export const ContainerContentsEditor: React.FC<Props> = ({
           type="text"
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
-          placeholder="Search to add item..."
+          placeholder="Поиск для добавления..."
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-[10px] outline-none focus:border-accent"
         />
         {showDropdown && (

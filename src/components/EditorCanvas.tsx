@@ -290,7 +290,7 @@ export const EditorCanvas: React.FC<Props> = ({
         if (decalChanges.length > 0) {
           dispatch({
             type: 'APPLY_COMMAND',
-            command: { label: 'Rotate decals', tileChanges: [], entityChanges: [], decalChanges },
+            command: { label: 'Поворот декалей', tileChanges: [], entityChanges: [], decalChanges },
           });
         }
         markOverlayDirty();

@@ -205,7 +205,7 @@ describe('SelectTool', () => {
 
       expect(dispatched).toHaveLength(1);
       const cmd = dispatched[0].command;
-      expect(cmd.label).toBe('Move selection');
+      expect(cmd.label).toBe('Перемещение выделения');
 
       // Should have entity removes for the 2 selected entities
       const removes = cmd.entityChanges.filter((ec: EntityChange) => ec.action === 'remove');
@@ -276,17 +276,17 @@ describe('SelectTool', () => {
       tool.onMouseUp(ctx);
       const items = tool.getContextMenuItems(ctx, 3, 4);
       const labels = items.map(i => i.label);
-      expect(labels).toContain('Copy');
-      expect(labels).toContain('Cut');
-      expect(labels).toContain('Delete');
-      expect(labels).toContain('Save as Prefab...');
+      expect(labels).toContain('Копировать');
+      expect(labels).toContain('Вырезать');
+      expect(labels).toContain('Удалить');
+      expect(labels).toContain('Сохранить как префаб...');
     });
 
     it('returns Paste when clipboard has data', () => {
       const { ctx } = makeToolContext();
       setClipboard({ width: 1, height: 1, tiles: [], entities: [], originX: 0, originY: 0 });
       const items = tool.getContextMenuItems(ctx, 0, 0);
-      expect(items.map(i => i.label)).toContain('Paste');
+      expect(items.map(i => i.label)).toContain('Вставить');
     });
 
     it('returns empty array when idle and no clipboard', () => {

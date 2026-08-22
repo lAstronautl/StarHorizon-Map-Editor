@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { PrefabData } from '../prefab/prefabTypes';
 import { parsePrefabJson } from '../prefab/prefabIO';
+import { withBase } from '../basePath';
 
 interface LoadedPrefab {
   data: PrefabData;
@@ -27,7 +28,7 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
 
       // Try dev server endpoint first
       try {
-        const listRes = await fetch('/__api/prefabs');
+        const listRes = await fetch(withBase('/__api/prefabs'));
         if (listRes.ok) {
           entries = await listRes.json();
         }
@@ -38,7 +39,7 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
       // Fall back to build-time manifest
       if (!entries) {
         try {
-          const manifestRes = await fetch('/prefabs-manifest.json');
+          const manifestRes = await fetch(withBase('/prefabs-manifest.json'));
           if (manifestRes.ok) {
             entries = await manifestRes.json();
           }
@@ -129,14 +130,14 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
         <button
           className="px-2 py-1 bg-elevated border border-subtle rounded-sm text-primary text-xs cursor-pointer hover:bg-hover"
           onClick={() => fileInputRef.current?.click()}
-          title="Import prefab .json file"
+          title="Импортировать файл префаба .json"
         >
           +
         </button>
         <button
           className="px-2 py-1 bg-elevated border border-subtle rounded-sm text-primary text-xs cursor-pointer hover:bg-hover"
           onClick={loadFromServer}
-          title="Refresh from public/prefabs/"
+          title="Обновить из public/prefabs/"
         >
           {loading ? '...' : '\u21BB'}
         </button>
@@ -154,13 +155,13 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
       <div className="flex-1 overflow-y-auto">
         {prefabs.length === 0 && !loading ? (
           <div className="text-muted text-xs p-3 italic text-center leading-relaxed">
-            No prefabs found.<br />
-            Save .prefab.json files to<br />
+            Префабы не найдены.<br />
+            Сохраните файлы .prefab.json в<br />
             <span className="text-primary">public/prefabs/</span>
           </div>
         ) : loading ? (
           <div className="text-muted text-xs p-3 italic text-center">
-            Loading...
+            Загрузка...
           </div>
         ) : (
           sortedFolders.map(folder => {

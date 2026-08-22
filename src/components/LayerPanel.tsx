@@ -11,13 +11,13 @@ interface Props {
 }
 
 const LAYER_DEFS: { key: keyof LayerVisibility; label: string; desc: string }[] = [
-  { key: 'subfloor', label: 'SubFloor', desc: 'Cables, pipes, disposal (-22 to -13)' },
-  { key: 'floorObjects', label: 'Floor Obj', desc: 'Carpets, floor items (-12 to -5)' },
-  { key: 'structures', label: 'Structures', desc: 'Walls, windows, grilles (-2 to -1)' },
-  { key: 'objects', label: 'Objects', desc: 'Furniture, machines, wall mounts (0 to +7)' },
-  { key: 'doors', label: 'Doors', desc: 'Airlocks, firelocks, blast doors (+8 to +10)' },
-  { key: 'markers', label: 'Markers', desc: 'Spawn points, mapping helpers' },
-  { key: 'decals', label: 'Decals', desc: 'Floor markings, arrows, overlays' },
+  { key: 'subfloor', label: 'Подпол', desc: 'Кабели, трубы, мусоропровод (-22 до -13)' },
+  { key: 'floorObjects', label: 'Объ. пола', desc: 'Ковры, напольные предметы (-12 до -5)' },
+  { key: 'structures', label: 'Конструкции', desc: 'Стены, окна, решётки (-2 до -1)' },
+  { key: 'objects', label: 'Объекты', desc: 'Мебель, машины, настенные крепления (0 до +7)' },
+  { key: 'doors', label: 'Двери', desc: 'Шлюзы, противопожарные, бронедвери (+8 до +10)' },
+  { key: 'markers', label: 'Маркеры', desc: 'Точки спавна, помощники разметки' },
+  { key: 'decals', label: 'Декали', desc: 'Разметка пола, стрелки, оверлеи' },
 ];
 
 export const LayerPanel: React.FC<Props> = ({
@@ -40,24 +40,24 @@ export const LayerPanel: React.FC<Props> = ({
 
       <div className="h-px bg-subtle my-2" />
 
-      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Show infrastructure under non-subfloor tiles (T-ray mode)">
+      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Показывать инфраструктуру под тайлами (режим Т-луча)">
         <input
           type="checkbox"
           checked={showSubFloor}
           onChange={onToggleSubFloor}
           className="accent-accent w-3 h-3"
         />
-        T-Ray (SubFloor)
+        Т-луч (подпол)
       </label>
 
-      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Show device links and connections">
+      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Показывать связи и соединения устройств">
         <input
           type="checkbox"
           checked={showConnections}
           onChange={onToggleConnections}
           className="accent-accent w-3 h-3"
         />
-        Connections
+        Связи
       </label>
     </div>
   );

@@ -65,7 +65,7 @@ export class CircleTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Circle fill entities', tileChanges: [], entityChanges },
+          command: { label: 'Заливка круга сущностями', tileChanges: [], entityChanges },
         });
       }
       return;
@@ -79,7 +79,7 @@ export class CircleTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Circle fill decals', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: 'Заливка круга декалями', tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -112,7 +112,7 @@ export class CircleTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Circle fill', tileChanges: changes, entityChanges: [] },
+        command: { label: 'Заливка круга', tileChanges: changes, entityChanges: [] },
       });
     }
   }

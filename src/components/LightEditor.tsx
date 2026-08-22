@@ -40,10 +40,10 @@ export const LightEditor: React.FC<Props> = ({ entity, registry, onUpdateEntity 
 
   return (
     <div className="mt-2">
-      <div className="text-muted text-[10px] mb-1">Light</div>
+      <div className="text-muted text-[10px] mb-1">Свет</div>
 
       <div className="flex items-center gap-2 mb-1">
-        <label className="text-[10px] text-muted w-12">Color</label>
+        <label className="text-[10px] text-muted w-12">Цвет</label>
         <input
           type="color"
           value={colorHex}
@@ -54,7 +54,7 @@ export const LightEditor: React.FC<Props> = ({ entity, registry, onUpdateEntity 
       </div>
 
       <div className="flex items-center gap-2 mb-1">
-        <label className="text-[10px] text-muted w-12">Radius</label>
+        <label className="text-[10px] text-muted w-12">Радиус</label>
         <input
           type="range"
           min="1" max="20" step="0.5"
@@ -66,7 +66,7 @@ export const LightEditor: React.FC<Props> = ({ entity, registry, onUpdateEntity 
       </div>
 
       <div className="flex items-center gap-2 mb-1">
-        <label className="text-[10px] text-muted w-12">Energy</label>
+        <label className="text-[10px] text-muted w-12">Энергия</label>
         <input
           type="range"
           min="0.1" max="5.0" step="0.1"
@@ -78,7 +78,7 @@ export const LightEditor: React.FC<Props> = ({ entity, registry, onUpdateEntity 
       </div>
 
       <div className="flex items-center gap-2 mb-1">
-        <label className="text-[10px] text-muted w-12">Falloff</label>
+        <label className="text-[10px] text-muted w-12">Спад</label>
         <input
           type="range"
           min="0.5" max="15.0" step="0.1"
@@ -90,7 +90,7 @@ export const LightEditor: React.FC<Props> = ({ entity, registry, onUpdateEntity 
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="text-[10px] text-muted w-12">Enabled</label>
+        <label className="text-[10px] text-muted w-12">Включено</label>
         <input
           type="checkbox"
           checked={lightInfo.enabled}

@@ -29,10 +29,10 @@ export const SurveillanceCameraEditor: React.FC<ComponentEditorProps> = ({ compo
               .filter((s) => s.length > 0);
             onChange({ ...component, setupAvailableNetworks: arr });
           }}
-          placeholder="e.g. SurveillanceCameraSecurity, SurveillanceCameraEngineering"
+          placeholder="напр. SurveillanceCameraSecurity, SurveillanceCameraEngineering"
           className="bg-elevated border border-subtle rounded-sm text-primary text-[10px] px-1 py-0.5 w-full box-border"
         />
-        <div className="text-[#666] text-[9px] mt-px">Comma-separated network names</div>
+        <div className="text-[#666] text-[9px] mt-px">Названия сетей через запятую</div>
       </div>
     </div>
   );

@@ -67,7 +67,7 @@ export class LineTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Line draw entities', tileChanges: [], entityChanges },
+          command: { label: 'Рисование линии сущностей', tileChanges: [], entityChanges },
         });
       }
       return;
@@ -81,7 +81,7 @@ export class LineTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Line draw decals', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: 'Рисование линии декалей', tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -120,7 +120,7 @@ export class LineTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Line draw', tileChanges: changes, entityChanges: [] },
+        command: { label: 'Рисование линии', tileChanges: changes, entityChanges: [] },
       });
     }
   }

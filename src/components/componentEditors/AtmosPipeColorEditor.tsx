@@ -2,8 +2,8 @@ import React from 'react';
 import type { ComponentEditorProps } from './types';
 
 const COLOR_PRESETS: { label: string; value: string }[] = [
-  { label: 'Supply Blue', value: '#0055CCFF' },
-  { label: 'Return Red', value: '#990000FF' },
+  { label: 'Синий (подача)', value: '#0055CCFF' },
+  { label: 'Красный (возврат)', value: '#990000FF' },
 ];
 
 export const AtmosPipeColorEditor: React.FC<ComponentEditorProps> = ({ component, onChange }) => {

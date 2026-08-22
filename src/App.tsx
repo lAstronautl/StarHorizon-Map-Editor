@@ -85,15 +85,15 @@ const TOOL_MAP: Record<string, ITool> = {
 export const App: React.FC = () => {
   const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('space-station-14-map-editor-disclaimer-dismissed'));
-  const [statusMessage, setStatusMessage] = useState('Ready');
-  const [loadingMessage, setLoadingMessage] = useState('Discovering prototypes...');
+  const [statusMessage, setStatusMessage] = useState('Готово');
+  const [loadingMessage, setLoadingMessage] = useState('Поиск прототипов...');
   const [loadFailed, setLoadFailed] = useState(false);
   const [forkProvider, setForkProvider] = useState<ResourceProvider | null>(null);
   const [forkName, setForkName] = useState('');
   const [builtInAvailable, setBuiltInAvailable] = useState(false);
   // Name of the pre-baked/built-in resources, written by prebuild-resources.mjs.
   // Falls back to a generic label when not specified (e.g. base Space Station 14).
-  const [builtInForkName, setBuiltInForkName] = useState('Built-in');
+  const [builtInForkName, setBuiltInForkName] = useState('Встроенный');
   const [cursorTile, setCursorTile] = useState({ x: 0, y: 0 });
   const [showGrid, setShowGrid] = useState(true);
   const [showSpaceBackground, setShowSpaceBackground] = useState(false);
@@ -134,12 +134,12 @@ export const App: React.FC = () => {
     setForkProvider(provider);
     setForkName(name);
     setActiveProvider(provider);
-    setLoadingMessage('Discovering prototypes...');
+    setLoadingMessage('Поиск прототипов...');
     initRegistry(provider, (msg) => setLoadingMessage(msg)).then(registry => {
       dispatch({ type: 'SET_REGISTRY', registry });
-      setStatusMessage('Ready');
+      setStatusMessage('Готово');
     }).catch(err => {
-      setLoadingMessage(`Resource load failed: ${err}`);
+      setLoadingMessage(`Ошибка загрузки ресурсов: ${err}`);
       setLoadFailed(true);
     });
   }, []);
@@ -217,7 +217,7 @@ export const App: React.FC = () => {
     cameraRef.current.x = 0;
     cameraRef.current.y = 0;
     cameraRef.current.zoom = 1;
-    setStatusMessage('New map');
+    setStatusMessage('Новая карта');
   }, []);
 
   const handleImport = useCallback((content: string) => {
@@ -230,9 +230,9 @@ export const App: React.FC = () => {
         window.innerWidth - 280,
         window.innerHeight - 60,
       );
-      setStatusMessage(`Imported: ${grid.width}x${grid.height} grid, ${map.entities.length} entities`);
+      setStatusMessage(`Импортировано: сетка ${grid.width}x${grid.height}, сущностей: ${map.entities.length}`);
     } catch (err) {
-      setStatusMessage(`Import failed: ${err}`);
+      setStatusMessage(`Ошибка импорта: ${err}`);
     }
   }, []);
 
@@ -288,9 +288,9 @@ export const App: React.FC = () => {
         entityOrder: state.entityOrder,
       }, state.decalsDirty);
       downloadYAML(yaml, 'station.yml');
-      setStatusMessage('Exported station.yml');
+      setStatusMessage('Экспортировано в station.yml');
     } catch (err) {
-      setStatusMessage(`Export failed: ${err}`);
+      setStatusMessage(`Ошибка экспорта: ${err}`);
     }
   }, [state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
 
@@ -304,7 +304,7 @@ export const App: React.FC = () => {
   }, []);
 
   const handleAddGrid = useCallback(() => {
-    const name = prompt('New grid name:', `Grid ${state.grids.length + 1}`);
+    const name = prompt('Название новой сетки:', `Сетка ${state.grids.length + 1}`);
     if (name) dispatch({ type: 'ADD_GRID', name });
   }, [state.grids.length]);
 
@@ -357,45 +357,45 @@ export const App: React.FC = () => {
   const handleCopy = useCallback(() => {
     if (state.activeTool === 'entitySelect' && state.selectedEntityUids.length > 0) {
       entitySelectTool.copy(makeToolContext());
-      setStatusMessage('Copied entities');
+      setStatusMessage('Сущности скопированы');
       return;
     }
     getSelectTool()?.copy(makeToolContext());
-    setStatusMessage('Copied');
+    setStatusMessage('Скопировано');
   }, [getSelectTool, makeToolContext, state.activeTool, state.selectedEntityUids]);
 
   const handleCut = useCallback(() => {
     if (state.activeTool === 'entitySelect' && state.selectedEntityUids.length > 0) {
       entitySelectTool.cut(makeToolContext());
-      setStatusMessage('Cut entities');
+      setStatusMessage('Сущности вырезаны');
       return;
     }
     getSelectTool()?.cut(makeToolContext());
-    setStatusMessage('Cut');
+    setStatusMessage('Вырезано');
   }, [getSelectTool, makeToolContext, state.activeTool, state.selectedEntityUids]);
 
   const handlePaste = useCallback(() => {
     if (state.activeTool === 'entitySelect') {
       entitySelectTool.paste(makeToolContext());
-      setStatusMessage('Paste, click to place');
+      setStatusMessage('Вставка, кликните для размещения');
       return;
     }
     getSelectTool()?.paste(makeToolContext());
     if (state.activeTool !== 'select') {
       dispatch({ type: 'SET_TOOL', tool: 'select' });
     }
-    setStatusMessage('Paste, click to place');
+    setStatusMessage('Вставка, кликните для размещения');
   }, [getSelectTool, makeToolContext, state.activeTool]);
 
   const handleDelete = useCallback(() => {
     // If entity select tool is active, delete selected entities
     if (state.activeTool === 'entitySelect' && state.selectedEntityUids.length > 0) {
       entitySelectTool.deleteSelected(makeToolContext());
-      setStatusMessage('Deleted entity');
+      setStatusMessage('Сущность удалена');
       return;
     }
     getSelectTool()?.deleteSelection(makeToolContext());
-    setStatusMessage('Deleted selection');
+    setStatusMessage('Выделенное удалено');
   }, [getSelectTool, makeToolContext, state.activeTool, state.selectedEntityUids]);
 
   const rotateSelectedDecals = useCallback((delta: number) => {
@@ -411,7 +411,7 @@ export const App: React.FC = () => {
     if (decalChanges.length > 0) {
       dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Rotate decals', tileChanges: [], entityChanges: [], decalChanges },
+        command: { label: 'Поворот декалей', tileChanges: [], entityChanges: [], decalChanges },
       });
     }
   }, [state.grids, state.activeGridIndex, state.selectedDecalIds, dispatch]);
@@ -450,7 +450,7 @@ export const App: React.FC = () => {
     dispatch({
       type: 'APPLY_COMMAND',
       command: {
-        label: `Edit ${updated.prototype}`,
+        label: `Изменение ${updated.prototype}`,
         tileChanges: [],
         entityChanges: [
           { action: 'remove', entity: original },
@@ -521,7 +521,7 @@ export const App: React.FC = () => {
   const handleSelectPrefab = useCallback((prefab: PrefabData) => {
     prefabPlaceTool.setPrefab(prefab);
     dispatch({ type: 'SET_TOOL', tool: 'prefabPlace' });
-    setStatusMessage(`Prefab: ${prefab.name} (${prefab.width}\u00d7${prefab.height}) \u2014 click to place`);
+    setStatusMessage(`\u041f\u0440\u0435\u0444\u0430\u0431: ${prefab.name} (${prefab.width}\u00d7${prefab.height}) \u2014 \u043a\u043b\u0438\u043a\u043d\u0438\u0442\u0435 \u0434\u043b\u044f \u0440\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u0438\u044f`);
   }, []);
 
   // Track cursor position (world coordinates)
@@ -571,14 +571,14 @@ export const App: React.FC = () => {
           }}>
             <img src={withBase('/images/clown.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
             <h2 style={{ color: '#fff', margin: '0 0 16px', fontSize: 20 }}>
-              Early Development
+              Ранняя разработка
             </h2>
             <p style={{ margin: '0 0 12px' }}>
-              This map editor is under <strong style={{ color: '#fff' }}>active development</strong>.
-              Expect bugs, missing features, and breaking changes.
+              Этот редактор карт находится в стадии <strong style={{ color: '#fff' }}>активной разработки</strong>.
+              Возможны баги, отсутствующие функции и обратно несовместимые изменения.
             </p>
             <p style={{ margin: '0 0 24px' }}>
-              It is <strong style={{ color: '#fff' }}>not yet suitable for production-level mapping</strong>.
+              Он <strong style={{ color: '#fff' }}>пока не подходит для полноценного создания карт</strong>.
             </p>
             <button
               onClick={() => {
@@ -591,7 +591,7 @@ export const App: React.FC = () => {
                 padding: '10px 32px', cursor: 'pointer',
               }}
             >
-              I understand
+              Понятно
             </button>
           </div>
         </div>
@@ -601,10 +601,10 @@ export const App: React.FC = () => {
         const entityCount = grid ? grid.entities.length : 0;
         return (
           <ConfirmModal
-            title="Delete Grid"
-            message={`Delete grid '${grid?.name ?? 'Unknown'}'? This will remove all tiles and ${entityCount} entit${entityCount === 1 ? 'y' : 'ies'}.`}
-            confirmLabel="Delete"
-            cancelLabel="Keep"
+            title="Удалить сетку"
+            message={`Удалить сетку «${grid?.name ?? 'Неизвестно'}»? Будут удалены все тайлы и сущности (${entityCount} шт.).`}
+            confirmLabel="Удалить"
+            cancelLabel="Оставить"
             danger
             onConfirm={confirmDeleteGrid}
             onCancel={() => setPendingDeleteGridUid(null)}
@@ -687,7 +687,7 @@ export const App: React.FC = () => {
         <div className="flex flex-col min-w-[280px] max-w-[400px] w-[20vw] bg-panel border-l border-subtle overflow-hidden">
           {/* Contextual panels at top */}
           {selectedEntities.length > 0 && (
-            <CollapsiblePanel title="Entity Info" forceOpen={selectedEntities.length > 0}>
+            <CollapsiblePanel title="Информация о сущности" forceOpen={selectedEntities.length > 0}>
               <EntityInfoPanel
                 entities={selectedEntities}
                 allEntities={state.entities}
@@ -697,7 +697,7 @@ export const App: React.FC = () => {
                 onRotateCCW={handleRotateEntityCCW}
                 onDelete={() => {
                   entitySelectTool.deleteSelected(makeToolContext());
-                  setStatusMessage('Deleted entity');
+                  setStatusMessage('Сущность удалена');
                 }}
                 onDeselect={() => dispatch({ type: 'SELECT_ENTITY', uids: [] })}
                 onUpdateEntity={handleUpdateEntity}
@@ -712,7 +712,7 @@ export const App: React.FC = () => {
             </CollapsiblePanel>
           )}
           {state.selectedDecalIds.length > 0 && state.selectedEntityUids.length === 0 && (
-            <CollapsiblePanel title="Decal Info" forceOpen={state.selectedDecalIds.length > 0}>
+            <CollapsiblePanel title="Информация о декали" forceOpen={state.selectedDecalIds.length > 0}>
               <DecalInfoPanel
                 selectedDecalIds={state.selectedDecalIds}
                 decals={state.grids[state.activeGridIndex]?.decals?.decals ?? []}
@@ -722,7 +722,7 @@ export const App: React.FC = () => {
             </CollapsiblePanel>
           )}
           {(state.activeTool === 'cableDraw' || state.activeTool === 'pipeDraw') && (
-            <CollapsiblePanel title="Infrastructure" defaultOpen={true}>
+            <CollapsiblePanel title="Инфраструктура" defaultOpen={true}>
               <InfrastructurePanel
                 selection={infraSelection}
                 onChange={handleInfraChange}
@@ -738,7 +738,7 @@ export const App: React.FC = () => {
             decalPlacementSettingsRef={decalPlacementSettingsRef}
           />
           {/* Layer panel at bottom */}
-          <CollapsiblePanel title="Layers" defaultOpen={true}>
+          <CollapsiblePanel title="Слои" defaultOpen={true}>
             <LayerPanel
               layers={layerVisibility}
               onToggleLayer={handleToggleLayer}

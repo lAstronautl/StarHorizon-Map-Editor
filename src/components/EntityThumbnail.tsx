@@ -196,7 +196,7 @@ export const SpritePreviewPopup: React.FC<SpritePreviewPopupProps> = ({
           className="bg-surface rounded flex items-center justify-center text-muted text-xs"
           style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
         >
-          No sprite
+          Нет спрайта
         </div>
       )}
       <div className="text-primary text-[11px] text-center mt-1 truncate" style={{ maxWidth: PREVIEW_SIZE }}>

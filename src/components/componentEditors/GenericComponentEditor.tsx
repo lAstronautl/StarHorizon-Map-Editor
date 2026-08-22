@@ -21,7 +21,7 @@ export const GenericComponentEditor: React.FC<ComponentEditorProps> = ({ compone
     try {
       const parsed = JSON.parse(text);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        setError('Must be a JSON object');
+        setError('Должен быть JSON-объект');
         return;
       }
       setError(null);
@@ -46,12 +46,12 @@ export const GenericComponentEditor: React.FC<ComponentEditorProps> = ({ compone
       />
       {error && (
         <div className="text-[#c44] text-[9px] mt-px">
-          Invalid JSON: {error}
+          Некорректный JSON: {error}
         </div>
       )}
       {dirty && (
         <button onClick={handleApply} className="mt-0.5 bg-[#1a3a5e] border border-[#2a4a6a] rounded-sm text-primary text-[9px] px-2 py-0.5 cursor-pointer">
-          Apply
+          Применить
         </button>
       )}
     </div>

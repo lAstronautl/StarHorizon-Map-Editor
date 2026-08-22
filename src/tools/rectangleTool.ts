@@ -55,7 +55,7 @@ export class RectangleTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Rectangle fill entities', tileChanges: [], entityChanges },
+          command: { label: 'Заливка прямоугольника сущностями', tileChanges: [], entityChanges },
         });
       }
       return;
@@ -69,7 +69,7 @@ export class RectangleTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Rectangle fill decals', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: 'Заливка прямоугольника декалями', tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -96,7 +96,7 @@ export class RectangleTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Rectangle fill', tileChanges: changes, entityChanges: [] },
+        command: { label: 'Заливка прямоугольника', tileChanges: changes, entityChanges: [] },
       });
     }
   }
