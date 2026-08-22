@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import type { ComponentEditorProps } from './types';
+import { useT } from '../../i18n';
 
 export const DeviceListEditor: React.FC<ComponentEditorProps> = ({ component, onChange, allEntities }) => {
+  const { t } = useT();
   const devices = (component.devices as number[]) ?? [];
   const [adding, setAdding] = useState(false);
   const [newUid, setNewUid] = useState('');
@@ -45,17 +47,17 @@ export const DeviceListEditor: React.FC<ComponentEditorProps> = ({ component, on
       <div className="text-muted text-[10px] mb-0.5">devices</div>
       {devices.length === 0 && (
         <div className="text-[#666] text-[10px] italic mb-0.5">
-          Нет устройств
+          {t('deviceListEditor.noDevices')}
         </div>
       )}
       {devices.map((uid, i) => (
         <div key={i} className="flex items-center gap-1 mb-px text-[10px] pr-3">
           <span className="text-primary text-[10px] flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{resolveUid(uid)}</span>
-          {isMissing(uid) && <span className="text-[#ff6666] text-[9px] shrink-0">(не найдено)</span>}
+          {isMissing(uid) && <span className="text-[#ff6666] text-[9px] shrink-0">({t('deviceListEditor.missing')})</span>}
           <button
             onClick={() => handleRemove(i)}
             className="bg-transparent border-none text-[#ff6666] text-[10px] cursor-pointer px-1 py-0.5 leading-none shrink-0 hover:text-[#ff4444]"
-            title="Удалить устройство"
+            title={t('deviceListEditor.removeDevice')}
           >
             ✕
           </button>
@@ -75,7 +77,7 @@ export const DeviceListEditor: React.FC<ComponentEditorProps> = ({ component, on
         </div>
       ) : (
         <button onClick={() => setAdding(true)} className="bg-transparent border border-subtle rounded-sm text-muted text-[10px] cursor-pointer px-1.5 py-0.5 mt-0.5">
-          + Добавить устройство
+          + {t('deviceListEditor.addDevice')}
         </button>
       )}
     </div>

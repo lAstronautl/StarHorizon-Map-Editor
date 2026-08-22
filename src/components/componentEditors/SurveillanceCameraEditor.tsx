@@ -1,7 +1,9 @@
 import React from 'react';
 import type { ComponentEditorProps } from './types';
+import { useT } from '../../i18n';
 
 export const SurveillanceCameraEditor: React.FC<ComponentEditorProps> = ({ component, onChange }) => {
+  const { t } = useT();
   const id = (component.id as string) ?? '';
   const networks = (component.setupAvailableNetworks as string[]) ?? [];
   const networksStr = networks.join(', ');
@@ -29,10 +31,10 @@ export const SurveillanceCameraEditor: React.FC<ComponentEditorProps> = ({ compo
               .filter((s) => s.length > 0);
             onChange({ ...component, setupAvailableNetworks: arr });
           }}
-          placeholder="напр. SurveillanceCameraSecurity, SurveillanceCameraEngineering"
+          placeholder={t('surveillanceCameraEditor.networksPlaceholder')}
           className="bg-elevated border border-subtle rounded-sm text-primary text-[10px] px-1 py-0.5 w-full box-border"
         />
-        <div className="text-[#666] text-[9px] mt-px">Названия сетей через запятую</div>
+        <div className="text-[#666] text-[9px] mt-px">{t('surveillanceCameraEditor.networksHint')}</div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { ContainerContentsEditor, isContainerEntity } from './ContainerContentsE
 import { LightEditor, hasPointLight } from './LightEditor';
 import { getAvailableStates } from '../loaders/spriteStateHelper';
 import { loadSprite } from '../loaders/rsiLoader';
+import { useT } from '../i18n';
 
 interface Props {
   entities: ImportedEntity[];
@@ -28,6 +29,7 @@ export const EntityInfoPanel: React.FC<Props> = ({
   entities, allEntities, registry, onRotateCW, onRotateCCW, onDelete, onDeselect, onUpdateEntity,
   containedEntities, onAddContainedEntity, onRemoveContainedEntity, grid,
 }) => {
+  const { t } = useT();
   const [showComponents, setShowComponents] = useState(true);
   const [addingComponent, setAddingComponent] = useState(false);
   const [newCompType, setNewCompType] = useState('');
@@ -40,18 +42,18 @@ export const EntityInfoPanel: React.FC<Props> = ({
     return (
       <div className="p-3 text-xs">
         <div className="flex justify-between items-center mb-1.5">
-          <span className="font-bold text-xs">Выбрано сущностей: {entities.length}</span>
-          <button onClick={onDeselect} className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none" title="Снять выделение со всех">&times;</button>
+          <span className="font-bold text-xs">{t('entityInfoPanel.multi.selected', { count: entities.length })}</span>
+          <button onClick={onDeselect} className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none" title={t('entityInfoPanel.multi.deselectAll')}>&times;</button>
         </div>
 
         <div className="text-muted text-[10px] mb-1.5">
-          {summarizePrototypes(entities)}
+          {summarizePrototypes(entities, t)}
         </div>
 
         <div className="flex gap-1 mt-2">
-          <ActionButton label="&#x21B6;" onClick={onRotateCCW} title="Повернуть все против часовой (Shift+R)" />
-          <ActionButton label="&#x21B7;" onClick={onRotateCW} title="Повернуть все по часовой (R)" />
-          <ActionButton label="Удалить все" onClick={onDelete} color="#c44" />
+          <ActionButton label="&#x21B6;" onClick={onRotateCCW} title={t('entityInfoPanel.multi.rotateAllCcw')} />
+          <ActionButton label="&#x21B7;" onClick={onRotateCW} title={t('entityInfoPanel.multi.rotateAllCw')} />
+          <ActionButton label={t('entityInfoPanel.multi.deleteAll')} onClick={onDelete} color="#c44" />
         </div>
       </div>
     );
@@ -61,7 +63,7 @@ export const EntityInfoPanel: React.FC<Props> = ({
   const entity = entities[0];
   const resolved = registry?.getEntity(entity.prototype);
   const name = resolved?.name ?? entity.prototype;
-  const category = resolved?.sourceCategory ?? 'Неизвестно';
+  const category = resolved?.sourceCategory ?? t('entityInfoPanel.unknown');
   const description = resolved?.description ?? '';
   const suffix = resolved?.suffix ?? '';
 
@@ -92,15 +94,15 @@ export const EntityInfoPanel: React.FC<Props> = ({
   return (
     <div className="p-3 text-xs">
       <div className="flex justify-between items-center mb-1.5">
-        <span className="font-bold text-xs">Информация о сущности</span>
-        <button onClick={onDeselect} className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none" title="Снять выделение">&times;</button>
+        <span className="font-bold text-xs">{t('entityInfoPanel.title')}</span>
+        <button onClick={onDeselect} className="bg-transparent border-none text-muted text-[16px] cursor-pointer px-1 leading-none" title={t('entityInfoPanel.deselect')}>&times;</button>
       </div>
 
-      <InfoRow label="Имя" value={suffix ? `${name} (${String(suffix)})` : name} />
-      <InfoRow label="Прототип" value={entity.prototype} />
+      <InfoRow label={t('entityInfoPanel.name')} value={suffix ? `${name} (${String(suffix)})` : name} />
+      <InfoRow label={t('entityInfoPanel.prototype')} value={entity.prototype} />
       <InfoRow label="UID" value={String(entity.uid)} />
-      <InfoRow label="Позиция" value={`${entity.position.x.toFixed(1)}, ${entity.position.y.toFixed(1)}`} />
-      <InfoRow label="Поворот" value={`${rotDeg}°`} />
+      <InfoRow label={t('entityInfoPanel.position')} value={`${entity.position.x.toFixed(1)}, ${entity.position.y.toFixed(1)}`} />
+      <InfoRow label={t('entityInfoPanel.rotation')} value={`${rotDeg}°`} />
 
       {onUpdateEntity && registry && (
         <SpriteStateSelector
@@ -110,7 +112,7 @@ export const EntityInfoPanel: React.FC<Props> = ({
         />
       )}
 
-      <InfoRow label="Категория" value={category} />
+      <InfoRow label={t('entityInfoPanel.category')} value={category} />
       {description && (
         <div className="text-muted text-[10px] mt-1 italic">
           {description}
@@ -118,9 +120,9 @@ export const EntityInfoPanel: React.FC<Props> = ({
       )}
 
       <div className="flex gap-1 mt-2">
-        <ActionButton label="&#x21B6;" onClick={onRotateCCW} title="Повернуть против часовой (Shift+R)" />
-        <ActionButton label="&#x21B7;" onClick={onRotateCW} title="Повернуть по часовой (R)" />
-        <ActionButton label="Удалить" onClick={onDelete} color="#c44" />
+        <ActionButton label="&#x21B6;" onClick={onRotateCCW} title={t('entityInfoPanel.rotateCcw')} />
+        <ActionButton label="&#x21B7;" onClick={onRotateCW} title={t('entityInfoPanel.rotateCw')} />
+        <ActionButton label={t('entityInfoPanel.delete')} onClick={onDelete} color="#c44" />
       </div>
 
       {onAddContainedEntity && onRemoveContainedEntity && (
@@ -150,17 +152,17 @@ export const EntityInfoPanel: React.FC<Props> = ({
               const result = autoLinkDeviceList(entity, allEntities, grid, registry);
               if (result) {
                 onUpdateEntity(result.updatedEntity);
-                setLinkMessage(`Связано устройств: ${result.linkedCount}`);
+                setLinkMessage(t('entityInfoPanel.linkedDevices', { count: result.linkedCount }));
                 setTimeout(() => setLinkMessage(null), 2500);
               } else {
-                setLinkMessage('Новых устройств не найдено');
+                setLinkMessage(t('entityInfoPanel.noNewDevicesFound'));
                 setTimeout(() => setLinkMessage(null), 2000);
               }
             }}
             className="w-full px-1.5 py-1 rounded-sm text-[10px] cursor-pointer border"
             style={{ backgroundColor: '#1a3e1a', borderColor: '#2a5a2a', color: '#b0e0b0' }}
           >
-            Автосвязь комнаты
+            {t('entityInfoPanel.autoLinkRoom')}
           </button>
           {linkMessage && (
             <div className="text-success text-[9px] mt-0.5">{linkMessage}</div>
@@ -173,7 +175,7 @@ export const EntityInfoPanel: React.FC<Props> = ({
           onClick={() => setShowComponents(!showComponents)}
           className="bg-transparent border-none text-[#aaa] text-[10px] cursor-pointer p-0"
         >
-          {showComponents ? '▾' : '▸'} Компоненты ({entity.components.length})
+          {showComponents ? '▾' : '▸'} {t('entityInfoPanel.componentsCount', { count: entity.components.length })}
         </button>
         {showComponents && (
           <div className="mt-1 max-h-[300px] overflow-auto">
@@ -220,7 +222,7 @@ export const EntityInfoPanel: React.FC<Props> = ({
                     onClick={() => setAddingComponent(true)}
                     className="bg-transparent border border-dashed border-subtle rounded-sm text-[#666] text-[9px] cursor-pointer px-1.5 py-0.5 w-full"
                   >
-                    + Добавить компонент
+                    + {t('entityInfoPanel.addComponent')}
                   </button>
                 )}
               </div>
@@ -233,14 +235,14 @@ export const EntityInfoPanel: React.FC<Props> = ({
 };
 
 /** Summarize the prototypes in a multi-selection. */
-function summarizePrototypes(entities: ImportedEntity[]): string {
+function summarizePrototypes(entities: ImportedEntity[], t: (key: string, vars?: Record<string, string | number>) => string): string {
   const counts = new Map<string, number>();
   for (const e of entities) {
     counts.set(e.prototype, (counts.get(e.prototype) ?? 0) + 1);
   }
   const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   const top3 = sorted.slice(0, 3).map(([proto, count]) => `${proto} x${count}`);
-  if (sorted.length > 3) top3.push(`+${sorted.length - 3} типов`);
+  if (sorted.length > 3) top3.push(t('entityInfoPanel.moreTypes', { count: sorted.length - 3 }));
   return top3.join(', ');
 }
 
@@ -274,6 +276,7 @@ interface EditableComponentRowProps {
 const EditableComponentRow: React.FC<EditableComponentRowProps> = ({
   comp, compType, allEntities, onChange, onRemove, editable,
 }) => {
+  const { t } = useT();
   const [expanded, setExpanded] = useState(true);
   const fieldCount = Object.keys(comp).length - 1; // exclude 'type'
 
@@ -298,7 +301,7 @@ const EditableComponentRow: React.FC<EditableComponentRowProps> = ({
           <button
             onClick={onRemove}
             className="bg-transparent border-none text-danger text-[10px] cursor-pointer px-1 leading-none"
-            title={`Удалить ${compType}`}
+            title={t('entityInfoPanel.removeComponent', { compType })}
           >
             x
           </button>
@@ -331,6 +334,7 @@ interface SpriteStateSelectorProps {
 }
 
 const SpriteStateSelector: React.FC<SpriteStateSelectorProps> = ({ entity, registry, onUpdateEntity }) => {
+  const { t } = useT();
   const [availableStates, setAvailableStates] = useState<string[]>([]);
   const [thumbnails, setThumbnails] = useState<Map<string, string>>(new Map());
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -406,7 +410,7 @@ const SpriteStateSelector: React.FC<SpriteStateSelectorProps> = ({ entity, regis
   // Don't render if only 0 or 1 state
   if (availableStates.length <= 1) return null;
 
-  const currentState = entity.spriteStateOverride ?? '(По умолчанию)';
+  const currentState = entity.spriteStateOverride ?? t('entityInfoPanel.default');
 
   const handleSelect = (state: string | undefined) => {
     onUpdateEntity({ ...entity, spriteStateOverride: state });
@@ -416,11 +420,11 @@ const SpriteStateSelector: React.FC<SpriteStateSelectorProps> = ({ entity, regis
   return (
     <div className="py-0.5 relative" ref={dropdownRef}>
       <div className="flex justify-between items-center">
-        <span className="text-muted">Состояние:</span>
+        <span className="text-muted">{t('entityInfoPanel.state')}:</span>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="bg-active border border-subtle rounded-sm text-primary text-[10px] px-1.5 py-0.5 cursor-pointer max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap text-right"
-          title="Изменить состояние спрайта"
+          title={t('entityInfoPanel.changeSpriteState')}
         >
           {currentState}
           <span className="ml-1 text-[8px]">{dropdownOpen ? '▴' : '▾'}</span>
@@ -432,7 +436,7 @@ const SpriteStateSelector: React.FC<SpriteStateSelectorProps> = ({ entity, regis
             onClick={() => handleSelect(undefined)}
             className={`flex items-center gap-1.5 px-1.5 py-[3px] cursor-pointer text-[10px] text-primary ${!entity.spriteStateOverride ? 'bg-active' : ''}`}
           >
-            <span className="text-[#aaa] italic">(По умолчанию)</span>
+            <span className="text-[#aaa] italic">{t('entityInfoPanel.default')}</span>
           </div>
           {availableStates.map((state) => (
             <div

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { withBase } from '../basePath';
+import { useT } from '../i18n';
 
 interface Props {
   title: string;
@@ -14,10 +15,13 @@ interface Props {
 }
 
 export const ConfirmModal: React.FC<Props> = ({
-  title, message, confirmLabel = 'Подтвердить', cancelLabel = 'Отмена',
+  title, message, confirmLabel, cancelLabel,
   danger = false, onConfirm, onCancel,
 }) => {
+  const { t } = useT();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  const resolvedConfirmLabel = confirmLabel ?? t('common.confirm');
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel');
 
   useEffect(() => {
     confirmRef.current?.focus();
@@ -66,7 +70,7 @@ export const ConfirmModal: React.FC<Props> = ({
               padding: '10px 24px', cursor: 'pointer',
             }}
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             ref={confirmRef}
@@ -78,7 +82,7 @@ export const ConfirmModal: React.FC<Props> = ({
               padding: '10px 24px', cursor: 'pointer',
             }}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

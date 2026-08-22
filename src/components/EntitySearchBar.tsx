@@ -3,6 +3,7 @@ import { useEntitySearch } from '../hooks/useEntitySearch';
 import { EntityThumbnail } from './EntityThumbnail';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
+import { useT } from '../i18n';
 
 interface Props {
   entities: ImportedEntity[];
@@ -14,6 +15,7 @@ interface Props {
 export const EntitySearchBar: React.FC<Props> = ({
   entities, registry, onNavigate, searchInputRef,
 }) => {
+  const { t } = useT();
   const { query, setQuery, results, selectedIndex, setSelectedIndex } = useEntitySearch(entities, registry);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,18 +105,18 @@ export const EntitySearchBar: React.FC<Props> = ({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onFocus={() => { if (query.trim()) setDropdownOpen(true); }}
-          placeholder="Поиск сущностей..."
+          placeholder={t('entitySearchBar.searchPlaceholder')}
           className="w-[200px] px-2 py-1 bg-transparent border-none text-primary text-xs outline-none placeholder:text-muted"
         />
         {query && (
           <>
             <span className="text-[10px] text-muted px-1 whitespace-nowrap">
-              Найдено: {results.length}
+              {t('entitySearchBar.foundCount', { count: results.length })}
             </span>
             <button
               onClick={handleClear}
               className="px-1.5 py-0.5 bg-transparent border-none text-muted hover:text-primary cursor-pointer text-xs leading-none"
-              title="Очистить поиск"
+              title={t('entitySearchBar.clearSearch')}
             >
               ×
             </button>
@@ -128,7 +130,7 @@ export const EntitySearchBar: React.FC<Props> = ({
           className="absolute top-full right-0 mt-0.5 w-[320px] max-h-[280px] overflow-y-auto bg-elevated border border-subtle rounded-sm shadow-lg z-50"
         >
           {results.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted italic">Ничего не найдено</div>
+            <div className="px-3 py-2 text-xs text-muted italic">{t('entitySearchBar.noResults')}</div>
           ) : (
             results.map((result, i) => (
               <button

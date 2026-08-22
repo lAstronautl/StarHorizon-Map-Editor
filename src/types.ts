@@ -1,3 +1,5 @@
+import { t } from './i18n';
+
 // ---- Geometry ----
 
 export interface Point {
@@ -83,17 +85,35 @@ export const PIPE_COLORS: Record<'supply' | 'return', string> = {
   return: '#990000FF',
 };
 
-export const CABLE_DISPLAY: Record<CableType, { label: string; color: string }> = {
-  CableHV: { label: 'Кабель ВН', color: '#ff8800' },
-  CableMV: { label: 'Кабель СН', color: '#ffcc00' },
-  CableApcExtension: { label: 'Кабель APC', color: '#00cc44' },
+const CABLE_COLORS: Record<CableType, string> = {
+  CableHV: '#ff8800',
+  CableMV: '#ffcc00',
+  CableApcExtension: '#00cc44',
 };
 
-export const PIPE_DISPLAY: Record<PipeType, { label: string; color: string }> = {
-  supply: { label: 'Труба подачи', color: '#0088ff' },
-  return: { label: 'Труба возврата', color: '#cc2200' },
-  disposal: { label: 'Труба утилизации', color: '#886644' },
+/** Builds the cable display table (label + color) using the current locale. Call at use-time, not at module load. */
+export function getCableDisplay(): Record<CableType, { label: string; color: string }> {
+  return {
+    CableHV: { label: t('types.cableDisplay.CableHV'), color: CABLE_COLORS.CableHV },
+    CableMV: { label: t('types.cableDisplay.CableMV'), color: CABLE_COLORS.CableMV },
+    CableApcExtension: { label: t('types.cableDisplay.CableApcExtension'), color: CABLE_COLORS.CableApcExtension },
+  };
+}
+
+const PIPE_LABEL_COLORS: Record<PipeType, string> = {
+  supply: '#0088ff',
+  return: '#cc2200',
+  disposal: '#886644',
 };
+
+/** Builds the pipe display table (label + color) using the current locale. Call at use-time, not at module load. */
+export function getPipeDisplay(): Record<PipeType, { label: string; color: string }> {
+  return {
+    supply: { label: t('types.pipeDisplay.supply'), color: PIPE_LABEL_COLORS.supply },
+    return: { label: t('types.pipeDisplay.return'), color: PIPE_LABEL_COLORS.return },
+    disposal: { label: t('types.pipeDisplay.disposal'), color: PIPE_LABEL_COLORS.disposal },
+  };
+}
 
 export interface PaletteItem {
   type: 'tile' | 'entity' | 'decal';

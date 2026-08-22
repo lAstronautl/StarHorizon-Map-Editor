@@ -3,6 +3,7 @@ import type { TileChange } from '../types';
 import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState';
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
+import { t } from '../i18n';
 
 export class RectangleTool implements ITool {
   name = 'rectangle';
@@ -55,7 +56,7 @@ export class RectangleTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Заливка прямоугольника сущностями', tileChanges: [], entityChanges },
+          command: { label: t('rectangleTool.command.fillEntities'), tileChanges: [], entityChanges },
         });
       }
       return;
@@ -69,7 +70,7 @@ export class RectangleTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Заливка прямоугольника декалями', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: t('rectangleTool.command.fillDecals'), tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -96,7 +97,7 @@ export class RectangleTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Заливка прямоугольника', tileChanges: changes, entityChanges: [] },
+        command: { label: t('rectangleTool.command.fill'), tileChanges: changes, entityChanges: [] },
       });
     }
   }

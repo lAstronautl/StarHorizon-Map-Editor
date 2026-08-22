@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ValidationIssue } from '../validation/mapValidator';
 import { getValidationRules } from '../validation/mapValidator';
+import { useT } from '../i18n';
 
 interface ValidatorModalProps {
   issues: ValidationIssue[];
@@ -9,6 +10,7 @@ interface ValidatorModalProps {
 }
 
 const ValidatorModal: React.FC<ValidatorModalProps> = ({ issues, onJumpTo, onClose }) => {
+  const { t } = useT();
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -50,7 +52,7 @@ const ValidatorModal: React.FC<ValidatorModalProps> = ({ issues, onJumpTo, onClo
     >
       <div className="bg-elevated border border-subtle rounded-lg p-6 max-w-[550px] w-full max-h-[70vh] overflow-y-auto text-primary text-[13px]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-accent m-0">Проверка карты</h2>
+          <h2 className="text-base font-semibold text-accent m-0">{t('validatorModal.title')}</h2>
           <button
             onClick={onClose}
             className="bg-transparent border-none text-muted hover:text-primary cursor-pointer text-lg leading-none px-1"
@@ -62,17 +64,17 @@ const ValidatorModal: React.FC<ValidatorModalProps> = ({ issues, onJumpTo, onClo
         {issues.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-success text-2xl mb-2">&#10003;</div>
-            <div className="text-success font-semibold">Проблем не найдено</div>
+            <div className="text-success font-semibold">{t('validatorModal.noIssues')}</div>
           </div>
         ) : (
           <>
             <div className="mb-4 text-[12px]">
               {errorCount > 0 && (
-                <span className="text-danger font-semibold">Ошибок: {errorCount}</span>
+                <span className="text-danger font-semibold">{t('validatorModal.errorsCount', { count: errorCount })}</span>
               )}
               {errorCount > 0 && warningCount > 0 && <span className="text-muted">, </span>}
               {warningCount > 0 && (
-                <span className="text-warning font-semibold">Предупреждений: {warningCount}</span>
+                <span className="text-warning font-semibold">{t('validatorModal.warningsCount', { count: warningCount })}</span>
               )}
             </div>
 
@@ -94,7 +96,7 @@ const ValidatorModal: React.FC<ValidatorModalProps> = ({ issues, onJumpTo, onClo
             onClick={onClose}
             className="bg-active border border-subtle rounded text-primary text-[13px] px-6 py-2 cursor-pointer hover:bg-hover"
           >
-            Закрыть
+            {t('common.close')}
           </button>
         </div>
       </div>

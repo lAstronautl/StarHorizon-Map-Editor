@@ -28,6 +28,7 @@ import {
 import { benchmarkSample } from '../rendering/benchmarkCapture';
 import type { DecalInstance } from '../import/decalParser';
 import type { DecalPlacementSettings } from './DecalPalette';
+import { useT } from '../i18n';
 
 interface Props {
   state: EditorState;
@@ -53,6 +54,7 @@ export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, highlightTile,
 }) => {
+  const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isPanning = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
@@ -290,7 +292,7 @@ export const EditorCanvas: React.FC<Props> = ({
         if (decalChanges.length > 0) {
           dispatch({
             type: 'APPLY_COMMAND',
-            command: { label: 'Поворот декалей', tileChanges: [], entityChanges: [], decalChanges },
+            command: { label: t('app.command.rotateDecals'), tileChanges: [], entityChanges: [], decalChanges },
           });
         }
         markOverlayDirty();

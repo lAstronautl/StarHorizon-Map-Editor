@@ -1,6 +1,7 @@
 import React from 'react';
 import type { InfrastructureSelection, CableType, PipeType } from '../types';
-import { CABLE_DISPLAY, PIPE_DISPLAY } from '../types';
+import { getCableDisplay, getPipeDisplay } from '../types';
+import { useT } from '../i18n';
 
 interface Props {
   selection: InfrastructureSelection;
@@ -11,11 +12,14 @@ const CABLES: CableType[] = ['CableHV', 'CableMV', 'CableApcExtension'];
 const PIPES: PipeType[] = ['supply', 'return', 'disposal'];
 
 export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) => {
+  const { t, locale } = useT();
+  const cableDisplay = React.useMemo(() => getCableDisplay(), [locale]);
+  const pipeDisplay = React.useMemo(() => getPipeDisplay(), [locale]);
   return (
     <div className="p-3">
-      <div className="text-muted text-[10px] uppercase tracking-wider mb-1">Кабели</div>
+      <div className="text-muted text-[10px] uppercase tracking-wider mb-1">{t('infrastructurePanel.cables')}</div>
       {CABLES.map(type => {
-        const { label, color } = CABLE_DISPLAY[type];
+        const { label, color } = cableDisplay[type];
         const active = selection.mode === 'cable' && selection.cableType === type;
         return (
           <button
@@ -34,9 +38,9 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
         );
       })}
 
-      <div className="text-muted text-[10px] uppercase tracking-wider mb-1 mt-3">Трубы</div>
+      <div className="text-muted text-[10px] uppercase tracking-wider mb-1 mt-3">{t('infrastructurePanel.pipes')}</div>
       {PIPES.map(type => {
-        const { label, color } = PIPE_DISPLAY[type];
+        const { label, color } = pipeDisplay[type];
         const active = selection.mode === 'pipe' && selection.pipeType === type;
         return (
           <button

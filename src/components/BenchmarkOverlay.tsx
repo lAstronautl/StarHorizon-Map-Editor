@@ -6,8 +6,10 @@ import {
   getBenchmarkRemaining,
 } from '../rendering/benchmarkCapture';
 import type { BenchmarkResult } from '../rendering/benchmarkCapture';
+import { t, useT } from '../i18n';
 
 export const BenchmarkOverlay: React.FC = () => {
+  const { t } = useT();
   const [capturing, setCapturing] = useState(false);
   const [result, setResult] = useState<BenchmarkResult | null>(null);
   const [remaining, setRemaining] = useState(0);
@@ -79,7 +81,7 @@ export const BenchmarkOverlay: React.FC = () => {
             : '0 0 8px rgba(46, 125, 50, 0.4)',
         }}
       >
-        {capturing ? `⏹ Стоп (${remaining}с)` : '▶ Бенчмарк (15с)'}
+        {capturing ? t('benchmarkOverlay.stop', { seconds: remaining }) : t('benchmarkOverlay.start')}
       </button>
 
       {/* Recording indicator */}
@@ -93,7 +95,7 @@ export const BenchmarkOverlay: React.FC = () => {
           borderRadius: 4,
           animation: 'benchPulse 1.5s ease-in-out infinite',
         }}>
-          ● Запись... осталось {remaining}с
+          {t('benchmarkOverlay.recording', { seconds: remaining })}
         </div>
       )}
 
@@ -112,50 +114,50 @@ export const BenchmarkOverlay: React.FC = () => {
           border: '1px solid rgba(255,255,255,0.1)',
         }}>
           <div style={{ color: '#90caf9', fontWeight: 'bold', marginBottom: 4, fontSize: 12 }}>
-            Результаты бенчмарка
+            {t('benchmarkOverlay.results.title')}
           </div>
 
-          <Section title="Время">
-            <Row label="Длительность" value={`${(result.durationMs / 1000).toFixed(1)}с`} />
-            <Row label="Всего кадров" value={String(result.totalFrames)} />
-            <Row label="Отрисовано" value={String(result.renderedFrames)} />
-            <Row label="Пропущено (простой)" value={String(result.skippedFrames)} />
+          <Section title={t('benchmarkOverlay.results.timing')}>
+            <Row label={t('benchmarkOverlay.results.duration')} value={`${(result.durationMs / 1000).toFixed(1)}${t('benchmarkOverlay.unit.seconds')}`} />
+            <Row label={t('benchmarkOverlay.results.totalFrames')} value={String(result.totalFrames)} />
+            <Row label={t('benchmarkOverlay.results.rendered')} value={String(result.renderedFrames)} />
+            <Row label={t('benchmarkOverlay.results.skippedIdle')} value={String(result.skippedFrames)} />
           </Section>
 
           <Section title="FPS">
-            <Row label="Среднее" value={String(result.avgFps)} color={fpsColor(result.avgFps)} />
-            <Row label="1% минимум" value={String(result.p1Fps)} color={fpsColor(result.p1Fps)} />
-            <Row label="Минимум" value={String(result.minFps)} color={fpsColor(result.minFps)} />
+            <Row label={t('benchmarkOverlay.results.average')} value={String(result.avgFps)} color={fpsColor(result.avgFps)} />
+            <Row label={t('benchmarkOverlay.results.p1Low')} value={String(result.p1Fps)} color={fpsColor(result.p1Fps)} />
+            <Row label={t('benchmarkOverlay.results.minimum')} value={String(result.minFps)} color={fpsColor(result.minFps)} />
           </Section>
 
-          <Section title="Время кадра (отрисованные)">
-            <Row label="Среднее" value={`${result.avgFrameTime} мс`} color={ftColor(result.avgFrameTime)} />
-            <Row label="Медиана" value={`${result.medianFrameTime} мс`} />
-            <Row label="P95" value={`${result.p95FrameTime} мс`} color={ftColor(result.p95FrameTime)} />
-            <Row label="P99" value={`${result.p99FrameTime} мс`} color={ftColor(result.p99FrameTime)} />
-            <Row label="Макс." value={`${result.maxFrameTime} мс`} color={ftColor(result.maxFrameTime)} />
+          <Section title={t('benchmarkOverlay.results.frameTimeRendered')}>
+            <Row label={t('benchmarkOverlay.results.average')} value={`${result.avgFrameTime} ${t('benchmarkOverlay.unit.ms')}`} color={ftColor(result.avgFrameTime)} />
+            <Row label={t('benchmarkOverlay.results.median')} value={`${result.medianFrameTime} ${t('benchmarkOverlay.unit.ms')}`} />
+            <Row label="P95" value={`${result.p95FrameTime} ${t('benchmarkOverlay.unit.ms')}`} color={ftColor(result.p95FrameTime)} />
+            <Row label="P99" value={`${result.p99FrameTime} ${t('benchmarkOverlay.unit.ms')}`} color={ftColor(result.p99FrameTime)} />
+            <Row label={t('benchmarkOverlay.results.max')} value={`${result.maxFrameTime} ${t('benchmarkOverlay.unit.ms')}`} color={ftColor(result.maxFrameTime)} />
           </Section>
 
-          <Section title="Вызовы отрисовки">
-            <Row label="Среднее" value={String(result.avgDrawCalls)} />
-            <Row label="Макс." value={String(result.maxDrawCalls)} />
+          <Section title={t('benchmarkOverlay.results.drawCalls')}>
+            <Row label={t('benchmarkOverlay.results.average')} value={String(result.avgDrawCalls)} />
+            <Row label={t('benchmarkOverlay.results.max')} value={String(result.maxDrawCalls)} />
           </Section>
 
-          <Section title="Сцена">
-            <Row label="Всего сущностей" value={result.totalEntities.toLocaleString()} />
-            <Row label="Ср. видимых" value={result.avgVisibleEntities.toLocaleString()} />
-            <Row label="Масштаб" value={`${result.zoom}x`} />
-            <Row label="пикс/тайл" value={String(result.pxPerTile)} />
+          <Section title={t('benchmarkOverlay.results.scene')}>
+            <Row label={t('benchmarkOverlay.results.totalEntities')} value={result.totalEntities.toLocaleString()} />
+            <Row label={t('benchmarkOverlay.results.avgVisible')} value={result.avgVisibleEntities.toLocaleString()} />
+            <Row label={t('benchmarkOverlay.results.zoom')} value={`${result.zoom}x`} />
+            <Row label={t('benchmarkOverlay.results.pxPerTile')} value={String(result.pxPerTile)} />
           </Section>
 
-          <Section title="Эффективность кэша">
+          <Section title={t('benchmarkOverlay.results.cacheEfficiency')}>
             <Row
-              label="Перерисовка тайлов"
+              label={t('benchmarkOverlay.results.tileRedraws')}
               value={`${result.tileRedrawRate}%`}
               color={result.tileRedrawRate < 20 ? '#4caf50' : result.tileRedrawRate < 50 ? '#ff9800' : '#f44336'}
             />
             <Row
-              label="Перерисовка сущностей"
+              label={t('benchmarkOverlay.results.entityRedraws')}
               value={`${result.entityRedrawRate}%`}
               color={result.entityRedrawRate < 20 ? '#4caf50' : result.entityRedrawRate < 50 ? '#ff9800' : '#f44336'}
             />
@@ -176,7 +178,7 @@ export const BenchmarkOverlay: React.FC = () => {
                 backgroundColor: 'rgba(255,255,255,0.08)',
               }}
             >
-              Скопировать в буфер
+              {t('benchmarkOverlay.copyToClipboard')}
             </button>
             <button
               onClick={() => setResult(null)}
@@ -191,7 +193,7 @@ export const BenchmarkOverlay: React.FC = () => {
                 backgroundColor: 'rgba(255,255,255,0.05)',
               }}
             >
-              Скрыть
+              {t('benchmarkOverlay.dismiss')}
             </button>
           </div>
         </div>
@@ -242,35 +244,35 @@ function ftColor(ms: number): string {
 
 function formatResultText(r: BenchmarkResult): string {
   return [
-    `=== Результаты бенчмарка ===`,
-    `Дата: ${r.startTime}`,
-    `Длительность: ${(r.durationMs / 1000).toFixed(1)}с`,
+    `=== ${t('benchmarkOverlay.results.title')} ===`,
+    `${t('benchmarkOverlay.text.date')}: ${r.startTime}`,
+    `${t('benchmarkOverlay.results.duration')}: ${(r.durationMs / 1000).toFixed(1)}${t('benchmarkOverlay.unit.seconds')}`,
     ``,
     `--- FPS ---`,
-    `Среднее: ${r.avgFps}`,
-    `1% минимум: ${r.p1Fps}`,
-    `Минимум: ${r.minFps}`,
+    `${t('benchmarkOverlay.results.average')}: ${r.avgFps}`,
+    `${t('benchmarkOverlay.results.p1Low')}:  ${r.p1Fps}`,
+    `${t('benchmarkOverlay.results.minimum')}: ${r.minFps}`,
     ``,
-    `--- Время кадра ---`,
-    `Среднее: ${r.avgFrameTime} мс`,
-    `Медиана: ${r.medianFrameTime} мс`,
-    `P95:     ${r.p95FrameTime} мс`,
-    `P99:     ${r.p99FrameTime} мс`,
-    `Макс.:   ${r.maxFrameTime} мс`,
+    `--- ${t('benchmarkOverlay.text.frameTime')} ---`,
+    `${t('benchmarkOverlay.results.average')}: ${r.avgFrameTime} ${t('benchmarkOverlay.unit.ms')}`,
+    `${t('benchmarkOverlay.results.median')}: ${r.medianFrameTime} ${t('benchmarkOverlay.unit.ms')}`,
+    `P95:     ${r.p95FrameTime} ${t('benchmarkOverlay.unit.ms')}`,
+    `P99:     ${r.p99FrameTime} ${t('benchmarkOverlay.unit.ms')}`,
+    `${t('benchmarkOverlay.results.max')}:   ${r.maxFrameTime} ${t('benchmarkOverlay.unit.ms')}`,
     ``,
-    `--- Сцена ---`,
-    `Всего сущностей: ${r.totalEntities}`,
-    `Ср. видимых:     ${r.avgVisibleEntities}`,
-    `Масштаб: ${r.zoom}x (${r.pxPerTile} пикс/тайл)`,
+    `--- ${t('benchmarkOverlay.results.scene')} ---`,
+    `${t('benchmarkOverlay.results.totalEntities')}: ${r.totalEntities}`,
+    `${t('benchmarkOverlay.results.avgVisible')}:     ${r.avgVisibleEntities}`,
+    `${t('benchmarkOverlay.results.zoom')}: ${r.zoom}x (${r.pxPerTile} ${t('benchmarkOverlay.results.pxPerTile')})`,
     ``,
-    `--- Кадры ---`,
-    `Всего:      ${r.totalFrames}`,
-    `Отрисовано: ${r.renderedFrames}`,
-    `Пропущено:  ${r.skippedFrames}`,
+    `--- ${t('benchmarkOverlay.text.frames')} ---`,
+    `${t('benchmarkOverlay.results.totalFrames')}:      ${r.totalFrames}`,
+    `${t('benchmarkOverlay.results.rendered')}: ${r.renderedFrames}`,
+    `${t('benchmarkOverlay.text.skipped')}:  ${r.skippedFrames}`,
     ``,
-    `--- Эффективность кэша ---`,
-    `Перерисовка тайлов:    ${r.tileRedrawRate}%`,
-    `Перерисовка сущностей: ${r.entityRedrawRate}%`,
-    `Вызовы отрисовки: ср. ${r.avgDrawCalls}, макс. ${r.maxDrawCalls}`,
+    `--- ${t('benchmarkOverlay.results.cacheEfficiency')} ---`,
+    `${t('benchmarkOverlay.results.tileRedraws')}:    ${r.tileRedrawRate}%`,
+    `${t('benchmarkOverlay.results.entityRedraws')}: ${r.entityRedrawRate}%`,
+    `${t('benchmarkOverlay.text.drawCalls')}: ${t('benchmarkOverlay.text.avgAbbr')} ${r.avgDrawCalls}, ${t('benchmarkOverlay.text.maxAbbr')} ${r.maxDrawCalls}`,
   ].join('\n');
 }

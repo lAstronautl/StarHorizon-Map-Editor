@@ -1,7 +1,7 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { PipeType } from '../types';
-import { PIPE_COLORS, PIPE_DISPLAY } from '../types';
+import { PIPE_COLORS, getPipeDisplay } from '../types';
 import { computePipeChanges, fitPipes, type PipeFamily } from '../algorithms/pipeFittings';
 import { buildTransformComponent } from './entityHelpers';
 
@@ -124,7 +124,7 @@ export class PipeDrawTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: `Draw ${PIPE_DISPLAY[this.pipeType].label}`,
+          label: `Draw ${getPipeDisplay()[this.pipeType].label}`,
           tileChanges: [],
           entityChanges,
         },
@@ -143,7 +143,7 @@ export class PipeDrawTool implements ITool {
   ) {
     const { camera, canvasW, canvasH } = toolCtx;
     const tileScreenSize = camera.tileScreenSize;
-    const color = PIPE_DISPLAY[this.pipeType].color;
+    const color = getPipeDisplay()[this.pipeType].color;
 
     // Draw pending tiles during drag
     if (this.drawing) {
@@ -316,7 +316,7 @@ export class PipeDrawTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: `Erase ${PIPE_DISPLAY[this.pipeType].label}`,
+          label: `Erase ${getPipeDisplay()[this.pipeType].label}`,
           tileChanges: [],
           entityChanges,
         },

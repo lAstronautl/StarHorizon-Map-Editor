@@ -3,6 +3,7 @@ import type { TileGrid } from '../types';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import { getCell } from '../state/editorState';
+import { t } from '../i18n';
 
 export interface ValidationIssue {
   ruleId: string;
@@ -15,7 +16,8 @@ export interface ValidationIssue {
 
 interface ValidationRule {
   id: string;
-  label: string;
+  /** Returns the current-locale label; call at use-time, not at module load. */
+  getLabel(): string;
   severity: 'error' | 'warning';
   run(grid: TileGrid, entities: ImportedEntity[], registry: IPrototypeRegistry): ValidationIssue[];
 }
@@ -94,7 +96,7 @@ const ALLOWED_WALL_TILES = new Set(['Plating', 'Lattice', 'Space']);
 
 const floorUnderWallRule: ValidationRule = {
   id: 'floor-under-wall',
-  label: 'Тайлы пола под стенами',
+  getLabel: () => t('mapValidator.rules.floorUnderWall'),
   severity: 'warning',
   run(grid, entities, registry) {
     const issues: ValidationIssue[] = [];
@@ -106,7 +108,7 @@ const floorUnderWallRule: ValidationRule = {
       if (cell && !ALLOWED_WALL_TILES.has(cell.tileId)) {
         issues.push({
           ruleId: 'floor-under-wall', severity: 'warning',
-          message: `Тайл пола (${cell.tileId}) под стеной на (${x}, ${y}). Стены должны стоять на Plating.`,
+          message: t('mapValidator.issues.floorUnderWall', { tile: cell.tileId, x, y }),
           x, y, entityUid: entity.uid,
         });
       }
@@ -117,7 +119,7 @@ const floorUnderWallRule: ValidationRule = {
 
 const doorWithoutFloorRule: ValidationRule = {
   id: 'door-without-floor',
-  label: 'Двери без тайлов пола',
+  getLabel: () => t('mapValidator.rules.doorWithoutFloor'),
   severity: 'warning',
   run(grid, entities) {
     const issues: ValidationIssue[] = [];
@@ -130,7 +132,7 @@ const doorWithoutFloorRule: ValidationRule = {
       if (!cell || NO_FLOOR_TILES.has(cell.tileId)) {
         issues.push({
           ruleId: 'door-without-floor', severity: 'warning',
-          message: `Дверь (${entity.prototype}) без тайла пола на (${x}, ${y}).`,
+          message: t('mapValidator.issues.doorWithoutFloor', { prototype: entity.prototype, x, y }),
           x, y, entityUid: entity.uid,
         });
       }
@@ -141,7 +143,7 @@ const doorWithoutFloorRule: ValidationRule = {
 
 const danglingDeviceRefRule: ValidationRule = {
   id: 'dangling-device-ref',
-  label: 'Битые ссылки на устройства',
+  getLabel: () => t('mapValidator.rules.danglingDeviceRef'),
   severity: 'error',
   run(_grid, entities) {
     const issues: ValidationIssue[] = [];
@@ -158,7 +160,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceList.`,
+                message: t('mapValidator.issues.danglingDeviceRefDeviceList', { prototype: entity.prototype, uid: entity.uid, targetUid: uid }),
                 x, y, entityUid: entity.uid,
               });
             }
@@ -171,7 +173,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!isNaN(uid) && !validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceLinkSource.`,
+                message: t('mapValidator.issues.danglingDeviceRefLinkSource', { prototype: entity.prototype, uid: entity.uid, targetUid: uid }),
                 x, y, entityUid: entity.uid,
               });
             }
@@ -183,7 +185,7 @@ const danglingDeviceRefRule: ValidationRule = {
             if (!validUids.has(uid)) {
               issues.push({
                 ruleId: 'dangling-device-ref', severity: 'error',
-                message: `${entity.prototype} (UID ${entity.uid}) ссылается на несуществующий UID ${uid} в DeviceNetwork.`,
+                message: t('mapValidator.issues.danglingDeviceRefNetwork', { prototype: entity.prototype, uid: entity.uid, targetUid: uid }),
                 x, y, entityUid: entity.uid,
               });
             }
@@ -199,7 +201,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
   const id = alarmType === 'AirAlarm' ? 'unlinked-air-alarm' : 'unlinked-fire-alarm';
   return {
     id,
-    label: alarmType === 'AirAlarm' ? 'Несвязанные датчики воздуха' : 'Несвязанные пожарные датчики',
+    getLabel: () => t(alarmType === 'AirAlarm' ? 'mapValidator.rules.unlinkedAirAlarms' : 'mapValidator.rules.unlinkedFireAlarms'),
     severity: 'warning',
     run(_grid, entities, registry) {
       const issues: ValidationIssue[] = [];
@@ -215,7 +217,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
           if (!Array.isArray(devices) || devices.length === 0) {
             issues.push({
               ruleId: id, severity: 'warning',
-              message: `${entity.prototype} на (${x}, ${y}) не имеет связанных устройств.`,
+              message: t('mapValidator.issues.noLinkedDevices', { prototype: entity.prototype, x, y }),
               x, y, entityUid: entity.uid,
             });
           }
@@ -229,7 +231,7 @@ function makeAlarmRule(alarmType: 'AirAlarm' | 'FireAlarm'): ValidationRule {
           // Prototype has DeviceList but instance doesn't, means no devices linked
           issues.push({
             ruleId: id, severity: 'warning',
-            message: `${entity.prototype} на (${x}, ${y}) не имеет связанных устройств.`,
+            message: t('mapValidator.issues.noLinkedDevices', { prototype: entity.prototype, x, y }),
             x, y, entityUid: entity.uid,
           });
         }
@@ -263,5 +265,5 @@ export function validateMap(
 
 /** Get rule metadata for UI grouping. */
 export function getValidationRules(): { id: string; label: string; severity: 'error' | 'warning' }[] {
-  return RULES.map(r => ({ id: r.id, label: r.label, severity: r.severity }));
+  return RULES.map(r => ({ id: r.id, label: r.getLabel(), severity: r.severity }));
 }

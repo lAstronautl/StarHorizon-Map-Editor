@@ -3,6 +3,7 @@ import type { PaletteItem } from '../types';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import { loadImage } from '../loaders/rsiLoader';
 import { getActiveProvider } from '../loaders/resourceProvider';
+import { useT } from '../i18n';
 
 interface Props {
   registry: IPrototypeRegistry | null;
@@ -19,6 +20,7 @@ const STRUCTURAL_TILES = [
 const PREVIEW_SIZE = 128;
 
 export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect }) => {
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const { hovered, onHoverEnter, onHoverLeave } = useTileHoverPreview(250);
 
@@ -38,11 +40,11 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
 
   return (
     <div className="flex-1 bg-surface flex flex-col overflow-hidden">
-      <div className="px-2 pt-2 pb-1 text-xs text-muted">Тайлы</div>
+      <div className="px-2 pt-2 pb-1 text-xs text-muted">{t('palettePanel.tabs.tiles')}</div>
 
       {selectedItem && selectedItem.type === 'tile' && (
         <div className="px-2 pb-2 border-b border-subtle text-[11px] text-primary">
-          Выбрано: <strong>{selectedItem.id}</strong>
+          {t('common.selected')}: <strong>{selectedItem.id}</strong>
         </div>
       )}
 
@@ -51,7 +53,7 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Поиск тайлов..."
+          placeholder={t('tilePalette.searchPlaceholder')}
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
@@ -78,7 +80,7 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
       )}
 
       <div className="px-2 py-1 text-[10px] text-muted border-t border-subtle">
-        Тайлов: {filtered.length}
+        {t('tilePalette.tileCount', { count: filtered.length })}
       </div>
     </div>
   );
@@ -229,6 +231,7 @@ const TilePreviewPopup: React.FC<{
 
   const left = anchorRect.left - PREVIEW_SIZE - 20;
   const top = Math.max(8, anchorRect.top + anchorRect.height / 2 - (PREVIEW_SIZE + 30) / 2);
+  const { t } = useT();
 
   return (
     <div
@@ -249,7 +252,7 @@ const TilePreviewPopup: React.FC<{
           className="bg-surface rounded flex items-center justify-center text-muted text-xs"
           style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
         >
-          Нет спрайта
+          {t('common.noSprite')}
         </div>
       )}
       <div className="text-primary text-[11px] text-center mt-1 truncate" style={{ maxWidth: PREVIEW_SIZE }}>

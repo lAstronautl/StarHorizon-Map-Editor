@@ -1,6 +1,7 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { TileChange } from '../types';
 import { getCell, ensureGridContains, setCell } from '../state/editorState';
+import { t } from '../i18n';
 
 export class FillTool implements ITool {
   name = 'fill';
@@ -44,7 +45,7 @@ export class FillTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Заливка тайлов',
+          label: t('fillTool.command.fillTiles'),
           tileChanges: changes,
           entityChanges: [],
         },

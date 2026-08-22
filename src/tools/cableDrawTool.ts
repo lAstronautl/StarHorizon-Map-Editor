@@ -1,7 +1,7 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { CableType } from '../types';
-import { CABLE_DISPLAY } from '../types';
+import { getCableDisplay } from '../types';
 import { buildTransformComponent } from './entityHelpers';
 
 /**
@@ -73,7 +73,7 @@ export class CableDrawTool implements ITool {
     ctx.dispatch({
       type: 'APPLY_COMMAND',
       command: {
-        label: `Draw ${CABLE_DISPLAY[this.cableType].label}`,
+        label: `Draw ${getCableDisplay()[this.cableType].label}`,
         tileChanges: [],
         entityChanges: entities.map(e => ({ action: 'add' as const, entity: e })),
       },
@@ -91,7 +91,7 @@ export class CableDrawTool implements ITool {
   ) {
     const { camera, canvasW, canvasH } = toolCtx;
     const tileScreenSize = camera.tileScreenSize;
-    const color = CABLE_DISPLAY[this.cableType].color;
+    const color = getCableDisplay()[this.cableType].color;
 
     // Draw pending tiles during drag
     if (this.drawing) {
@@ -172,7 +172,7 @@ export class CableDrawTool implements ITool {
     ctx.dispatch({
       type: 'APPLY_COMMAND',
       command: {
-        label: `Erase ${CABLE_DISPLAY[this.cableType].label}`,
+        label: `Erase ${getCableDisplay()[this.cableType].label}`,
         tileChanges: [],
         entityChanges: toRemove.map(e => ({ action: 'remove' as const, entity: e })),
       },

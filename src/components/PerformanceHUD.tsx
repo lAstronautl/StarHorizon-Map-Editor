@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { getStats } from '../rendering/renderStats';
+import { useT } from '../i18n';
 
 export const PerformanceHUD: React.FC = () => {
+  const { t } = useT();
   const [, forceUpdate] = useState(0);
   const rafRef = useRef(0);
 
@@ -41,25 +43,25 @@ export const PerformanceHUD: React.FC = () => {
       minWidth: 140,
       userSelect: 'none',
     }}>
-      <div style={{ color: '#888', fontWeight: 'bold', marginBottom: 2 }}>Производительность</div>
+      <div style={{ color: '#888', fontWeight: 'bold', marginBottom: 2 }}>{t('perfHud.performance')}</div>
       <Row label="FPS" value={String(s.fps)} color={fpsColor} />
-      <Row label="Кадр" value={s.frameTime > 0 ? `${s.frameTime} мс` : 'пропуск'} color={ftColor} />
-      <Row label="Отрисовки" value={s.drawCalls.toLocaleString()} />
+      <Row label={t('perfHud.frame')} value={s.frameTime > 0 ? `${s.frameTime} ${t('perfHud.ms')}` : t('perfHud.skip')} color={ftColor} />
+      <Row label={t('perfHud.draws')} value={s.drawCalls.toLocaleString()} />
 
-      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>Сцена</div>
-      <Row label="Всего" value={s.totalEntities.toLocaleString()} />
-      <Row label="Видимо" value={s.visibleEntities.toLocaleString()} />
-      <Row label="Выбрано" value={String(s.selectedCount)} />
-      {s.lodActive && <Row label="LOD" value="точки" color="#ff9800" />}
+      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>{t('perfHud.scene')}</div>
+      <Row label={t('perfHud.total')} value={s.totalEntities.toLocaleString()} />
+      <Row label={t('perfHud.visible')} value={s.visibleEntities.toLocaleString()} />
+      <Row label={t('perfHud.selected')} value={String(s.selectedCount)} />
+      {s.lodActive && <Row label="LOD" value={t('perfHud.dots')} color="#ff9800" />}
 
-      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>Камера</div>
-      <Row label="Масштаб" value={`${s.zoom.toFixed(2)}x`} />
-      <Row label="пикс/тайл" value={s.pxPerTile.toFixed(1)} />
+      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>{t('perfHud.camera')}</div>
+      <Row label={t('perfHud.zoom')} value={`${s.zoom.toFixed(2)}x`} />
+      <Row label="px/tile" value={s.pxPerTile.toFixed(1)} />
 
-      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>Слои</div>
-      <Row label="Тайлы" value={s.tilesRedrawn ? 'перерисовка' : 'кэш'} color={s.tilesRedrawn ? '#ff4' : '#4f4'} />
-      <Row label="Сущности" value={s.entitiesRedrawn ? 'перерисовка' : 'кэш'} color={s.entitiesRedrawn ? '#ff4' : '#4f4'} />
-      <Row label="Режим" value={s.zoomDeferred ? 'отложенный масштаб' : 'композит'} color={s.zoomDeferred ? '#f80' : '#4f4'} />
+      <div style={{ color: '#888', fontWeight: 'bold', marginTop: 4, marginBottom: 2 }}>{t('perfHud.layers')}</div>
+      <Row label={t('perfHud.tiles')} value={s.tilesRedrawn ? t('perfHud.redraw') : t('perfHud.cache')} color={s.tilesRedrawn ? '#ff4' : '#4f4'} />
+      <Row label={t('perfHud.entities')} value={s.entitiesRedrawn ? t('perfHud.redraw') : t('perfHud.cache')} color={s.entitiesRedrawn ? '#ff4' : '#4f4'} />
+      <Row label={t('perfHud.mode')} value={s.zoomDeferred ? t('perfHud.zoomDefer') : t('perfHud.composite')} color={s.zoomDeferred ? '#f80' : '#4f4'} />
     </div>
   );
 };

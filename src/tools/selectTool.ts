@@ -11,6 +11,7 @@ import { downloadPrefab } from '../prefab/prefabIO';
 import { updateTransformPos, updateTransformRot, normalizeRotation, cloneComponentsWithPos, cloneComponentsWithPosRot } from './entityHelpers';
 import { markOverlayDirty } from '../rendering/dirtyFlags';
 import { spatialGetInRect, tileKey } from '../rendering/spatialIndex';
+import { t } from '../i18n';
 
 type SelectPhase = 'idle' | 'selecting' | 'selected' | 'moving' | 'pasting';
 
@@ -278,7 +279,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Удаление выделения',
+          label: t('selectTool.command.deleteSelection'),
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -611,7 +612,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Вставка',
+          label: t('selectTool.command.paste'),
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -741,7 +742,7 @@ export class SelectTool implements ITool {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
-          label: 'Перемещение выделения',
+          label: t('selectTool.command.moveSelection'),
           tileChanges,
           entityChanges,
           decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
@@ -774,13 +775,13 @@ export class SelectTool implements ITool {
     const items: ContextMenuItem[] = [];
 
     if (this.phase === 'selected') {
-      items.push({ label: 'Копировать', shortcut: 'Ctrl+C', action: () => this.copy(ctx) });
-      items.push({ label: 'Вырезать', shortcut: 'Ctrl+X', action: () => this.cut(ctx) });
-      items.push({ label: 'Удалить', shortcut: 'Del', action: () => this.deleteSelection(ctx) });
+      items.push({ label: t('selectTool.contextMenu.copy'), shortcut: 'Ctrl+C', action: () => this.copy(ctx) });
+      items.push({ label: t('selectTool.contextMenu.cut'), shortcut: 'Ctrl+X', action: () => this.cut(ctx) });
+      items.push({ label: t('selectTool.contextMenu.delete'), shortcut: 'Del', action: () => this.deleteSelection(ctx) });
       items.push({
-        label: 'Сохранить как префаб...',
+        label: t('selectTool.contextMenu.saveAsPrefab'),
         action: () => {
-          const name = window.prompt('Название префаба:');
+          const name = window.prompt(t('selectTool.prompt.prefabName'));
           if (!name) return;
           const prefab = serializePrefab({
             name,
@@ -799,7 +800,7 @@ export class SelectTool implements ITool {
 
     const clip = getClipboard();
     if (clip) {
-      items.push({ label: 'Вставить', shortcut: 'Ctrl+V', action: () => this.paste(ctx) });
+      items.push({ label: t('selectTool.contextMenu.paste'), shortcut: 'Ctrl+V', action: () => this.paste(ctx) });
     }
 
     return items;

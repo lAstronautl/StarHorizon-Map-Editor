@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useCallback } from 'react';
 import type { PaletteItem } from '../types';
 import type { IPrototypeRegistry, ResolvedEntity } from '../loaders/registryTypes';
 import { EntityThumbnail, SpritePreviewPopup, useHoverPreview } from './EntityThumbnail';
+import { useT } from '../i18n';
 
 interface Props {
   registry: IPrototypeRegistry | null;
@@ -24,6 +25,7 @@ const PRIORITY_CATEGORIES = [
 ];
 
 export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelect }) => {
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const { hovered, onMouseEnter, onMouseLeave } = useHoverPreview(250);
@@ -83,11 +85,11 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="px-2 pt-2 pb-1 text-xs text-muted">Сущности</div>
+      <div className="px-2 pt-2 pb-1 text-xs text-muted">{t('entityPalette.entities')}</div>
 
       {selectedItem?.type === 'entity' && (
         <div className="px-2 pb-2 border-b border-subtle text-[11px] text-primary">
-          Выбрано: <strong>{selectedItem.id}</strong>
+          {t('entityPalette.selected')} <strong>{selectedItem.id}</strong>
         </div>
       )}
 
@@ -96,7 +98,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Поиск сущностей..."
+          placeholder={t('entityPalette.searchPlaceholder')}
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
@@ -106,7 +108,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
           // Search results (flat list)
           <div className="px-2">
             {filteredEntities.length === 0 && (
-              <div className="text-muted text-xs p-3 italic text-center">Ничего не найдено</div>
+              <div className="text-muted text-xs p-3 italic text-center">{t('entityPalette.noResults')}</div>
             )}
             {filteredEntities.map(e => (
               <EntityRow
@@ -160,7 +162,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
       </div>
 
       <div className="px-2 py-1 text-[10px] text-muted border-t border-subtle">
-        Сущностей: {registry?.entityCount ?? 0}
+        {t('entityPalette.entityCount', { count: registry?.entityCount ?? 0 })}
       </div>
 
       {/* Hover preview popup */}

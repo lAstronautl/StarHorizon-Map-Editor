@@ -3,6 +3,7 @@ import type { GridData } from '../state/gridData';
 import { EntitySearchBar } from './EntitySearchBar';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
+import { useT } from '../i18n';
 
 interface Props {
   grids: GridData[];
@@ -23,6 +24,7 @@ export const GridTabBar: React.FC<Props> = ({
   grids, activeGridIndex, onSelectGrid, onAddGrid, onDeleteGrid, onRenameGrid, onFocusGrid,
   entities, registry, onSearchNavigate, searchInputRef, onValidate,
 }) => {
+  const { t } = useT();
   return (
     <div className="flex items-end bg-panel border-b border-subtle shrink-0">
       <div className="flex items-end overflow-x-auto min-w-0">
@@ -39,7 +41,7 @@ export const GridTabBar: React.FC<Props> = ({
                 }`}
               onClick={() => onSelectGrid(idx)}
               onDoubleClick={() => {
-                const name = prompt('Переименовать сетку:', gd.name);
+                const name = prompt(t('gridTabBar.renameGridPrompt'), gd.name);
                 if (name && name !== gd.name) onRenameGrid(gd.gridUid, name);
               }}
               onAuxClick={(e) => {
@@ -54,7 +56,7 @@ export const GridTabBar: React.FC<Props> = ({
               {grids.length > 1 && (
                 <button
                   className="ml-1 text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Закрыть сетку"
+                  title={t('gridTabBar.closeGrid')}
                   onClick={(e) => { e.stopPropagation(); onDeleteGrid(gd.gridUid); }}
                 >
                   ×
@@ -65,7 +67,7 @@ export const GridTabBar: React.FC<Props> = ({
         })}
         <button
           className="px-2 py-1.5 text-xs text-muted hover:text-primary hover:bg-hover"
-          title="Добавить новую сетку"
+          title={t('gridTabBar.addNewGrid')}
           onClick={onAddGrid}
         >
           +
@@ -77,10 +79,10 @@ export const GridTabBar: React.FC<Props> = ({
       <button
         onClick={onValidate}
         className="flex items-center gap-1 self-center text-white bg-warning hover:brightness-110 cursor-pointer border-none rounded-sm text-[11px] px-2 py-0.5 mr-2 shrink-0"
-        title="Проверить карту"
+        title={t('gridTabBar.validateMap')}
       >
         <span className="text-[12px]">&#x26A0;</span>
-        <span>Проверить карту</span>
+        <span>{t('gridTabBar.validateMap')}</span>
       </button>
 
       <div className="pr-2 py-0.5 shrink-0">

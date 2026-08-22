@@ -3,6 +3,7 @@ import type { TileChange } from '../types';
 import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState';
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
+import { t } from '../i18n';
 
 /** Bresenham's line algorithm, returns all tiles along the line. */
 function bresenham(x0: number, y0: number, x1: number, y1: number): [number, number][] {
@@ -67,7 +68,7 @@ export class LineTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Рисование линии сущностей', tileChanges: [], entityChanges },
+          command: { label: t('lineTool.command.lineDrawEntities'), tileChanges: [], entityChanges },
         });
       }
       return;
@@ -81,7 +82,7 @@ export class LineTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Рисование линии декалей', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: t('lineTool.command.lineDrawDecals'), tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -120,7 +121,7 @@ export class LineTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Рисование линии', tileChanges: changes, entityChanges: [] },
+        command: { label: t('lineTool.command.lineDraw'), tileChanges: changes, entityChanges: [] },
       });
     }
   }

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import type { ComponentEditorProps } from './types';
+import { useT } from '../../i18n';
 
 export const GenericComponentEditor: React.FC<ComponentEditorProps> = ({ component, onChange }) => {
+  const { t } = useT();
   // Strip `type` from the editable JSON, we add it back on apply
   const { type, ...fields } = component;
   const [text, setText] = useState(() => JSON.stringify(fields, null, 2));
@@ -21,7 +23,7 @@ export const GenericComponentEditor: React.FC<ComponentEditorProps> = ({ compone
     try {
       const parsed = JSON.parse(text);
       if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        setError('Должен быть JSON-объект');
+        setError(t('genericComponentEditor.mustBeJsonObject'));
         return;
       }
       setError(null);
@@ -46,12 +48,12 @@ export const GenericComponentEditor: React.FC<ComponentEditorProps> = ({ compone
       />
       {error && (
         <div className="text-[#c44] text-[9px] mt-px">
-          Некорректный JSON: {error}
+          {t('genericComponentEditor.invalidJson', { error })}
         </div>
       )}
       {dirty && (
         <button onClick={handleApply} className="mt-0.5 bg-[#1a3a5e] border border-[#2a4a6a] rounded-sm text-primary text-[9px] px-2 py-0.5 cursor-pointer">
-          Применить
+          {t('common.apply')}
         </button>
       )}
     </div>

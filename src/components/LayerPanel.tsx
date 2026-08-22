@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LayerVisibility } from '../rendering/entityRenderer';
+import { useT } from '../i18n';
 
 interface Props {
   layers: LayerVisibility;
@@ -10,20 +11,25 @@ interface Props {
   onToggleConnections: () => void;
 }
 
-const LAYER_DEFS: { key: keyof LayerVisibility; label: string; desc: string }[] = [
-  { key: 'subfloor', label: 'Подпол', desc: 'Кабели, трубы, мусоропровод (-22 до -13)' },
-  { key: 'floorObjects', label: 'Объ. пола', desc: 'Ковры, напольные предметы (-12 до -5)' },
-  { key: 'structures', label: 'Конструкции', desc: 'Стены, окна, решётки (-2 до -1)' },
-  { key: 'objects', label: 'Объекты', desc: 'Мебель, машины, настенные крепления (0 до +7)' },
-  { key: 'doors', label: 'Двери', desc: 'Шлюзы, противопожарные, бронедвери (+8 до +10)' },
-  { key: 'markers', label: 'Маркеры', desc: 'Точки спавна, помощники разметки' },
-  { key: 'decals', label: 'Декали', desc: 'Разметка пола, стрелки, оверлеи' },
-];
+function useLayerDefs(): { key: keyof LayerVisibility; label: string; desc: string }[] {
+  const { t } = useT();
+  return [
+    { key: 'subfloor', label: t('layerPanel.layer.subfloor.label'), desc: t('layerPanel.layer.subfloor.desc') },
+    { key: 'floorObjects', label: t('layerPanel.layer.floorObjects.label'), desc: t('layerPanel.layer.floorObjects.desc') },
+    { key: 'structures', label: t('layerPanel.layer.structures.label'), desc: t('layerPanel.layer.structures.desc') },
+    { key: 'objects', label: t('layerPanel.layer.objects.label'), desc: t('layerPanel.layer.objects.desc') },
+    { key: 'doors', label: t('layerPanel.layer.doors.label'), desc: t('layerPanel.layer.doors.desc') },
+    { key: 'markers', label: t('layerPanel.layer.markers.label'), desc: t('layerPanel.layer.markers.desc') },
+    { key: 'decals', label: t('layerPanel.layer.decals.label'), desc: t('layerPanel.layer.decals.desc') },
+  ];
+}
 
 export const LayerPanel: React.FC<Props> = ({
   layers, onToggleLayer, showSubFloor, onToggleSubFloor,
   showConnections, onToggleConnections,
 }) => {
+  const { t } = useT();
+  const LAYER_DEFS = useLayerDefs();
   return (
     <div className="p-3">
       {LAYER_DEFS.map(def => (
@@ -40,24 +46,24 @@ export const LayerPanel: React.FC<Props> = ({
 
       <div className="h-px bg-subtle my-2" />
 
-      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Показывать инфраструктуру под тайлами (режим Т-луча)">
+      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title={t('layerPanel.subFloorTitle')}>
         <input
           type="checkbox"
           checked={showSubFloor}
           onChange={onToggleSubFloor}
           className="accent-accent w-3 h-3"
         />
-        Т-луч (подпол)
+        {t('layerPanel.subFloorLabel')}
       </label>
 
-      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title="Показывать связи и соединения устройств">
+      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title={t('layerPanel.connectionsTitle')}>
         <input
           type="checkbox"
           checked={showConnections}
           onChange={onToggleConnections}
           className="accent-accent w-3 h-3"
         />
-        Связи
+        {t('layerPanel.connectionsLabel')}
       </label>
     </div>
   );

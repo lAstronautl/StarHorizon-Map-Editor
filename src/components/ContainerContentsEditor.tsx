@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry, ResolvedEntity } from '../loaders/registryTypes';
 import { EntityThumbnail } from './EntityThumbnail';
+import { useT } from '../i18n';
 
 // ---- Exported helpers (tested) ----
 
@@ -44,6 +45,7 @@ interface Props {
 export const ContainerContentsEditor: React.FC<Props> = ({
   entity, containedEntities, registry, onAdd, onRemove,
 }) => {
+  const { t } = useT();
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<ResolvedEntity[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -99,12 +101,12 @@ export const ContainerContentsEditor: React.FC<Props> = ({
   return (
     <div className="mt-2">
       <div className="text-muted text-[10px] mb-1">
-        Содержимое (элементов: {containedEntities.length})
+        {t('containerContentsEditor.contents', { count: containedEntities.length })}
       </div>
 
       {isRuntimeFilled && (
         <div className="text-[9px] text-muted italic mb-1">
-          Заполняется во время игры, элементы ниже — добавленные вручную
+          {t('containerContentsEditor.runtimeFilled')}
         </div>
       )}
 
@@ -122,14 +124,14 @@ export const ContainerContentsEditor: React.FC<Props> = ({
             <button
               onClick={() => onRemove(entity.uid, child.uid)}
               className="bg-transparent border-none text-red-500 text-[11px] cursor-pointer px-1 opacity-0 group-hover:opacity-100"
-              title="Удалить из контейнера"
+              title={t('containerContentsEditor.removeFromContainer')}
             >
               &times;
             </button>
           </div>
         ))}
         {containedEntities.length === 0 && !isRuntimeFilled && (
-          <div className="text-muted text-[9px] italic px-1">Пусто</div>
+          <div className="text-muted text-[9px] italic px-1">{t('containerContentsEditor.empty')}</div>
         )}
       </div>
 
@@ -139,7 +141,7 @@ export const ContainerContentsEditor: React.FC<Props> = ({
           type="text"
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
-          placeholder="Поиск для добавления..."
+          placeholder={t('containerContentsEditor.searchToAdd')}
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-[10px] outline-none focus:border-accent"
         />
         {showDropdown && (

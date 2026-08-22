@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { ComponentEditorProps } from './types';
+import { useT } from '../../i18n';
 
 interface PortLink {
   targetUid: number;
@@ -8,6 +9,7 @@ interface PortLink {
 }
 
 export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ component, onChange, allEntities }) => {
+  const { t } = useT();
   const linkedPorts = (component.linkedPorts as Record<string, [string, string][]>) ?? {};
   const [adding, setAdding] = useState(false);
   const [newTargetUid, setNewTargetUid] = useState('');
@@ -81,15 +83,15 @@ export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ compone
       <div className="text-muted text-[10px] mb-0.5">linkedPorts</div>
       {rows.length === 0 && (
         <div className="text-[#666] text-[10px] italic mb-0.5">
-          Нет связанных портов
+          {t('deviceLinkSourceEditor.noLinkedPorts')}
         </div>
       )}
       {/* Header */}
       {rows.length > 0 && (
         <div className="flex gap-1 mb-px text-[9px] text-[#666]">
-          <span className="flex-[2] min-w-0">Цель</span>
-          <span className="flex-1 min-w-0">Порт-источник</span>
-          <span className="flex-1 min-w-0">Порт-приёмник</span>
+          <span className="flex-[2] min-w-0">{t('deviceLinkSourceEditor.target')}</span>
+          <span className="flex-1 min-w-0">{t('deviceLinkSourceEditor.sourcePort')}</span>
+          <span className="flex-1 min-w-0">{t('deviceLinkSourceEditor.sinkPort')}</span>
           <span className="w-4" />
         </div>
       )}
@@ -99,14 +101,14 @@ export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ compone
             <span>
               {resolveUid(row.targetUid)}
             </span>
-            {isMissing(row.targetUid) && <span className="text-[#ff6666] text-[9px]"> (не найдено)</span>}
+            {isMissing(row.targetUid) && <span className="text-[#ff6666] text-[9px]"> ({t('deviceLinkSourceEditor.missing')})</span>}
           </span>
           <span className="text-[#c0c0e0] text-[10px] flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{row.sourcePort}</span>
           <span className="text-[#c0c0e0] text-[10px] flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{row.sinkPort}</span>
           <button
             onClick={() => handleRemove(row.targetUid, row.sourcePort, row.sinkPort)}
             className="bg-transparent border-none text-[#ff6666] text-[10px] cursor-pointer px-0.5 py-0 leading-none shrink-0 w-4"
-            title="Удалить связь"
+            title={t('deviceLinkSourceEditor.removeLink')}
           >
             x
           </button>
@@ -120,7 +122,7 @@ export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ compone
               value={newTargetUid}
               onChange={(e) => setNewTargetUid(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="UID цели"
+              placeholder={t('deviceLinkSourceEditor.targetUid')}
               className="bg-elevated border border-subtle rounded-sm text-primary text-[10px] px-1 py-0.5 w-0 flex-1"
               autoFocus
             />
@@ -131,7 +133,7 @@ export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ compone
               value={newSourcePort}
               onChange={(e) => setNewSourcePort(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Порт-источник"
+              placeholder={t('deviceLinkSourceEditor.sourcePort')}
               className="bg-elevated border border-subtle rounded-sm text-primary text-[10px] px-1 py-0.5 w-0 flex-1"
             />
             <input
@@ -139,14 +141,14 @@ export const DeviceLinkSourceEditor: React.FC<ComponentEditorProps> = ({ compone
               value={newSinkPort}
               onChange={(e) => setNewSinkPort(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Порт-приёмник"
+              placeholder={t('deviceLinkSourceEditor.sinkPort')}
               className="bg-elevated border border-subtle rounded-sm text-primary text-[10px] px-1 py-0.5 w-0 flex-1"
             />
           </div>
         </div>
       ) : (
         <button onClick={() => setAdding(true)} className="bg-transparent border border-subtle rounded-sm text-muted text-[10px] cursor-pointer px-1.5 py-0.5 mt-0.5">
-          + Добавить связь
+          + {t('deviceLinkSourceEditor.addLink')}
         </button>
       )}
     </div>

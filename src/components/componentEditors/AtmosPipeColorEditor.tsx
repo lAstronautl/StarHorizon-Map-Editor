@@ -1,12 +1,17 @@
 import React from 'react';
 import type { ComponentEditorProps } from './types';
+import { useT } from '../../i18n';
 
-const COLOR_PRESETS: { label: string; value: string }[] = [
-  { label: 'Синий (подача)', value: '#0055CCFF' },
-  { label: 'Красный (возврат)', value: '#990000FF' },
-];
+function useColorPresets(): { label: string; value: string }[] {
+  const { t } = useT();
+  return [
+    { label: t('atmosPipeColorEditor.presetSupply'), value: '#0055CCFF' },
+    { label: t('atmosPipeColorEditor.presetReturn'), value: '#990000FF' },
+  ];
+}
 
 export const AtmosPipeColorEditor: React.FC<ComponentEditorProps> = ({ component, onChange }) => {
+  const colorPresets = useColorPresets();
   const color = (component.color as string) ?? '';
 
   const handleColorChange = (value: string) => {
@@ -17,7 +22,7 @@ export const AtmosPipeColorEditor: React.FC<ComponentEditorProps> = ({ component
     <div className="py-0.5">
       <label className="text-muted text-[10px] block mb-px">color</label>
       <div className="flex gap-1 mb-0.5 flex-wrap">
-        {COLOR_PRESETS.map((preset) => (
+        {colorPresets.map((preset) => (
           <button
             key={preset.value}
             onClick={() => handleColorChange(preset.value)}

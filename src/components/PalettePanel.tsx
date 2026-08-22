@@ -7,6 +7,7 @@ import { EntityPalette } from './EntityPalette';
 import { DecalPalette } from './DecalPalette';
 import type { DecalPlacementSettings } from './DecalPalette';
 import { PrefabPanel } from './PrefabPanel';
+import { useT } from '../i18n';
 
 interface Props {
   registry: IPrototypeRegistry | null;
@@ -20,14 +21,15 @@ type Tab = 'tiles' | 'entities' | 'decals' | 'prefabs';
 
 export const PalettePanel: React.FC<Props> = ({ registry, selectedItem, onSelect, onSelectPrefab, decalPlacementSettingsRef }) => {
   const [activeTab, setActiveTab] = useState<Tab>('tiles');
+  const { t } = useT();
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex border-b border-subtle bg-surface">
-        <TabButton label="Тайлы" active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
-        <TabButton label="Сущности" active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
-        <TabButton label="Декали" active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
-        <TabButton label="Префабы" active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
+        <TabButton label={t('palettePanel.tabs.tiles')} active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
+        <TabButton label={t('palettePanel.tabs.entities')} active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
+        <TabButton label={t('palettePanel.tabs.decals')} active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
+        <TabButton label={t('palettePanel.tabs.prefabs')} active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
       </div>
 
       {activeTab === 'tiles' ? (

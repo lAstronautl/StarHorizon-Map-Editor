@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import { getEntitySprite } from '../rendering/entityRenderer';
+import { useT } from '../i18n';
 
 const THUMB_SIZE = 24;
 const PREVIEW_SIZE = 128;
@@ -171,6 +172,7 @@ interface SpritePreviewPopupProps {
 export const SpritePreviewPopup: React.FC<SpritePreviewPopupProps> = ({
   prototypeId, entityName, registry, anchorRect,
 }) => {
+  const { t } = useT();
   const previewUrl = getPreview(prototypeId, registry);
 
   // Position to the left of the anchor, vertically centered
@@ -196,7 +198,7 @@ export const SpritePreviewPopup: React.FC<SpritePreviewPopupProps> = ({
           className="bg-surface rounded flex items-center justify-center text-muted text-xs"
           style={{ width: PREVIEW_SIZE, height: PREVIEW_SIZE }}
         >
-          Нет спрайта
+          {t('common.noSprite')}
         </div>
       )}
       <div className="text-primary text-[11px] text-center mt-1 truncate" style={{ maxWidth: PREVIEW_SIZE }}>

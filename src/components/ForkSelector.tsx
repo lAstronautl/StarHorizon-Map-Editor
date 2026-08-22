@@ -13,6 +13,7 @@ import {
 } from '../loaders/directoryScanner';
 import type { RepositorySummary } from '../loaders/directoryScanner';
 import { BASE_URL, withBase } from '../basePath';
+import { useT } from '../i18n';
 
 type SelectorState = 'idle' | 'scanning' | 'summary' | 'error';
 
@@ -39,6 +40,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
   builtInAvailable,
   builtInForkName,
 }) => {
+  const { t } = useT();
   const [phase, setPhase] = useState<SelectorState>('idle');
   const [scanProgress, setScanProgress] = useState(0);
   const [scanTotal, setScanTotal] = useState(0);
@@ -68,7 +70,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
 
         const validation = validateRepository(map);
         if (!validation.valid) {
-          setErrorMessage(validation.error ?? 'Некорректный репозиторий');
+          setErrorMessage(validation.error ?? t('forkSelector.invalidRepository'));
           setPhase('error');
           return;
         }
@@ -111,7 +113,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
 
       const validation = validateRepository(map);
       if (!validation.valid) {
-        setErrorMessage(validation.error ?? 'Некорректный репозиторий');
+        setErrorMessage(validation.error ?? t('forkSelector.invalidRepository'));
         setPhase('error');
         return;
       }
@@ -122,7 +124,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
 
       // Derive fork name from first file's webkitRelativePath root segment
       const firstPath = files[0].webkitRelativePath;
-      const rootFolder = firstPath.split('/')[0] || 'Неизвестно';
+      const rootFolder = firstPath.split('/')[0] || t('forkSelector.unknown');
       setForkName(rootFolder);
       setPhase('summary');
     } catch (err) {
@@ -313,7 +315,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
           SS14 Map Editor
         </h1>
         <p className="text-sm text-muted text-center mb-8">
-          Выберите форк, чтобы начать
+          {t('forkSelector.subtitle')}
         </p>
 
         {/* ---- IDLE ---- */}
@@ -327,29 +329,26 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                              hover:brightness-110 active:brightness-90 transition-all cursor-pointer
                              border-none outline-none focus:ring-2 focus:ring-accent/50"
                 >
-                  Открыть папку форка
+                  {t('forkSelector.openFolder')}
                 </button>
 
                 {/* Privacy & browser info */}
                 <div className="bg-panel rounded-lg p-3 border border-subtle text-xs text-muted leading-relaxed flex flex-col gap-2">
                   <p>
-                    <span className="text-primary font-medium">Приватность:</span>{' '}
-                    Браузер запросит разрешение на чтение выбранной папки.
-                    Ни один файл не загружается на сервер. Вся обработка происходит
-                    локально в браузере.
+                    <span className="text-primary font-medium">{t('forkSelector.privacyLabel')}</span>{' '}
+                    {t('forkSelector.privacyBody')}
                   </p>
                   <p>
-                    <span className="text-primary font-medium">Про браузеры:</span>{' '}
+                    <span className="text-primary font-medium">{t('forkSelector.browserNoteLabel')}</span>{' '}
                     {supportsDirectoryPicker
-                      ? 'Chrome и Edge используют встроенный выбор папки, который читает файлы по требованию. Браузер может попросить подтвердить доступ на чтение — это стандартно и безопасно.'
-                      : <>Firefox и Safari не поддерживают <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:brightness-125">File System Access API</a>, поэтому редактор использует <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/webkitdirectory" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:brightness-125">поле загрузки папки</a>. Браузер может показать запрос «загрузка» — это вводит в заблуждение; файлы остаются на вашем компьютере и никуда не отправляются.</>}
+                      ? t('forkSelector.browserNoteNative')
+                      : <>{t('forkSelector.browserNoteFallbackPre')} <a href="https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:brightness-125">{t('forkSelector.browserNoteFallbackApi')}</a>{t('forkSelector.browserNoteFallbackMid')} <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/webkitdirectory" target="_blank" rel="noopener noreferrer" className="text-accent underline hover:brightness-125">{t('forkSelector.browserNoteFallbackInput')}</a>{t('forkSelector.browserNoteFallbackPost')}</>}
                   </p>
                 </div>
               </>
             ) : (
               <div className="text-center text-warning text-sm py-3 px-4 rounded-lg bg-hover border border-subtle">
-                Ваш браузер не поддерживает выбор папок.
-                Используйте Chrome, Edge или Firefox для локальной загрузки форка.
+                {t('forkSelector.noFolderSupport')}
               </div>
             )}
 
@@ -360,7 +359,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                            hover:bg-hover active:brightness-90 transition-all cursor-pointer
                            border border-subtle outline-none focus:ring-2 focus:ring-accent/50"
               >
-                Использовать встроенные ресурсы ({builtInForkName})
+                {t('forkSelector.useBuiltIn', { forkName: builtInForkName })}
               </button>
             )}
           </div>
@@ -372,7 +371,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
             {/* Spinner */}
             <div className="w-8 h-8 border-3 border-subtle border-t-accent rounded-full animate-spin" />
             <div className="text-sm text-primary">
-              {scanProgress > 0 ? 'Сканирование репозитория...' : 'Чтение содержимого папки...'}
+              {scanProgress > 0 ? t('forkSelector.scanningRepository') : t('forkSelector.readingFolder')}
             </div>
             {scanTotal > 0 && scanProgress > 0 ? (
               <>
@@ -384,7 +383,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                   />
                 </div>
                 <div className="text-xs text-muted">
-                  Обработано файлов: {formatNumber(scanProgress)} / {formatNumber(scanTotal)}
+                  {t('forkSelector.filesProcessed', { processed: formatNumber(scanProgress), total: formatNumber(scanTotal) })}
                 </div>
               </>
             ) : (
@@ -395,8 +394,8 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                 </div>
                 <div className="text-xs text-muted">
                   {!supportsDirectoryPicker
-                    ? 'Браузер читает все файлы в папке. Для больших репозиториев страница может казаться зависшей до 30 секунд.'
-                    : 'Для больших репозиториев это может занять несколько секунд'}
+                    ? t('forkSelector.readingAllFiles')
+                    : t('forkSelector.mayTakeSeconds')}
                 </div>
               </>
             )}
@@ -404,7 +403,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
               onClick={handleReset}
               className="text-xs text-muted hover:text-primary cursor-pointer bg-transparent border-none mt-1"
             >
-              Отмена
+              {t('forkSelector.cancel')}
             </button>
           </div>
         )}
@@ -422,7 +421,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
           <div className="flex flex-col gap-5">
             <div className="text-center">
               <div className="text-sm font-semibold text-success mb-1">
-                Репозиторий успешно просканирован
+                {t('forkSelector.scannedSuccessfully')}
               </div>
               <div className="text-xs text-muted">
                 {forkName}
@@ -431,33 +430,33 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
 
             <div className="bg-panel rounded-lg p-4 border border-subtle">
               <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                <span className="text-muted">Файлы сущностей</span>
+                <span className="text-muted">{t('forkSelector.entityFiles')}</span>
                 <span className="text-primary text-right font-mono">
                   {formatNumber(summary.entityFiles)}
                 </span>
-                <span className="text-muted">Файлы тайлов</span>
+                <span className="text-muted">{t('forkSelector.tileFiles')}</span>
                 <span className="text-primary text-right font-mono">
                   {formatNumber(summary.tileFiles)}
                 </span>
-                <span className="text-muted">Файлы декалей</span>
+                <span className="text-muted">{t('forkSelector.decalFiles')}</span>
                 <span className="text-primary text-right font-mono">
                   {formatNumber(summary.decalFiles)}
                 </span>
-                <span className="text-muted">Файлы каталога</span>
+                <span className="text-muted">{t('forkSelector.catalogFiles')}</span>
                 <span className="text-primary text-right font-mono">
                   {formatNumber(summary.catalogFiles)}
                 </span>
               </div>
 
               <div className="border-t border-subtle mt-3 pt-3 flex justify-between text-sm">
-                <span className="text-muted">Директории форков</span>
+                <span className="text-muted">{t('forkSelector.forkDirectories')}</span>
                 <span className="text-primary font-mono">
-                  {summary.forkDirs.length > 0 ? summary.forkDirs.join(', ') : 'Нет'}
+                  {summary.forkDirs.length > 0 ? summary.forkDirs.join(', ') : t('forkSelector.none')}
                 </span>
               </div>
 
               <div className="border-t border-subtle mt-3 pt-3 flex justify-between text-sm font-semibold">
-                <span className="text-muted">Всего файлов</span>
+                <span className="text-muted">{t('forkSelector.totalFiles')}</span>
                 <span className="text-accent font-mono">
                   {formatNumber(summary.totalFiles)}
                 </span>
@@ -471,7 +470,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                            hover:bg-hover hover:text-primary transition-all cursor-pointer
                            border border-subtle outline-none"
               >
-                Отмена
+                {t('forkSelector.cancel')}
               </button>
               <button
                 onClick={handleLoad}
@@ -479,13 +478,12 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                            hover:brightness-110 active:brightness-90 transition-all cursor-pointer
                            border-none outline-none focus:ring-2 focus:ring-accent/50"
               >
-                Загрузить
+                {t('forkSelector.load')}
               </button>
             </div>
 
             <p className="text-xs text-muted text-center leading-relaxed">
-              Все файлы обрабатываются локально в браузере.
-              Ничего не загружается и не отправляется на сервер.
+              {t('forkSelector.localProcessingNote')}
             </p>
           </div>
         )}
@@ -502,7 +500,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                          hover:bg-hover transition-all cursor-pointer
                          border border-subtle outline-none"
             >
-              Попробовать снова
+              {t('forkSelector.tryAgain')}
             </button>
           </div>
         )}

@@ -3,6 +3,7 @@ import type { TileChange } from '../types';
 import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState';
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
+import { t } from '../i18n';
 
 /** Compute all tiles inside a filled circle using midpoint algorithm. */
 function filledCircleTiles(cx: number, cy: number, radius: number): [number, number][] {
@@ -65,7 +66,7 @@ export class CircleTool implements ITool {
       if (entityChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Заливка круга сущностями', tileChanges: [], entityChanges },
+          command: { label: t('circleTool.command.fillEntities'), tileChanges: [], entityChanges },
         });
       }
       return;
@@ -79,7 +80,7 @@ export class CircleTool implements ITool {
       if (decalChanges.length > 0) {
         ctx.dispatch({
           type: 'APPLY_COMMAND',
-          command: { label: 'Заливка круга декалями', tileChanges: [], entityChanges: [], decalChanges },
+          command: { label: t('circleTool.command.fillDecals'), tileChanges: [], entityChanges: [], decalChanges },
         });
       }
       return;
@@ -112,7 +113,7 @@ export class CircleTool implements ITool {
     if (changes.length > 0) {
       ctx.dispatch({
         type: 'APPLY_COMMAND',
-        command: { label: 'Заливка круга', tileChanges: changes, entityChanges: [] },
+        command: { label: t('circleTool.command.fill'), tileChanges: changes, entityChanges: [] },
       });
     }
   }

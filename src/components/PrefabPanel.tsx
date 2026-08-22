@@ -2,6 +2,7 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import type { PrefabData } from '../prefab/prefabTypes';
 import { parsePrefabJson } from '../prefab/prefabIO';
 import { withBase } from '../basePath';
+import { useT } from '../i18n';
 
 interface LoadedPrefab {
   data: PrefabData;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
+  const { t } = useT();
   const [prefabs, setPrefabs] = useState<LoadedPrefab[]>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
@@ -130,14 +132,14 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
         <button
           className="px-2 py-1 bg-elevated border border-subtle rounded-sm text-primary text-xs cursor-pointer hover:bg-hover"
           onClick={() => fileInputRef.current?.click()}
-          title="Импортировать файл префаба .json"
+          title={t('prefabPanel.importTitle')}
         >
           +
         </button>
         <button
           className="px-2 py-1 bg-elevated border border-subtle rounded-sm text-primary text-xs cursor-pointer hover:bg-hover"
           onClick={loadFromServer}
-          title="Обновить из public/prefabs/"
+          title={t('prefabPanel.refreshTitle')}
         >
           {loading ? '...' : '\u21BB'}
         </button>
@@ -155,13 +157,13 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
       <div className="flex-1 overflow-y-auto">
         {prefabs.length === 0 && !loading ? (
           <div className="text-muted text-xs p-3 italic text-center leading-relaxed">
-            Префабы не найдены.<br />
-            Сохраните файлы .prefab.json в<br />
+            {t('prefabPanel.noPrefabsFound')}<br />
+            {t('prefabPanel.savePrefabsHint')}<br />
             <span className="text-primary">public/prefabs/</span>
           </div>
         ) : loading ? (
           <div className="text-muted text-xs p-3 italic text-center">
-            Загрузка...
+            {t('common.loading')}
           </div>
         ) : (
           sortedFolders.map(folder => {
