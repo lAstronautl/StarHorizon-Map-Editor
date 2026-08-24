@@ -50,6 +50,10 @@ interface Props {
 
 const TILE_SIZE = 32;
 
+type Point = { x: number; y: number };
+const pointDistance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, highlightTile,
@@ -58,6 +62,11 @@ export const EditorCanvas: React.FC<Props> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isPanning = useRef(false);
   const lastMouse = useRef({ x: 0, y: 0 });
+  // Two-finger pinch-to-zoom/pan tracking. Once a second touch joins, the whole
+  // gesture (until every finger lifts) is reserved for pan+zoom and never reaches tools.
+  const activeTouches = useRef(new Map<number, Point>());
+  const pinchState = useRef<{ lastDist: number; lastMid: Point } | null>(null);
+  const isTouchGesture = useRef(false);
   const cursorTile = useRef({ x: 0, y: 0 });
   const cursorWorld = useRef({ x: 0, y: 0 });
   const prevCursorTile = useRef({ x: -9999, y: -9999 });
@@ -164,6 +173,25 @@ export const EditorCanvas: React.FC<Props> = ({
     // Capture the pointer so drags keep working even if the finger/cursor
     // slides off the canvas, and so touch drags fire move/up events at all.
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+
+    if (e.pointerType === 'touch') {
+      activeTouches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (activeTouches.current.size >= 2) {
+        // A second finger joined: switch to pinch pan/zoom and cleanly end
+        // whatever the first finger may have started (e.g. a one-tile paint).
+        isPanning.current = false;
+        isTouchGesture.current = true;
+        toolRef.current?.onMouseUp(getToolContext(), cursorTile.current.x, cursorTile.current.y);
+        const [a, b] = Array.from(activeTouches.current.values());
+        pinchState.current = { lastDist: pointDistance(a, b), lastMid: pointMidpoint(a, b) };
+        return;
+      }
+      if (isTouchGesture.current) {
+        // A third finger touching down mid-gesture; ignore it, keep pinching with the first two.
+        return;
+      }
+    }
+
     if (shouldPan(e.button)) {
       isPanning.current = true;
       lastMouse.current = { x: e.clientX, y: e.clientY };
@@ -227,6 +255,29 @@ export const EditorCanvas: React.FC<Props> = ({
   }, [screenToWorld, getToolContext, shouldPan]);
 
   const handleMouseMove = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch' && activeTouches.current.has(e.pointerId)) {
+      activeTouches.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if (isTouchGesture.current) {
+      if (pinchState.current && activeTouches.current.size >= 2) {
+        const [a, b] = Array.from(activeTouches.current.values());
+        const dist = pointDistance(a, b);
+        const mid = pointMidpoint(a, b);
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (rect) {
+          // Two-finger drag pans the view...
+          camera.pan(mid.x - pinchState.current.lastMid.x, mid.y - pinchState.current.lastMid.y);
+          // ...while the change in finger spacing zooms, centered on the midpoint.
+          const factor = dist / pinchState.current.lastDist;
+          camera.zoomAt(factor, mid.x - rect.left, mid.y - rect.top, rect.width, rect.height);
+        }
+        pinchState.current = { lastDist: dist, lastMid: mid };
+        markOverlayDirty();
+      }
+      return;
+    }
+
     isShiftHeldRef.current = e.shiftKey;
     isCtrlHeldRef.current = e.ctrlKey || e.metaKey;
     const tile = screenToWorld(e.clientX, e.clientY);
@@ -250,6 +301,23 @@ export const EditorCanvas: React.FC<Props> = ({
   }, [camera, screenToWorld, getToolContext]);
 
   const handleMouseUp = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      activeTouches.current.delete(e.pointerId);
+      if (isTouchGesture.current) {
+        if (activeTouches.current.size >= 2) {
+          // Still 2+ fingers down (a third lifted) — keep pinching with whichever two remain.
+          const [a, b] = Array.from(activeTouches.current.values());
+          pinchState.current = { lastDist: pointDistance(a, b), lastMid: pointMidpoint(a, b) };
+        } else {
+          pinchState.current = null;
+          // Require every finger to lift before a fresh single-finger gesture can start,
+          // so the remaining finger doesn't suddenly start drawing mid-pinch.
+          if (activeTouches.current.size === 0) isTouchGesture.current = false;
+        }
+        return;
+      }
+    }
+
     isShiftHeldRef.current = e.shiftKey;
     if (isPanning.current) {
       isPanning.current = false;
@@ -264,7 +332,17 @@ export const EditorCanvas: React.FC<Props> = ({
 
   // Interrupted gesture (e.g. an OS/browser gesture takes over mid-touch) — treat as pointer-up
   // so the tool/pan state never gets stuck "held down".
-  const handlePointerCancel = useCallback(() => {
+  const handlePointerCancel = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') {
+      activeTouches.current.delete(e.pointerId);
+      if (isTouchGesture.current) {
+        if (activeTouches.current.size === 0) {
+          isTouchGesture.current = false;
+          pinchState.current = null;
+        }
+        return;
+      }
+    }
     isPanning.current = false;
     toolRef.current?.onMouseUp?.(getToolContext(), cursorTile.current.x, cursorTile.current.y);
   }, [getToolContext]);
