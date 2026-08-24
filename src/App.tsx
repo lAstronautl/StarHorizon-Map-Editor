@@ -105,6 +105,7 @@ export const App: React.FC = () => {
   const [showPerfHUD, setShowPerfHUD] = useState(true);
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({ ...DEFAULT_LAYER_VISIBILITY });
   const [pendingDeleteGridUid, setPendingDeleteGridUid] = useState<number | null>(null);
   const [validatorIssues, setValidatorIssues] = useState<ValidationIssue[] | null>(null);
@@ -686,7 +687,17 @@ export const App: React.FC = () => {
             />
           </div>
         </div>
-        <div className="flex flex-col min-w-[280px] max-w-[400px] w-[20vw] bg-panel border-l border-subtle overflow-hidden">
+        <div className="flex border-l border-subtle overflow-hidden">
+          <button
+            onClick={() => setRightPanelCollapsed(c => !c)}
+            title={rightPanelCollapsed ? t('app.panel.expand') : t('app.panel.collapse')}
+            className="flex items-center justify-center w-5 shrink-0 bg-panel hover:bg-hover
+                       text-muted hover:text-primary text-xs cursor-pointer border-none outline-none"
+          >
+            {rightPanelCollapsed ? '◂' : '▸'}
+          </button>
+          {!rightPanelCollapsed && (
+          <div className="flex flex-col min-w-[280px] max-w-[400px] w-[20vw] bg-panel overflow-hidden">
           {/* Contextual panels at top */}
           {selectedEntities.length > 0 && (
             <CollapsiblePanel title={t('app.panel.entityInfo')} forceOpen={selectedEntities.length > 0}>
@@ -750,6 +761,8 @@ export const App: React.FC = () => {
               onToggleConnections={() => { setShowConnections(c => !c); markSceneDirty(); }}
             />
           </CollapsiblePanel>
+          </div>
+          )}
         </div>
       </div>
       <StatusBar

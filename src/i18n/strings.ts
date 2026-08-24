@@ -194,6 +194,8 @@ export const strings: Record<string, Record<Locale, string>> = {
   'app.panel.decalInfo': { ru: 'Информация о декали', en: 'Decal Info' },
   'app.panel.infrastructure': { ru: 'Инфраструктура', en: 'Infrastructure' },
   'app.panel.layers': { ru: 'Слои', en: 'Layers' },
+  'app.panel.collapse': { ru: 'Свернуть панель', en: 'Collapse panel' },
+  'app.panel.expand': { ru: 'Развернуть панель', en: 'Expand panel' },
 
   // PerformanceHUD
   'perfHud.performance': { ru: 'Производительность', en: 'Performance' },
