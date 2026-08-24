@@ -159,8 +159,11 @@ export const EditorCanvas: React.FC<Props> = ({
     return button === 1 || isSpaceHeldRef.current || toolRef.current?.name === 'pan';
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.PointerEvent) => {
     setContextMenu(null);
+    // Capture the pointer so drags keep working even if the finger/cursor
+    // slides off the canvas, and so touch drags fire move/up events at all.
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     if (shouldPan(e.button)) {
       isPanning.current = true;
       lastMouse.current = { x: e.clientX, y: e.clientY };
@@ -223,7 +226,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
   }, [screenToWorld, getToolContext, shouldPan]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  const handleMouseMove = useCallback((e: React.PointerEvent) => {
     isShiftHeldRef.current = e.shiftKey;
     isCtrlHeldRef.current = e.ctrlKey || e.metaKey;
     const tile = screenToWorld(e.clientX, e.clientY);
@@ -246,7 +249,7 @@ export const EditorCanvas: React.FC<Props> = ({
     moveTool?.onMouseMove(getToolContext(), moveCoord.x, moveCoord.y);
   }, [camera, screenToWorld, getToolContext]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback((e: React.PointerEvent) => {
     isShiftHeldRef.current = e.shiftKey;
     if (isPanning.current) {
       isPanning.current = false;
@@ -258,6 +261,13 @@ export const EditorCanvas: React.FC<Props> = ({
     const tile = screenToWorld(e.clientX, e.clientY, usePrecise);
     tool?.onMouseUp(getToolContext(), tile.x, tile.y);
   }, [screenToWorld, getToolContext]);
+
+  // Interrupted gesture (e.g. an OS/browser gesture takes over mid-touch) — treat as pointer-up
+  // so the tool/pan state never gets stuck "held down".
+  const handlePointerCancel = useCallback(() => {
+    isPanning.current = false;
+    toolRef.current?.onMouseUp?.(getToolContext(), cursorTile.current.x, cursorTile.current.y);
+  }, [getToolContext]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -789,11 +799,12 @@ export const EditorCanvas: React.FC<Props> = ({
     <>
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', display: 'block', cursor: getCursor(), imageRendering: 'pixelated' }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        style={{ width: '100%', height: '100%', display: 'block', cursor: getCursor(), imageRendering: 'pixelated', touchAction: 'none' }}
+        onPointerDown={handleMouseDown}
+        onPointerMove={handleMouseMove}
+        onPointerUp={handleMouseUp}
+        onPointerLeave={handleMouseUp}
+        onPointerCancel={handlePointerCancel}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}
       />
