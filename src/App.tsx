@@ -696,10 +696,8 @@ export const App: React.FC = () => {
           >
             {rightPanelCollapsed ? '◂' : '▸'}
           </button>
-          <div
-            className={`flex flex-col bg-panel overflow-hidden transition-[width] duration-200 ease-in-out
-                        ${rightPanelCollapsed ? 'w-0' : 'min-w-[280px] max-w-[400px] w-[20vw]'}`}
-          >
+          {!rightPanelCollapsed && (
+          <div className="flex flex-col min-w-[280px] max-w-[400px] w-[20vw] bg-panel overflow-hidden">
           {/* Contextual panels at top */}
           {selectedEntities.length > 0 && (
             <CollapsiblePanel title={t('app.panel.entityInfo')} forceOpen={selectedEntities.length > 0}>
@@ -764,6 +762,7 @@ export const App: React.FC = () => {
             />
           </CollapsiblePanel>
           </div>
+          )}
         </div>
       </div>
       <StatusBar
