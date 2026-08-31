@@ -164,6 +164,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   'app.status.newMap': { ru: 'Новая карта', en: 'New map' },
   'app.status.imported': { ru: 'Импортировано: сетка {width}x{height}, сущностей: {count}', en: 'Imported: {width}x{height} grid, {count} entities' },
   'app.status.importFailed': { ru: 'Ошибка импорта: {error}', en: 'Import failed: {error}' },
+  'app.dropOverlay.title': { ru: 'Загрузить карту', en: 'Load map' },
   'app.status.exported': { ru: 'Экспортировано в station.yml', en: 'Exported station.yml' },
   'app.status.exportFailed': { ru: 'Ошибка экспорта: {error}', en: 'Export failed: {error}' },
   'app.prompt.newGridName': { ru: 'Название новой сетки:', en: 'New grid name:' },

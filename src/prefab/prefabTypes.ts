@@ -26,6 +26,17 @@ export interface PrefabDeviceLink {
   sink: string;
 }
 
+/** A decal stored relative to the prefab's top-left corner. */
+export interface PrefabDecal {
+  dx: number;
+  dy: number;
+  prototypeId: string;
+  color: string | null;
+  angle: number;
+  zIndex: number;
+  cleanable: boolean;
+}
+
 /** The complete prefab file format (serialized as `.prefab.json`). */
 export interface PrefabData {
   name: string;
@@ -34,4 +45,6 @@ export interface PrefabData {
   tiles: PrefabTile[];
   entities: PrefabEntity[];
   deviceLinks: PrefabDeviceLink[];
+  /** Optional for backward compatibility with prefabs saved before decal support. */
+  decals?: PrefabDecal[];
 }

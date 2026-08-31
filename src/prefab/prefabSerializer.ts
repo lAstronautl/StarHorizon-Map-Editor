@@ -1,6 +1,7 @@
 import type { TileGrid } from '../types';
 import type { ImportedEntity } from '../import/mapImporter';
-import type { PrefabData, PrefabTile, PrefabEntity, PrefabDeviceLink } from './prefabTypes';
+import type { DecalInstance } from '../import/decalParser';
+import type { PrefabData, PrefabTile, PrefabEntity, PrefabDeviceLink, PrefabDecal } from './prefabTypes';
 import { getCell } from '../state/editorState';
 
 export interface SerializePrefabInput {
@@ -12,10 +13,11 @@ export interface SerializePrefabInput {
   grid: TileGrid;
   entities: ImportedEntity[];
   entityRawComponents: Record<number, string[]>;
+  decals?: DecalInstance[];
 }
 
 export function serializePrefab(input: SerializePrefabInput): PrefabData {
-  const { name, minX, minY, maxX, maxY, grid, entities, entityRawComponents } = input;
+  const { name, minX, minY, maxX, maxY, grid, entities, entityRawComponents, decals } = input;
   const width = maxX - minX + 1;
   const height = maxY - minY + 1;
 
@@ -88,5 +90,26 @@ export function serializePrefab(input: SerializePrefabInput): PrefabData {
     }
   }
 
-  return { name, width, height, tiles, entities: prefabEntities, deviceLinks };
+  // 6. Decal capture: filter decals where floor(position) is within bounds
+  const prefabDecals: PrefabDecal[] = [];
+  for (const d of decals ?? []) {
+    const tileX = Math.floor(d.position.x);
+    const tileY = Math.floor(d.position.y);
+    if (tileX >= minX && tileX <= maxX && tileY >= minY && tileY <= maxY) {
+      prefabDecals.push({
+        dx: d.position.x - minX,
+        dy: d.position.y - minY,
+        prototypeId: d.prototypeId,
+        color: d.color,
+        angle: d.angle,
+        zIndex: d.zIndex,
+        cleanable: d.cleanable,
+      });
+    }
+  }
+
+  return {
+    name, width, height, tiles, entities: prefabEntities, deviceLinks,
+    ...(prefabDecals.length > 0 ? { decals: prefabDecals } : {}),
+  };
 }

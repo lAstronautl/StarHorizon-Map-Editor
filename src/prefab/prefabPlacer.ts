@@ -3,8 +3,9 @@
  * dispatched as APPLY_COMMAND to the editor reducer.
  */
 
-import type { TileGrid, TileChange, EntityChange, Command, TileCell } from '../types';
+import type { TileGrid, TileChange, EntityChange, DecalChange, Command, TileCell } from '../types';
 import type { ImportedEntity } from '../import/mapImporter';
+import type { DecalInstance } from '../import/decalParser';
 import type { PrefabData } from './prefabTypes';
 import { getCell } from '../state/editorState';
 import { cloneComponentsWithPosRot } from '../tools/entityHelpers';
@@ -16,6 +17,7 @@ export interface PlacePrefabInput {
   grid: TileGrid;
   entities: ImportedEntity[];
   nextEntityId: number;
+  nextDecalId?: number;
 }
 
 export interface ResolvedDeviceLink {
@@ -35,7 +37,7 @@ export interface PlacePrefabResult {
 const SPACE_CELL: TileCell = { tileId: 'Space' };
 
 export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
-  const { prefab, placeX, placeY, grid, entities, nextEntityId } = input;
+  const { prefab, placeX, placeY, grid, entities, nextEntityId, nextDecalId = 0 } = input;
 
   // 1. Tile changes
   const tileChanges: TileChange[] = [];
@@ -97,11 +99,28 @@ export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
     sink: dl.sink,
   }));
 
-  // 6. Build command
+  // 6. Decal additions, assign fresh IDs
+  const decalChanges: DecalChange[] = [];
+  let decalId = nextDecalId;
+  for (const pd of prefab.decals ?? []) {
+    const decal: DecalInstance = {
+      id: decalId++,
+      prototypeId: pd.prototypeId,
+      position: { x: placeX + pd.dx, y: placeY + pd.dy },
+      color: pd.color,
+      angle: pd.angle,
+      zIndex: pd.zIndex,
+      cleanable: pd.cleanable,
+    };
+    decalChanges.push({ action: 'add', decal });
+  }
+
+  // 7. Build command
   const command: Command = {
     label: `Place prefab "${prefab.name}"`,
     tileChanges,
     entityChanges: [...entityRemovals, ...entityAdditions],
+    decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
   };
 
   return {

@@ -2,8 +2,6 @@ import React, { useCallback } from 'react';
 import type { ToolType } from '../types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
-import { triggerSpaceClown } from '../rendering/spaceClown';
-import { withBase } from '../basePath';
 import { useT } from '../i18n';
 import {
   faHandPaper,
@@ -103,16 +101,6 @@ export const Toolbar: React.FC<Props> = ({ activeTool, onSelectTool }) => {
         {t('toolbar.panHint.line1')}<br />{t('toolbar.panHint.line2')}
       </div>
 
-      <div className="mt-auto pb-2">
-        <button
-          onClick={() => triggerSpaceClown(window.innerWidth, window.innerHeight)}
-          className="flex flex-col items-center justify-center w-full py-2 text-[10px] cursor-pointer border-none bg-transparent text-muted hover:bg-hover hover:text-primary gap-0.5"
-          title={t('toolbar.honk')}
-        >
-          <img src={withBase('/images/clown.png')} alt="🤡" style={{ width: 20, height: 20, imageRendering: 'pixelated' }} />
-          <span className="leading-tight">{t('toolbar.clown')}</span>
-        </button>
-      </div>
     </div>
   );
 };

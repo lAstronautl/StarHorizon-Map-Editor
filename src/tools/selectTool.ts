@@ -792,6 +792,7 @@ export class SelectTool implements ITool {
             grid: ctx.state.grid,
             entities: ctx.state.entities,
             entityRawComponents: ctx.state.entityRawComponents ?? {},
+            decals: ctx.state.grids[ctx.state.activeGridIndex].decals.decals,
           });
           downloadPrefab(prefab, name);
         },

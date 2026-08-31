@@ -97,12 +97,14 @@ export const App: React.FC = () => {
   // Falls back to a generic label when not specified (e.g. base Space Station 14).
   const [builtInForkName, setBuiltInForkName] = useState(() => t('app.builtInForkName'));
   const [cursorTile, setCursorTile] = useState({ x: 0, y: 0 });
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dragDepthRef = useRef(0);
   const [showGrid, setShowGrid] = useState(true);
   const [showSpaceBackground, setShowSpaceBackground] = useState(false);
   const [showEntities, setShowEntities] = useState(true);
   const [showSubFloor, setShowSubFloor] = useState(true);
   const [showConnections, setShowConnections] = useState(false);
-  const [showPerfHUD, setShowPerfHUD] = useState(true);
+  const [showPerfHUD, setShowPerfHUD] = useState(false);
   const [showBenchmark, setShowBenchmark] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
@@ -238,6 +240,34 @@ export const App: React.FC = () => {
       setStatusMessage(t('app.status.importFailed', { error: String(err) }));
     }
   }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFile(true);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFile(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    file.text().then(handleImport);
+  }, [handleImport]);
 
   const handleSearchNavigate = useCallback((entity: ImportedEntity) => {
     // Switch to entity select tool so the selection is visible
@@ -560,7 +590,28 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col w-full h-full">
+    <div
+      className="flex flex-col w-full h-full relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {isDraggingFile && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: 'rgba(30, 100, 220, 0.35)',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            fontSize: 32, fontWeight: 700, color: '#fff',
+            textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+          }}>
+            {t('app.dropOverlay.title')}
+          </div>
+        </div>
+      )}
       {showDisclaimer && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,

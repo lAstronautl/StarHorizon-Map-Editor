@@ -2,7 +2,7 @@
 
 ## Overview
 
-Prefabs are reusable map regions saved as `.prefab.json` files. They capture tiles, entities, raw YAML component data, and device links from a rectangular selection, and can be stamped onto any map with full SS14 export correctness.
+Prefabs are reusable map regions saved as `.prefab.json` files. They capture tiles, entities, raw YAML component data, decals, and device links from a rectangular selection, and can be stamped onto any map with full SS14 export correctness.
 
 ## File Format
 
@@ -28,6 +28,9 @@ A `.prefab.json` file containing a self-contained room/region:
   ],
   "deviceLinks": [
     { "sourceIdx": 0, "targetIdx": 1, "port": "Pressed", "sink": "Toggle" }
+  ],
+  "decals": [
+    { "dx": 1.5, "dy": 2.25, "prototypeId": "DecalCaution", "color": null, "angle": 0, "zIndex": 0, "cleanable": false }
   ]
 }
 ```
@@ -36,7 +39,8 @@ Key design points:
 
 - **Sprite state overrides**, `PrefabEntity` includes an optional `spriteStateOverride?: string` field. If present, it is serialized into the `.prefab.json` file and restored on placement, preserving the visual state chosen via the Sprite State Selector.
 - **Sparse tiles**, Only non-Space tiles are stored. Space tiles are omitted.
-- **Relative offsets**, All `dx`/`dy` values are integer tile offsets from the prefab's top-left corner. Entity positions are stored as `Math.floor(position) - minBound`.
+- **Relative offsets**, Tile/entity `dx`/`dy` are integer tile offsets from the prefab's top-left corner (entity positions stored as `Math.floor(position) - minBound`). Decal `dx`/`dy` keep the fractional part (`position - minBound`), since decals aren't tile-centered.
+- **Decals**, Optional `decals` array, omitted entirely from the file when the selection contains none. Older `.prefab.json` files without this field still load fine, they just place no decals.
 - **Raw YAML lines**, `rawYamlLines` on entities carry verbatim YAML for byte-exact export roundtrip. On placement, these are stored in `entityRawComponents` so the exporter emits them unchanged.
 - **Index-based device links**, Links reference entities by array index, not UIDs. New UIDs are assigned when the prefab is stamped.
 - **Device link serialization**, Uses `DeviceLinkSource.linkedPorts` (not `DeviceList.devices`) to capture port/sink pairs. Each entry in `linkedPorts` maps a target UID to an array of `[port, sink]` pairs.
@@ -44,7 +48,7 @@ Key design points:
 
 ### Validation
 
-`parsePrefabJson()` validates that all 6 required fields (`name`, `width`, `height`, `tiles`, `entities`, `deviceLinks`) are present and correctly typed. Invalid files throw descriptive errors.
+`parsePrefabJson()` validates that all 6 required fields (`name`, `width`, `height`, `tiles`, `entities`, `deviceLinks`) are present and correctly typed. `decals` is optional for backward compatibility. Invalid files throw descriptive errors.
 
 ## Creating a Prefab
 
@@ -84,7 +88,7 @@ The dev server provides a `/__api/prefabs` endpoint that lists all `.prefab.json
 
 ## Conflict Handling
 
-Stamping overwrites the footprint: tiles are replaced, existing entities in the footprint are removed, then prefab entities are placed with fresh UIDs.
+Stamping overwrites the footprint: tiles are replaced, existing entities in the footprint are removed, then prefab entities are placed with fresh UIDs. Decals are additive (they can stack, like normal decal placement) and are placed with fresh IDs; existing decals in the footprint are left untouched.
 
 ## Export Correctness
 

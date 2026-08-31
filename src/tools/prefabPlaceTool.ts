@@ -47,6 +47,7 @@ export class PrefabPlaceTool implements ITool {
     }
 
     // Place prefab
+    const activeGrid = ctx.state.grids[ctx.state.activeGridIndex];
     const result = placePrefab({
       prefab,
       placeX: tileX,
@@ -54,6 +55,7 @@ export class PrefabPlaceTool implements ITool {
       grid: ctx.state.grid,
       entities: ctx.state.entities,
       nextEntityId: ctx.state.nextEntityId,
+      nextDecalId: activeGrid.decals.nextDecalId,
     });
 
     // Dispatch the command
@@ -117,6 +119,17 @@ export class PrefabPlaceTool implements ITool {
       const sy = camera.worldToScreenY(ey, canvasH);
       canvasCtx.fillStyle = '#44ff88';
       canvasCtx.fillRect(sx + 2, sy + 2, tileScreenSize - 4, tileScreenSize - 4);
+    }
+
+    // Ghost preview of decals (yellow semi-transparent dots)
+    canvasCtx.fillStyle = '#ffcc44';
+    for (const decal of prefab.decals ?? []) {
+      const sx = camera.worldToScreenX(cursorTileX + decal.dx, canvasW);
+      const sy = camera.worldToScreenY(cursorTileY + decal.dy, canvasH);
+      const r = Math.max(2, tileScreenSize * 0.12);
+      canvasCtx.beginPath();
+      canvasCtx.arc(sx, sy, r, 0, Math.PI * 2);
+      canvasCtx.fill();
     }
     canvasCtx.globalAlpha = 1.0;
 
