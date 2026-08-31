@@ -4,7 +4,6 @@ import { getCell, setCell } from '../state/editorState';
 import { removeEntitiesAtPositions } from './entityBrushHelper';
 import { removeDecalsAtPositions } from './decalBrushHelper';
 import { markSceneDirty } from '../rendering/dirtyFlags';
-import { spatialGetAt } from '../rendering/spatialIndex';
 
 export class EraseTool implements ITool {
   name = 'erase';
@@ -84,6 +83,15 @@ export class EraseTool implements ITool {
 
     const { state, paletteItem } = ctx;
 
+    // Erase entities if entity palette is selected
+    if (paletteItem && paletteItem.type === 'entity') {
+      const removals = removeEntitiesAtPositions(
+        [[worldX, worldY]], state.entities, paletteItem.id,
+      );
+      this.entityChanges.push(...removals);
+      return;
+    }
+
     // Erase decals if decal palette is selected
     if (paletteItem && paletteItem.type === 'decal') {
       const activeGrid = state.grids[state.activeGridIndex];
@@ -93,19 +101,6 @@ export class EraseTool implements ITool {
       this.decalChanges.push(...removals);
       if (removals.length > 0) markSceneDirty();
       return;
-    }
-
-    // Erase any entities under the cursor. If an entity palette item is
-    // selected, only that prototype is removed; otherwise all entities here go.
-    if (spatialGetAt(worldX, worldY).length > 0) {
-      const filterProto = paletteItem && paletteItem.type === 'entity' ? paletteItem.id : undefined;
-      const removals = removeEntitiesAtPositions(
-        [[worldX, worldY]], state.entities, filterProto,
-      );
-      if (removals.length > 0) {
-        this.entityChanges.push(...removals);
-        return;
-      }
     }
 
     // Otherwise erase tiles
