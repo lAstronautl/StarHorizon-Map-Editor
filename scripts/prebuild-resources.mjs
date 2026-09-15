@@ -37,7 +37,7 @@ const TEXTURE_SETS = {
   none: [],
   // Base SS14 texture directories. Fork-specific texture directories (under any
   // discovered _Fork prefix) are appended automatically below.
-  minimal: ['Tiles', 'Structures', 'Markers', 'Decals'],
+  minimal: ['Tiles', 'Structures', 'Structure', 'Markers', 'Decals'],
   full: null, // copy entire Textures dir
 };
 
@@ -53,6 +53,20 @@ function walkDir(dir, ext) {
     } else if (entry.name.endsWith(ext)) {
       results.push(full);
     }
+  }
+  return results;
+}
+
+function findNamedDirsRecursive(dir, name) {
+  const results = [];
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.name === name) {
+      results.push(full);
+    }
+    results.push(...findNamedDirsRecursive(full, name));
   }
   return results;
 }
@@ -131,7 +145,8 @@ const decalFiles = walkDir(decalDir, '.yml').map(f =>
   '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
 );
 
-// Also scan fork Catalog and Decals directories (any leading-underscore fork dir)
+const forkTileFiles = [];
+const forkEntityFiles = [];
 const forkCatalogFiles = [];
 const forkDecalFiles = [];
 const forkPrefixes = [];
@@ -139,24 +154,38 @@ const prototypesDir = path.join(resourcesRoot, 'Prototypes');
 for (const entry of fs.readdirSync(prototypesDir, { withFileTypes: true })) {
   if (entry.isDirectory() && entry.name.startsWith('_')) {
     forkPrefixes.push(entry.name);
-    const forkCatalog = path.join(prototypesDir, entry.name, 'Catalog');
-    const files = walkDir(forkCatalog, '.yml').map(f =>
-      '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
-    );
-    forkCatalogFiles.push(...files);
+    const forkRoot = path.join(prototypesDir, entry.name);
 
-    const forkDecals = path.join(prototypesDir, entry.name, 'Decals');
-    const dFiles = walkDir(forkDecals, '.yml').map(f =>
-      '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
-    );
-    forkDecalFiles.push(...dFiles);
+    for (const tilesDir of findNamedDirsRecursive(forkRoot, 'Tiles')) {
+      forkTileFiles.push(...walkDir(tilesDir, '.yml').map(f =>
+        '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+      ));
+    }
+
+    for (const entitiesDir of findNamedDirsRecursive(forkRoot, 'Entities')) {
+      forkEntityFiles.push(...walkDir(entitiesDir, '.yml').map(f =>
+        '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+      ));
+    }
+
+    for (const catalogDir of findNamedDirsRecursive(forkRoot, 'Catalog')) {
+      forkCatalogFiles.push(...walkDir(catalogDir, '.yml').map(f =>
+        '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+      ));
+    }
+
+    for (const decalsDir of findNamedDirsRecursive(forkRoot, 'Decals')) {
+      forkDecalFiles.push(...walkDir(decalsDir, '.yml').map(f =>
+        '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+      ));
+    }
   }
 }
 
 const manifestDir = path.join(publicResources, '_manifests');
 fs.mkdirSync(manifestDir, { recursive: true });
-fs.writeFileSync(path.join(manifestDir, 'tiles.json'), JSON.stringify(tileFiles));
-fs.writeFileSync(path.join(manifestDir, 'entities.json'), JSON.stringify(entityFiles));
+fs.writeFileSync(path.join(manifestDir, 'tiles.json'), JSON.stringify([...tileFiles, ...forkTileFiles]));
+fs.writeFileSync(path.join(manifestDir, 'entities.json'), JSON.stringify([...entityFiles, ...forkEntityFiles]));
 fs.writeFileSync(path.join(manifestDir, 'catalog.json'), JSON.stringify([...catalogFiles, ...forkCatalogFiles]));
 fs.writeFileSync(path.join(manifestDir, 'decals.json'), JSON.stringify([...decalFiles, ...forkDecalFiles]));
 
@@ -167,8 +196,8 @@ const builtInForkName = forkNameArg
   ?? (forkPrefixes.length === 1 ? forkPrefixes[0].replace(/^_/, '') : 'Built-in');
 fs.writeFileSync(path.join(manifestDir, 'fork.json'), JSON.stringify({ name: builtInForkName }));
 console.log(`  Built-in fork name: ${builtInForkName}`);
-console.log(`  Tile prototypes: ${tileFiles.length} files`);
-console.log(`  Entity prototypes: ${entityFiles.length} files`);
+console.log(`  Tile prototypes: ${tileFiles.length + forkTileFiles.length} files (${tileFiles.length} base + ${forkTileFiles.length} fork)`);
+console.log(`  Entity prototypes: ${entityFiles.length + forkEntityFiles.length} files (${entityFiles.length} base + ${forkEntityFiles.length} fork)`);
 console.log(`  Catalog prototypes: ${catalogFiles.length + forkCatalogFiles.length} files (${catalogFiles.length} base + ${forkCatalogFiles.length} fork)`);
 console.log(`  Decal prototypes: ${decalFiles.length + forkDecalFiles.length} files (${decalFiles.length} base + ${forkDecalFiles.length} fork)`);
 
@@ -176,7 +205,7 @@ console.log(`  Decal prototypes: ${decalFiles.length + forkDecalFiles.length} fi
 console.log('\nStep 2: Copying prototype files...');
 
 let protoCount = 0;
-for (const relPath of [...tileFiles, ...entityFiles, ...catalogFiles, ...forkCatalogFiles, ...decalFiles, ...forkDecalFiles]) {
+for (const relPath of [...tileFiles, ...forkTileFiles, ...entityFiles, ...forkEntityFiles, ...catalogFiles, ...forkCatalogFiles, ...decalFiles, ...forkDecalFiles]) {
   const src = path.join(resourcesRoot, relPath);
   const dest = path.join(publicResources, relPath);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -196,12 +225,7 @@ if (textureMode === 'full') {
   console.log(`  Copied ${count} texture files`);
 } else if (textureMode !== 'none') {
   const dirs = [...(TEXTURE_SETS[textureMode] ?? TEXTURE_SETS.minimal)];
-  // Mirror the base texture set under any discovered fork directory (e.g. a fork's
-  // _MyFork/Structures). Missing directories are skipped by copyDirRecursive.
   const baseSet = TEXTURE_SETS.minimal;
-  for (const fork of forkPrefixes) {
-    for (const sub of baseSet) dirs.push(`${fork}/${sub}`);
-  }
   let totalCount = 0;
   for (const subdir of dirs) {
     const src = path.join(textureSrc, subdir);
@@ -209,6 +233,18 @@ if (textureMode === 'full') {
     const count = copyDirRecursive(src, dest);
     console.log(`  ${subdir}: ${count} files`);
     totalCount += count;
+  }
+  for (const fork of forkPrefixes) {
+    const forkTextureRoot = path.join(textureSrc, fork);
+    for (const sub of baseSet) {
+      for (const namedDir of findNamedDirsRecursive(forkTextureRoot, sub)) {
+        const relDir = path.relative(textureSrc, namedDir).replace(/\\/g, '/');
+        const dest = path.join(textureDest, relDir);
+        const count = copyDirRecursive(namedDir, dest);
+        console.log(`  ${relDir}: ${count} files`);
+        totalCount += count;
+      }
+    }
   }
   console.log(`  Total: ${totalCount} texture files`);
 }
