@@ -153,7 +153,7 @@ export function createInitialState(): EditorState {
     registry: null,
     mapUid: 0,
     gridUid: 1,
-    meta: { format: 6 },
+    meta: { format: 7 },
     lightingEnabled: false,
     dirty: false,
   };

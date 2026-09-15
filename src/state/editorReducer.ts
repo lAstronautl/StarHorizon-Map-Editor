@@ -573,7 +573,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         containedEntities: emptyGrid.containedEntities,
         mapUid: 0,
         gridUid: 1,
-        meta: { format: 6, postmapinit: false },
+        meta: { format: 7, postmapinit: false },
         maps: undefined,
         gridUidList: undefined,
         structuralEntityData: undefined,

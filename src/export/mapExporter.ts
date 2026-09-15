@@ -149,6 +149,7 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
     lines.push('    - type: Transform');
     lines.push('    - type: Map');
     lines.push('      mapPaused: True');
+    lines.push('    - type: GridTree');
     lines.push('    - type: Broadphase');
     lines.push('    - type: OccluderTree');
 
@@ -163,11 +164,16 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
       lines.push('      chunks:');
       for (const cl of fallbackChunks) lines.push(cl);
     }
+    lines.push('    - type: Broadphase');
+    lines.push('    - type: Physics');
+    lines.push('    - type: Fixtures');
+    lines.push('    - type: Gravity');
     // Append DecalGrid if we have dirty decals for this grid
     const fallbackDecalLines = gridDecalsMap.get(map.gridUid);
     if (fallbackDecalLines) {
       for (const dl of fallbackDecalLines) lines.push(dl);
     }
+    lines.push('    - type: OccluderTree');
   }
 
   // Entity groups, use concat to avoid stack overflow with large arrays
