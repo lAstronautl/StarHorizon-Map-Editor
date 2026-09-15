@@ -57,6 +57,27 @@ describe('exportMap', () => {
     expect(reimported.grid.cells[1].tileId).toBe('Space');
   });
 
+  it('falls back to generated structural entities when structuralEntityData is an empty object', () => {
+    // Reproduces a real crash: an empty-but-defined structuralEntityData produced
+    // "- proto: \"\"\n  entities:" with nothing underneath, an invalid YAML sequence
+    // that RobustToolbox's fallback deserializer rejects with an InvalidCastException.
+    const original = makeMinimalMap();
+    original.structuralEntityData = {};
+    const yamlStr = exportMap(original);
+
+    // The structural group's `entities:` key must always be followed by at least
+    // one `- uid:` line, never left as a bare/empty mapping value.
+    const lines = yamlStr.split('\n');
+    const idx = lines.findIndex(l => l.trim() === '- proto: ""');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(lines[idx + 1].trim()).toBe('entities:');
+    expect(lines[idx + 2].trim().startsWith('- uid:')).toBe(true);
+
+    // And the result must still be re-importable.
+    const reimported = importMap(yamlStr);
+    expect(reimported.meta.format).toBe(6);
+  });
+
   it('preserves entities', () => {
     const original = makeMinimalMap();
     const yamlStr = exportMap(original);

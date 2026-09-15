@@ -423,6 +423,20 @@ function parseNonStructuralEntities(
     perGridContainedEntities.set(uid, {});
   }
 
+  // Collect every non-structural entity UID up front. A Transform.parent that isn't a
+  // grid, the map, a structural entity, or one of these known entities is a dangling
+  // reference (e.g. a grid whose MapGrid entity is missing/corrupted in the source file)
+  // rather than genuine containment, and must not be silently dropped as an orphaned
+  // "contained" entity with no real container.
+  const knownEntityUids = new Set<number>();
+  for (const group of entityGroups) {
+    const proto = group.proto ?? '';
+    if (proto === '' || proto == null) continue;
+    for (const entity of group.entities ?? []) {
+      if (!structuralEntities.has(entity.uid)) knownEntityUids.add(entity.uid);
+    }
+  }
+
   for (const group of entityGroups) {
     const proto = group.proto ?? '';
     if (proto === '' || proto == null) continue; // skip structural group
@@ -448,7 +462,8 @@ function parseNonStructuralEntities(
       entityOrder.push(entity.uid);
 
       // Determine which grid this entity belongs to
-      const isContained = parentUid != null && !gridUids.has(parentUid) && parentUid !== mapUid && !structuralEntities.has(parentUid);
+      const isContained = parentUid != null && !gridUids.has(parentUid) && parentUid !== mapUid
+        && !structuralEntities.has(parentUid) && knownEntityUids.has(parentUid);
 
       if (isContained) {
         // Contained entity, find which grid the container belongs to

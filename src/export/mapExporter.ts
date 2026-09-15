@@ -87,7 +87,7 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   lines.push('- proto: ""');
   lines.push('  entities:');
 
-  if (map.structuralEntityData) {
+  if (map.structuralEntityData && Object.keys(map.structuralEntityData).length > 0) {
     // Emit structural entities with preserved components
     for (const [uidStr, components] of Object.entries(map.structuralEntityData)) {
       const uid = Number(uidStr);
