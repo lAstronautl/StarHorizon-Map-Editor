@@ -48,6 +48,9 @@ export interface SpriteInfo {
   iconSmoothBase?: string; // IconSmooth state prefix (e.g., "state_" for tables, "swindow" for shuttle windows)
   iconSmoothMode?: 'Corners' | 'CardinalFlags' | 'Diagonal'; // Smoothing mode (default: Corners)
   layers: SpriteLayerInfo[];
+  /** Index into `layers` that baseState/rsiPath were resolved from, if any (used to avoid
+   *  drawing that layer a second time as an "extra" layer, or skipping it entirely). */
+  baseLayerIndex?: number;
 }
 
 export interface SpriteLayerInfo {

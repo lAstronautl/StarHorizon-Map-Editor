@@ -253,6 +253,10 @@ describe('layer sprite override vs leaked parent sprite', () => {
     expect(info).not.toBeNull();
     expect(info!.rsiPath).toBe('Structures/Piping/Atmospherics/vent.rsi');
     expect(info!.baseState).toBe('vent_off');
+    // baseState was resolved from layers[1], not layers[0] (the pipe stub) -- the
+    // renderer must skip index 1 (not 0) when drawing "extra" layers, or the pipe
+    // stub layer gets dropped entirely and the base layer gets drawn twice.
+    expect(info!.baseLayerIndex).toBe(1);
   });
 });
 

@@ -140,11 +140,14 @@ export function extractSpriteInfo(components: RawComponent[]): SpriteInfo | null
   // but the top-level sprite is vent.rsi, we want layers[1].state=vent_off.
   const directState = spriteComp.state as string | undefined;
   let baseState = directState ?? '';
-  for (const layer of layers) {
+  let baseLayerIndex: number | undefined;
+  for (let i = 0; i < layers.length; i++) {
+    const layer = layers[i];
     if (!layer.state) continue;
     // If this layer has a sprite override pointing to a different RSI, skip it
     if (layer.sprite && layer.sprite !== rsiPath) continue;
     baseState = layer.state;
+    baseLayerIndex = i;
     break;
   }
 
@@ -186,6 +189,7 @@ export function extractSpriteInfo(components: RawComponent[]): SpriteInfo | null
     iconSmoothBase: inferSmoothBase(iconSmoothComp, baseState),
     iconSmoothMode: inferSmoothMode(iconSmoothComp),
     layers,
+    baseLayerIndex,
   };
 }
 

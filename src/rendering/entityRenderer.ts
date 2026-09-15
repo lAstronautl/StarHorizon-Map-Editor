@@ -502,11 +502,15 @@ function getExtraLayers(
     return null;
   }
 
-  // Load all layers beyond the first (base layer is already rendered)
+  // Load all layers except the one already rendered as the base sprite (usually index 0,
+  // but extractSpriteInfo may pick a different layer as baseState, e.g. GasPort where
+  // layer 0 keeps its own sprite override and layer 1 supplies the resolved baseState).
+  const skipIndex = spriteInfo.baseLayerIndex ?? 0;
   extraLayerLoadingSet.add(cacheKey);
   const layerPromises: Promise<SpriteDrawInfo | null>[] = [];
 
-  for (let i = 1; i < spriteInfo.layers.length; i++) {
+  for (let i = 0; i < spriteInfo.layers.length; i++) {
+    if (i === skipIndex) continue;
     const layer = spriteInfo.layers[i];
     if (layer.visible === false || !layer.state) continue;
 
