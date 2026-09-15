@@ -66,7 +66,7 @@ export class EyedropperTool implements ITool {
     return items;
   }
 
-  /** Pick the currently selected item and switch to the appropriate tool. */
+  /** Pick the currently selected item and switch back to the tool used before the eyedropper. */
   private pickCurrent(ctx: ToolContext) {
     if (this.pickerItems.length === 0) return;
     const item = this.pickerItems[this.pickerIndex];
@@ -74,15 +74,11 @@ export class EyedropperTool implements ITool {
       type: 'SET_PALETTE_ITEM',
       item: { type: item.type === 'decal' ? 'decal' : item.type, id: item.id },
     });
-    if (item.type === 'decal') {
+    if (item.type === 'decal' && item.decalColor !== undefined && ctx.setDecalColor) {
       // Apply the picked decal's color to placement settings
-      if (item.decalColor !== undefined && ctx.setDecalColor) {
-        ctx.setDecalColor(item.decalColor);
-      }
-      ctx.dispatch({ type: 'SET_TOOL', tool: 'paint' });
-    } else {
-      ctx.dispatch({ type: 'SET_TOOL', tool: item.type === 'entity' ? 'entityPlace' : 'paint' });
+      ctx.setDecalColor(item.decalColor);
     }
+    ctx.dispatch({ type: 'SET_TOOL', tool: ctx.previousTool ?? 'paint' });
   }
 
   onMouseDown(ctx: ToolContext, worldX: number, worldY: number, button: number) {

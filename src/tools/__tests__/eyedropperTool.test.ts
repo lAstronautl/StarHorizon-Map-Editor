@@ -97,7 +97,19 @@ describe('EyedropperTool', () => {
 
       const paletteAction = dispatched.find(a => a.type === 'SET_PALETTE_ITEM');
       expect(paletteAction.item).toEqual({ type: 'entity', id: 'APCBasic' });
-      expect(dispatched.find(a => a.type === 'SET_TOOL').tool).toBe('entityPlace');
+      // No previousTool set in context -> falls back to 'paint'.
+      expect(dispatched.find(a => a.type === 'SET_TOOL').tool).toBe('paint');
+    });
+
+    it('restores the tool that was active before the eyedropper', () => {
+      const tool = new EyedropperTool();
+      const e1 = makeEntity(1, 'APCBasic', 5, 5);
+      const { ctx, dispatched } = makeToolContext([e1], 'FloorSteel');
+      ctx.previousTool = 'rectangle';
+
+      tool.onMouseDown(ctx, 5, 5, 0);
+
+      expect(dispatched.find(a => a.type === 'SET_TOOL').tool).toBe('rectangle');
     });
 
     it('picks tile when no entity at location', () => {
@@ -138,7 +150,8 @@ describe('EyedropperTool', () => {
       const paletteAction = dispatched.find(a => a.type === 'SET_PALETTE_ITEM');
       expect(paletteAction.item.type).toBe('entity');
       expect(paletteAction.item.id).toBe('GasVentPump');
-      expect(dispatched.find(a => a.type === 'SET_TOOL').tool).toBe('entityPlace');
+      // No previousTool set in context -> falls back to 'paint'.
+      expect(dispatched.find(a => a.type === 'SET_TOOL').tool).toBe('paint');
     });
   });
 

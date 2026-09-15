@@ -12,11 +12,13 @@ export interface ParsedPrototypes {
 
 /** Derive entity category from file path. "/Prototypes/Entities/Structures/Power/apc.yml" -> "Structures/Power" */
 export function deriveCategory(filePath: string): string {
-  // Handle base and fork paths: /Prototypes/Entities/... and /Prototypes/_MyFork/Entities/...
-  const entityMatch = filePath.match(/\/Prototypes\/(?:_[^/]+\/)?Entities\/(.+)\//);
+  // Handle base and fork paths, including nested fork dirs like
+  // /Prototypes/_Horizon/_Fractions/AnCo/Entities/... where intermediate segments
+  // aren't all underscore-prefixed (e.g. "AnCo" inside "_Horizon/_Fractions/AnCo").
+  const entityMatch = filePath.match(/\/Prototypes\/(?:.+\/)?Entities\/(.+)\//);
   if (entityMatch) return entityMatch[1].split('/').join('/');
   // Handle Catalog paths: /Prototypes/Catalog/Fills/Lockers/... -> "Catalog/Fills/Lockers"
-  const catalogMatch = filePath.match(/\/Prototypes\/(?:_[^/]+\/)?Catalog\/(.+)\//);
+  const catalogMatch = filePath.match(/\/Prototypes\/(?:.+\/)?Catalog\/(.+)\//);
   if (catalogMatch) return 'Catalog/' + catalogMatch[1].split('/').join('/');
   return 'Other';
 }
@@ -85,13 +87,38 @@ export async function discoverPrototypes(
     decalFiles.push(...baseDecalFiles);
   } catch { /* Decals dir may not exist */ }
 
-  // Discover and scan fork directories (any leading-underscore directory)
+  // Discover and scan fork directories (any leading-underscore directory). Named
+  // subdirectories (Tiles/Entities/Catalog/Decals) can appear at any depth inside a
+  // fork (e.g. a fork-wide _Horizon/Entities as well as a nested
+  // _Horizon/_Fractions/AnCo/Entities). Local filesystem listing supports listing the
+  // whole fork subtree directly; the static HTTP provider's manifest fallback only
+  // recognizes the four canonical dir names, so fall back to querying those (its
+  // manifests already contain nested-fork entries from the prebuild step).
   const forkDirs = await discoverForkPrefixes(provider);
   for (const fork of forkDirs) {
+    let forkFiles: string[] = [];
+    try {
+      forkFiles = await provider.listFiles(`Prototypes/${fork}`, '.yml');
+    } catch { /* fork listing failed */ }
+
+    if (forkFiles.length > 0) {
+      for (const f of forkFiles) {
+        if (/\/Tiles\//.test(f) || /\/Turf\//.test(f)) tileFiles.push(f);
+        else if (/\/Entities\//.test(f)) entityFiles.push(f);
+        else if (/\/Catalog\//.test(f)) entityFiles.push(f);
+        else if (/\/Decals\//.test(f)) decalFiles.push(f);
+      }
+      continue;
+    }
+
     try {
       const forkTiles = await provider.listFiles(`Prototypes/${fork}/Tiles`, '.yml');
       tileFiles.push(...forkTiles);
     } catch { /* fork may not have Tiles/ */ }
+    try {
+      const forkTurf = await provider.listFiles(`Prototypes/${fork}/Turf`, '.yml');
+      tileFiles.push(...forkTurf);
+    } catch { /* fork may not have Turf/ */ }
     try {
       const forkEntities = await provider.listFiles(`Prototypes/${fork}/Entities`, '.yml');
       entityFiles.push(...forkEntities);

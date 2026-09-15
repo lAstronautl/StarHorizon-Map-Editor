@@ -5,7 +5,8 @@ import { editorReducer } from './state/editorReducer';
 import { createInitialState, ensureGridContainsBounds } from './state/editorState';
 import type { ITool } from './tools/toolTypes';
 import { PaintTool } from './tools/paintTool';
-import { EraseTool } from './tools/eraseTool';
+import { EraseTool, DEFAULT_ERASE_SETTINGS } from './tools/eraseTool';
+import type { EraseSettings } from './tools/eraseTool';
 import { EyedropperTool } from './tools/eyedropperTool';
 import { PanTool } from './tools/panTool';
 import { FillTool } from './tools/fillTool';
@@ -28,6 +29,7 @@ import { DEFAULT_DECAL_PLACEMENT_SETTINGS } from './components/DecalPalette';
 import type { DecalPlacementSettings } from './components/DecalPalette';
 import { EntityInfoPanel } from './components/EntityInfoPanel';
 import { DecalInfoPanel } from './components/DecalInfoPanel';
+import { EraseSettingsPanel } from './components/EraseSettingsPanel';
 import { MenuBar } from './components/MenuBar';
 import { StatusBar } from './components/StatusBar';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -118,6 +120,8 @@ export const App: React.FC = () => {
   const cameraRef = useRef(new Camera());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const decalPlacementSettingsRef = useRef<DecalPlacementSettings>({ ...DEFAULT_DECAL_PLACEMENT_SETTINGS });
+  const eraseSettingsRef = useRef<EraseSettings>({ ...DEFAULT_ERASE_SETTINGS });
+  const preEyedropperToolRef = useRef<ToolType>('paint');
 
   // Probe for built-in resources availability
   useEffect(() => {
@@ -187,11 +191,13 @@ export const App: React.FC = () => {
       dispatch({ type: 'SET_TOOL', tool: 'paint' });
       return;
     }
+    // Remember the tool active before switching to the eyedropper, so picking an
+    // item restores it instead of always landing on paint/entityPlace.
+    if (tool === 'eyedropper' && state.activeTool !== 'eyedropper') {
+      preEyedropperToolRef.current = state.activeTool;
+    }
     dispatch({ type: 'SET_TOOL', tool });
-  }, [state.selectedPaletteItem]);
-
-  // Tools that support both tile and entity palette items
-  const ENTITY_CAPABLE_TOOLS = new Set(['paint', 'erase', 'rectangle', 'line', 'circle', 'entitySelect', 'entityPlace']);
+  }, [state.selectedPaletteItem, state.activeTool]);
 
   const handleSelectPaletteItem = useCallback((item: PaletteItem) => {
     dispatch({ type: 'SET_PALETTE_ITEM', item });
@@ -199,23 +205,9 @@ export const App: React.FC = () => {
     if (item.type === 'entity') {
       entityPlaceTool.resetRotation();
     }
-    if (item.type === 'tile') {
-      // Switch to paint if on an entity-only tool or eyedropper
-      if (state.activeTool === 'eyedropper' || state.activeTool === 'entitySelect' || state.activeTool === 'entityPlace') {
-        dispatch({ type: 'SET_TOOL', tool: 'paint' });
-      }
-    } else if (item.type === 'entity') {
-      // Only auto-switch to entityPlace if current tool doesn't support entities
-      if (!ENTITY_CAPABLE_TOOLS.has(state.activeTool)) {
-        dispatch({ type: 'SET_TOOL', tool: 'entityPlace' });
-      }
-    } else if (item.type === 'decal') {
-      // Switch to paint tool so canvas handles decal placement inline
-      if (state.activeTool === 'eyedropper' || state.activeTool === 'entitySelect' || state.activeTool === 'entityPlace') {
-        dispatch({ type: 'SET_TOOL', tool: 'paint' });
-      }
-    }
-  }, [state.activeTool]);
+    // Selecting any palette item always switches to the paint (brush) tool.
+    dispatch({ type: 'SET_TOOL', tool: 'paint' });
+  }, []);
 
   const handleNewMap = useCallback(() => {
     dispatch({ type: 'NEW_MAP' });
@@ -734,6 +726,8 @@ export const App: React.FC = () => {
               showConnections={showConnections}
               lightingEnabled={state.lightingEnabled}
               decalPlacementSettingsRef={decalPlacementSettingsRef}
+              eraseSettingsRef={eraseSettingsRef}
+              previousToolRef={preEyedropperToolRef}
               highlightTile={highlightTile}
             />
           </div>
@@ -791,6 +785,11 @@ export const App: React.FC = () => {
                 selection={infraSelection}
                 onChange={handleInfraChange}
               />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'erase' && (
+            <CollapsiblePanel title={t('app.panel.eraseSettings')} defaultOpen={true}>
+              <EraseSettingsPanel settingsRef={eraseSettingsRef} />
             </CollapsiblePanel>
           )}
           {/* Palette, always visible, takes remaining space */}

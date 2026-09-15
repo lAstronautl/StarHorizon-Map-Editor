@@ -1,8 +1,8 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { TileChange, EntityChange, DecalChange } from '../types';
 import { ensureGridContains, getCell, setCell } from '../state/editorState';
-import { createEntitiesAtPositions } from './entityBrushHelper';
-import { createDecalsAtPositions } from './decalBrushHelper';
+import { createEntitiesAtPositions, removeEntitiesAtPositions } from './entityBrushHelper';
+import { createDecalsAtPositions, removeDecalsAtPositions } from './decalBrushHelper';
 import { markSceneDirty } from '../rendering/dirtyFlags';
 
 export class PaintTool implements ITool {
@@ -10,32 +10,44 @@ export class PaintTool implements ITool {
   cursor = 'crosshair';
 
   private painting = false;
+  private erasing = false;
   private tileChanges: TileChange[] = [];
   private entityChanges: EntityChange[] = [];
   private decalChanges: DecalChange[] = [];
   private visited = new Set<string>();
 
   onMouseDown(ctx: ToolContext, tileX: number, tileY: number, button: number) {
-    if (button !== 0) return;
-    this.painting = true;
+    if (button !== 0 && button !== 2) return;
+    this.painting = button === 0;
+    this.erasing = button === 2;
     this.tileChanges = [];
     this.entityChanges = [];
     this.decalChanges = [];
     this.visited.clear();
-    this.paintAt(ctx, tileX, tileY);
+    if (this.erasing) {
+      this.eraseAt(ctx, tileX, tileY);
+    } else {
+      this.paintAt(ctx, tileX, tileY);
+    }
   }
 
   onMouseMove(ctx: ToolContext, tileX: number, tileY: number) {
-    if (!this.painting) return;
-    this.paintAt(ctx, tileX, tileY);
+    if (this.erasing) {
+      this.eraseAt(ctx, tileX, tileY);
+    } else if (this.painting) {
+      this.paintAt(ctx, tileX, tileY);
+    }
   }
 
   onMouseUp(ctx: ToolContext) {
-    if (!this.painting) return;
+    if (!this.painting && !this.erasing) return;
+    const wasErasing = this.erasing;
     this.painting = false;
+    this.erasing = false;
     if (this.tileChanges.length > 0 || this.entityChanges.length > 0 || this.decalChanges.length > 0) {
-      const label = this.decalChanges.length > 0 ? 'Paint decals'
-        : this.entityChanges.length > 0 ? 'Paint entities' : 'Paint tiles';
+      const verb = wasErasing ? 'Erase' : 'Paint';
+      const label = this.decalChanges.length > 0 ? `${verb} decals`
+        : this.entityChanges.length > 0 ? `${verb} entities` : `${verb} tiles`;
       ctx.dispatch({
         type: 'APPLY_COMMAND',
         command: {
@@ -65,7 +77,7 @@ export class PaintTool implements ITool {
     const drawX = camera.worldToScreenX(cursorTileX, canvasW);
     const drawY = camera.worldToScreenY(cursorTileY, canvasH);
 
-    canvasCtx.strokeStyle = '#00ff00';
+    canvasCtx.strokeStyle = this.erasing ? '#ff4444' : '#00ff00';
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(drawX, drawY, tileScreenSize, tileScreenSize);
   }
@@ -130,8 +142,45 @@ export class PaintTool implements ITool {
     }
   }
 
+  private eraseAt(ctx: ToolContext, worldX: number, worldY: number) {
+    const { state, paletteItem } = ctx;
+
+    const key = `${worldX},${worldY}`;
+    if (this.visited.has(key)) return;
+    this.visited.add(key);
+
+    if (paletteItem && paletteItem.type === 'entity') {
+      const removals = removeEntitiesAtPositions(
+        [[worldX, worldY]], state.entities, paletteItem.id,
+      );
+      this.entityChanges.push(...removals);
+      return;
+    }
+
+    if (paletteItem && paletteItem.type === 'decal') {
+      const activeGrid = state.grids[state.activeGridIndex];
+      const removals = removeDecalsAtPositions(
+        [[worldX, worldY]], activeGrid.decals.decals, paletteItem.id,
+      );
+      this.decalChanges.push(...removals);
+      if (removals.length > 0) markSceneDirty();
+      return;
+    }
+
+    const cell = getCell(state.grid, worldX, worldY);
+    if (!cell || cell.tileId === 'Space') return;
+
+    const before = { ...cell };
+    const after = { tileId: 'Space' };
+    setCell(state.grid, worldX, worldY, after);
+
+    this.tileChanges.push({ x: worldX, y: worldY, before, after });
+    markSceneDirty();
+  }
+
   deactivate() {
     this.painting = false;
+    this.erasing = false;
     this.tileChanges = [];
     this.entityChanges = [];
     this.decalChanges = [];

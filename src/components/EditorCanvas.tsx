@@ -28,6 +28,8 @@ import {
 import { benchmarkSample } from '../rendering/benchmarkCapture';
 import type { DecalInstance } from '../import/decalParser';
 import type { DecalPlacementSettings } from './DecalPalette';
+import type { EraseSettings } from '../tools/eraseTool';
+import type { ToolType } from '../types';
 import { useT } from '../i18n';
 
 interface Props {
@@ -45,6 +47,8 @@ interface Props {
   showConnections: boolean;
   lightingEnabled: boolean;
   decalPlacementSettingsRef: React.MutableRefObject<DecalPlacementSettings>;
+  eraseSettingsRef: React.MutableRefObject<EraseSettings>;
+  previousToolRef: React.MutableRefObject<ToolType>;
   highlightTile?: { x: number; y: number; startTime: number } | null;
 }
 
@@ -56,7 +60,8 @@ const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (
 
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
-  showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, highlightTile,
+  showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, eraseSettingsRef,
+  previousToolRef, highlightTile,
 }) => {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -160,8 +165,10 @@ export const EditorCanvas: React.FC<Props> = ({
         decalPlacementSettingsRef.current = { ...decalPlacementSettingsRef.current, color };
       },
       layerVisibility: layerVisibilityRef.current,
+      eraseSettings: eraseSettingsRef.current,
+      previousTool: previousToolRef.current,
     };
-  }, [dispatch, camera]);
+  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, previousToolRef]);
 
   // Check if we should pan (middle button, space held, or pan tool active)
   const shouldPan = useCallback((button: number) => {

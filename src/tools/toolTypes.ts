@@ -1,10 +1,11 @@
 import type { EditorState } from '../state/editorState';
 import type { EditorAction } from '../state/actions';
 import type { Camera } from '../rendering/camera';
-import type { PaletteItem } from '../types';
+import type { PaletteItem, ToolType } from '../types';
 import type { ContextMenuItem } from '../components/ContextMenu';
 import type { DecalPlacementOptions } from './decalBrushHelper';
 import type { LayerVisibility } from '../rendering/entityRenderer';
+import type { EraseSettings } from './eraseTool';
 
 export interface ToolContext {
   state: EditorState;
@@ -20,6 +21,10 @@ export interface ToolContext {
   setDecalColor?: (color: string | null) => void;
   /** Current layer visibility, tools should respect this for selection/interaction. */
   layerVisibility?: LayerVisibility;
+  /** Erase tool mode/toggles (palette-driven vs. selective tiles/entities). */
+  eraseSettings?: EraseSettings;
+  /** Tool that was active before switching to the eyedropper; picking an item restores it. */
+  previousTool?: ToolType;
 }
 
 export interface ITool {

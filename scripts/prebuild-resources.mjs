@@ -156,10 +156,12 @@ for (const entry of fs.readdirSync(prototypesDir, { withFileTypes: true })) {
     forkPrefixes.push(entry.name);
     const forkRoot = path.join(prototypesDir, entry.name);
 
-    for (const tilesDir of findNamedDirsRecursive(forkRoot, 'Tiles')) {
-      forkTileFiles.push(...walkDir(tilesDir, '.yml').map(f =>
-        '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
-      ));
+    for (const tilesDirName of ['Tiles', 'Turf']) {
+      for (const tilesDir of findNamedDirsRecursive(forkRoot, tilesDirName)) {
+        forkTileFiles.push(...walkDir(tilesDir, '.yml').map(f =>
+          '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+        ));
+      }
     }
 
     for (const entitiesDir of findNamedDirsRecursive(forkRoot, 'Entities')) {

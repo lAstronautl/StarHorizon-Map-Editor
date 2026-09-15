@@ -5,6 +5,25 @@ import { removeEntitiesAtPositions } from './entityBrushHelper';
 import { removeDecalsAtPositions } from './decalBrushHelper';
 import { markSceneDirty } from '../rendering/dirtyFlags';
 
+/**
+ * 'palette' (default): erase only what the active palette selection implies, matching
+ * the paint tool (entity palette item selected -> erase only that entity; decal
+ * selected -> erase only that decal; otherwise erase tiles).
+ * 'selective': ignore the palette selection and instead erase tiles and/or entities
+ * independently per the eraseTiles/eraseEntities toggles.
+ */
+export interface EraseSettings {
+  mode: 'palette' | 'selective';
+  eraseTiles: boolean;
+  eraseEntities: boolean;
+}
+
+export const DEFAULT_ERASE_SETTINGS: EraseSettings = {
+  mode: 'palette',
+  eraseTiles: true,
+  eraseEntities: true,
+};
+
 export class EraseTool implements ITool {
   name = 'erase';
   cursor = 'crosshair';
@@ -81,7 +100,27 @@ export class EraseTool implements ITool {
     if (this.visited.has(key)) return;
     this.visited.add(key);
 
-    const { state, paletteItem } = ctx;
+    const { state, paletteItem, eraseSettings } = ctx;
+
+    if (eraseSettings?.mode === 'selective') {
+      if (eraseSettings.eraseEntities) {
+        const removals = removeEntitiesAtPositions([[worldX, worldY]], state.entities);
+        this.entityChanges.push(...removals);
+      }
+      if (eraseSettings.eraseTiles) {
+        const cell = getCell(state.grid, worldX, worldY);
+        if (cell && cell.tileId !== 'Space') {
+          const before = { ...cell };
+          const after = { tileId: 'Space' };
+          setCell(state.grid, worldX, worldY, after);
+          this.tileChanges.push({ x: worldX, y: worldY, before, after });
+          markSceneDirty(); // Invalidate compositor tile layer so erased tiles appear during drag
+        }
+      }
+      return;
+    }
+
+    // Palette mode (default): erase only what the active palette selection implies.
 
     // Erase entities if entity palette is selected
     if (paletteItem && paletteItem.type === 'entity') {

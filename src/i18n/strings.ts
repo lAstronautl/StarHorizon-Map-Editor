@@ -197,6 +197,11 @@ export const strings: Record<string, Record<Locale, string>> = {
   'app.panel.layers': { ru: 'Слои', en: 'Layers' },
   'app.panel.collapse': { ru: 'Свернуть панель', en: 'Collapse panel' },
   'app.panel.expand': { ru: 'Развернуть панель', en: 'Expand panel' },
+  'app.panel.eraseSettings': { ru: 'Настройки ластика', en: 'Erase Settings' },
+  'eraseSettings.mode.palette': { ru: 'По палитре (как раньше)', en: 'By palette (as before)' },
+  'eraseSettings.mode.selective': { ru: 'Выборочно', en: 'Selective' },
+  'eraseSettings.eraseTiles': { ru: 'Стирать тайлы', en: 'Erase tiles' },
+  'eraseSettings.eraseEntities': { ru: 'Стирать сущности', en: 'Erase entities' },
 
   // PerformanceHUD
   'perfHud.performance': { ru: 'Производительность', en: 'Performance' },
