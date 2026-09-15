@@ -64,6 +64,10 @@ export interface LayerVisibility {
   doors: boolean;        // DrawDepth +8 to +10
   markers: boolean;      // Spawn points and mapping helpers
   decals: boolean;       // Decal overlays (floor markings, arrows, etc.)
+  /** Sub-filters within the subfloor group, only consulted when `subfloor` is true. */
+  subfloorCables: boolean;
+  subfloorPipes: boolean;
+  subfloorDisposal: boolean;
 }
 
 export const DEFAULT_LAYER_VISIBILITY: LayerVisibility = {
@@ -74,7 +78,40 @@ export const DEFAULT_LAYER_VISIBILITY: LayerVisibility = {
   doors: true,
   markers: true,
   decals: true,
+  subfloorCables: true,
+  subfloorPipes: true,
+  subfloorDisposal: true,
 };
+
+// ---- SubFloor category classification (cables / gas pipes / disposal pipes) ----
+
+export type SubfloorCategory = 'cable' | 'pipe' | 'disposal' | 'other';
+
+const DISPOSAL_PREFIXES = ['DisposalPipe', 'DisposalJunction', 'DisposalYJunction', 'DisposalBend', 'DisposalTrunk'];
+
+const subfloorCategoryCache = new Map<string, SubfloorCategory>();
+
+/** Classify a subfloor prototype into cable / pipe / disposal / other, for the layer sub-filters. */
+export function getSubfloorCategory(prototype: string): SubfloorCategory {
+  const cached = subfloorCategoryCache.get(prototype);
+  if (cached) return cached;
+
+  let category: SubfloorCategory = 'other';
+  if (prototype.startsWith('Cable')) {
+    category = 'cable';
+  } else if (DISPOSAL_PREFIXES.some(p => prototype.startsWith(p))) {
+    category = 'disposal';
+  } else if (prototype.startsWith('GasPipe') || prototype.includes('Pipe')) {
+    category = 'pipe';
+  }
+
+  subfloorCategoryCache.set(prototype, category);
+  return category;
+}
+
+export function clearSubfloorCategoryCache(): void {
+  subfloorCategoryCache.clear();
+}
 
 // ---- Pre-computed prototype category flags ----
 
@@ -117,7 +154,15 @@ const PLACEHOLDER_COLORS: Record<PrototypeFlags['placeholderCategory'], string> 
 
 /** Check if an entity's DrawDepth falls in a visible layer group. */
 export function isLayerVisible(drawDepthValue: number, prototype: string, layers: LayerVisibility): boolean {
-  if (drawDepthValue <= -13) return layers.subfloor;
+  if (drawDepthValue <= -13) {
+    if (!layers.subfloor) return false;
+    switch (getSubfloorCategory(prototype)) {
+      case 'cable': return layers.subfloorCables;
+      case 'pipe': return layers.subfloorPipes;
+      case 'disposal': return layers.subfloorDisposal;
+      default: return true;
+    }
+  }
   if (drawDepthValue <= -5) return layers.floorObjects;
   if (drawDepthValue <= -1) return layers.structures;
   if (drawDepthValue <= 7) {
@@ -993,25 +1038,50 @@ export function renderEntities(
       ctx.restore();
     }
 
-    // Draw extra sprite layers (e.g., spawner entity preview over the X marker)
+    // Base sprite's canvas rotation must not leak into the extra-layers loop below:
+    // a layer can be a multi-direction sprite (e.g. GasPort's pipe stub) whose frame
+    // is already correctly oriented via `direction`, and re-rotating it on top of that
+    // would point it the wrong way for anything but 0 degrees.
+    if (needsCanvasRotation) {
+      ctx.restore();
+    }
+
+    // Draw extra sprite layers (e.g., spawner entity preview over the X marker,
+    // GasPort/GasVentPump/GasVentScrubber's pipe stub layer)
     if (!cablePrefix) {
       const extraLayers = getExtraLayers(prototype, direction, registry);
       if (extraLayers) {
         for (const layerSprite of extraLayers) {
           const lw = tileScreenSize * (layerSprite.sw / TILE_SIZE);
           const lh = tileScreenSize * (layerSprite.sh / TILE_SIZE);
+          const layerDx = screenX + (tileScreenSize - lw) / 2;
+          const layerDy = screenY + (tileScreenSize - lh) / 2;
+
+          // Single-direction layer sprites still need canvas rotation to face the
+          // entity's rotation; multi-direction ones already picked the right frame.
+          const layerNeedsRotation = !entityNoRot && rotation !== 0 && layerSprite.sh === layerSprite.image.height;
+          if (layerNeedsRotation) {
+            const cx = screenX + tileScreenSize / 2;
+            const cy = screenY + tileScreenSize / 2;
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(-rotation);
+            ctx.translate(-cx, -cy);
+          }
+
           ctx.drawImage(
             layerSprite.image,
             layerSprite.sx, layerSprite.sy, layerSprite.sw, layerSprite.sh,
-            screenX + (tileScreenSize - lw) / 2, screenY + (tileScreenSize - lh) / 2, lw, lh,
+            layerDx, layerDy, lw, lh,
           );
+
+          if (layerNeedsRotation) {
+            ctx.restore();
+          }
         }
       }
     }
 
-    if (needsCanvasRotation) {
-      ctx.restore();
-    }
     if (dimmed) { ctx.globalAlpha = 1; }
     drawCalls++;
   }

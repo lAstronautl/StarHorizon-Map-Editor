@@ -14,7 +14,6 @@ interface Props {
 function useLayerDefs(): { key: keyof LayerVisibility; label: string; desc: string }[] {
   const { t } = useT();
   return [
-    { key: 'subfloor', label: t('layerPanel.layer.subfloor.label'), desc: t('layerPanel.layer.subfloor.desc') },
     { key: 'floorObjects', label: t('layerPanel.layer.floorObjects.label'), desc: t('layerPanel.layer.floorObjects.desc') },
     { key: 'structures', label: t('layerPanel.layer.structures.label'), desc: t('layerPanel.layer.structures.desc') },
     { key: 'objects', label: t('layerPanel.layer.objects.label'), desc: t('layerPanel.layer.objects.desc') },
@@ -24,14 +23,49 @@ function useLayerDefs(): { key: keyof LayerVisibility; label: string; desc: stri
   ];
 }
 
+function useSubfloorSubDefs(): { key: keyof LayerVisibility; label: string }[] {
+  const { t } = useT();
+  return [
+    { key: 'subfloorCables', label: t('layerPanel.layer.subfloorCables.label') },
+    { key: 'subfloorPipes', label: t('layerPanel.layer.subfloorPipes.label') },
+    { key: 'subfloorDisposal', label: t('layerPanel.layer.subfloorDisposal.label') },
+  ];
+}
+
 export const LayerPanel: React.FC<Props> = ({
   layers, onToggleLayer, showSubFloor, onToggleSubFloor,
   showConnections, onToggleConnections,
 }) => {
   const { t } = useT();
   const LAYER_DEFS = useLayerDefs();
+  const SUBFLOOR_SUB_DEFS = useSubfloorSubDefs();
   return (
     <div className="p-3">
+      <label className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title={t('layerPanel.layer.subfloor.desc')}>
+        <input
+          type="checkbox"
+          checked={layers.subfloor}
+          onChange={() => onToggleLayer('subfloor')}
+          className="accent-accent w-3 h-3"
+        />
+        {t('layerPanel.layer.subfloor.label')}
+      </label>
+      {layers.subfloor && (
+        <div className="flex flex-col pl-5 border-l border-subtle ml-1.5">
+          {SUBFLOOR_SUB_DEFS.map(def => (
+            <label key={def.key} className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={layers[def.key]}
+                onChange={() => onToggleLayer(def.key)}
+                className="accent-accent w-3 h-3"
+              />
+              {def.label}
+            </label>
+          ))}
+        </div>
+      )}
+
       {LAYER_DEFS.map(def => (
         <label key={def.key} className="flex items-center gap-2 py-0.5 text-primary text-[11px] cursor-pointer select-none" title={def.desc}>
           <input

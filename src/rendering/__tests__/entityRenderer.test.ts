@@ -10,6 +10,8 @@ import {
   getPrototypeFlags, clearPrototypeFlags,
   hasSubFloorHide,
   hasCableConnectionAt,
+  getSubfloorCategory, clearSubfloorCategoryCache,
+  isLayerVisible, DEFAULT_LAYER_VISIBILITY,
 } from '../entityRenderer';
 import { rebuildSpatialIndex, clearSpatialIndex, spatialGeneration, tileKey } from '../spatialIndex';
 import type { ImportedEntity } from '../../import/mapImporter';
@@ -465,6 +467,62 @@ describe('hasSubFloorHide', () => {
     const reg = makeRegistry([{ type: 'Sprite' }, { type: 'Transform' }]);
     expect(hasSubFloorHide('TableWood', reg)).toBe(false);
     expect(hasSubFloorHide('APCBasic', reg)).toBe(false);
+  });
+});
+
+describe('getSubfloorCategory', () => {
+  beforeEach(() => clearSubfloorCategoryCache());
+
+  it('classifies Cable-prefixed prototypes as cable', () => {
+    expect(getSubfloorCategory('CableHV')).toBe('cable');
+    expect(getSubfloorCategory('CableApcExtension')).toBe('cable');
+  });
+
+  it('classifies gas pipes as pipe', () => {
+    expect(getSubfloorCategory('GasPipeStraight')).toBe('pipe');
+    expect(getSubfloorCategory('GasPipeBend')).toBe('pipe');
+  });
+
+  it('classifies disposal pipes as disposal, not pipe', () => {
+    expect(getSubfloorCategory('DisposalPipe')).toBe('disposal');
+    expect(getSubfloorCategory('DisposalJunction')).toBe('disposal');
+    expect(getSubfloorCategory('DisposalBend')).toBe('disposal');
+  });
+
+  it('falls back to other for unrelated prototypes', () => {
+    expect(getSubfloorCategory('TableWood')).toBe('other');
+  });
+});
+
+describe('isLayerVisible subfloor sub-filters', () => {
+  const SUBFLOOR_DEPTH = -15; // within the -22..-13 subfloor range
+
+  it('hides all subfloor entities when the subfloor group is off', () => {
+    const layers = { ...DEFAULT_LAYER_VISIBILITY, subfloor: false };
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'CableHV', layers)).toBe(false);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'GasPipeStraight', layers)).toBe(false);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'DisposalPipe', layers)).toBe(false);
+  });
+
+  it('hides only cables when subfloorCables is off', () => {
+    const layers = { ...DEFAULT_LAYER_VISIBILITY, subfloorCables: false };
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'CableHV', layers)).toBe(false);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'GasPipeStraight', layers)).toBe(true);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'DisposalPipe', layers)).toBe(true);
+  });
+
+  it('hides only gas pipes when subfloorPipes is off', () => {
+    const layers = { ...DEFAULT_LAYER_VISIBILITY, subfloorPipes: false };
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'CableHV', layers)).toBe(true);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'GasPipeStraight', layers)).toBe(false);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'DisposalPipe', layers)).toBe(true);
+  });
+
+  it('hides only disposal pipes when subfloorDisposal is off', () => {
+    const layers = { ...DEFAULT_LAYER_VISIBILITY, subfloorDisposal: false };
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'CableHV', layers)).toBe(true);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'GasPipeStraight', layers)).toBe(true);
+    expect(isLayerVisible(SUBFLOOR_DEPTH, 'DisposalPipe', layers)).toBe(false);
   });
 });
 

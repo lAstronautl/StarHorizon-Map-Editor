@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import type { PrefabData } from '../prefab/prefabTypes';
 import { parsePrefabJson } from '../prefab/prefabIO';
 import { withBase } from '../basePath';
@@ -14,7 +14,13 @@ interface Props {
   onSelectPrefab: (prefab: PrefabData) => void;
 }
 
-export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
+/** Imperative handle so callers outside the panel (e.g. canvas drag & drop) can
+ *  register a prefab into the visible list and select it, as if imported via '+'. */
+export interface PrefabPanelHandle {
+  addAndSelectPrefab: (data: PrefabData, filename: string) => void;
+}
+
+export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefab }, ref) => {
   const { t } = useT();
   const [prefabs, setPrefabs] = useState<LoadedPrefab[]>([]);
   const [selectedName, setSelectedName] = useState<string | null>(null);
@@ -80,27 +86,38 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
     loadFromServer();
   }, [loadFromServer]);
 
+  const handleSelect = useCallback((prefab: LoadedPrefab) => {
+    setSelectedName(prefab.data.name);
+    onSelectPrefab(prefab.data);
+  }, [onSelectPrefab]);
+
+  /** Add a locally-sourced prefab (root folder) to the list, replacing any prior
+   *  entry with the same filename, then select it for placement. */
+  const registerLocalPrefab = useCallback((data: PrefabData, filename: string) => {
+    setPrefabs(prev => {
+      const filtered = prev.filter(p => !(p.filename === filename && p.folder === ''));
+      return [...filtered, { data, filename, folder: '' }];
+    });
+    handleSelect({ data, filename, folder: '' });
+  }, [handleSelect]);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     file.text().then(json => {
       try {
         const data = parsePrefabJson(json);
-        setPrefabs(prev => {
-          const filtered = prev.filter(p => !(p.filename === file.name && p.folder === ''));
-          return [...filtered, { data, filename: file.name, folder: '' }];
-        });
+        registerLocalPrefab(data, file.name);
       } catch (err) {
         console.error('Failed to parse prefab:', err);
       }
     });
     e.target.value = '';
-  }, []);
+  }, [registerLocalPrefab]);
 
-  const handleSelect = useCallback((prefab: LoadedPrefab) => {
-    setSelectedName(prefab.data.name);
-    onSelectPrefab(prefab.data);
-  }, [onSelectPrefab]);
+  useImperativeHandle(ref, () => ({
+    addAndSelectPrefab: registerLocalPrefab,
+  }), [registerLocalPrefab]);
 
   const toggleFolder = useCallback((folder: string) => {
     setCollapsedFolders(prev => {
@@ -206,4 +223,6 @@ export const PrefabPanel: React.FC<Props> = ({ onSelectPrefab }) => {
       </div>
     </div>
   );
-};
+});
+
+PrefabPanel.displayName = 'PrefabPanel';

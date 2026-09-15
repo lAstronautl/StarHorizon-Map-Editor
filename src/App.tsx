@@ -21,10 +21,12 @@ import { PipeDrawTool } from './tools/pipeDrawTool';
 import { DeviceLinkTool } from './tools/deviceLinkTool';
 import { PrefabPlaceTool } from './tools/prefabPlaceTool';
 import type { PrefabData } from './prefab/prefabTypes';
+import { parsePrefabJson } from './prefab/prefabIO';
 import { Camera } from './rendering/camera';
 import { EditorCanvas } from './components/EditorCanvas';
 import { Toolbar } from './components/Toolbar';
 import { PalettePanel } from './components/PalettePanel';
+import type { PalettePanelHandle } from './components/PalettePanel';
 import { DEFAULT_DECAL_PLACEMENT_SETTINGS } from './components/DecalPalette';
 import type { DecalPlacementSettings } from './components/DecalPalette';
 import { EntityInfoPanel } from './components/EntityInfoPanel';
@@ -121,6 +123,7 @@ export const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const decalPlacementSettingsRef = useRef<DecalPlacementSettings>({ ...DEFAULT_DECAL_PLACEMENT_SETTINGS });
   const eraseSettingsRef = useRef<EraseSettings>({ ...DEFAULT_ERASE_SETTINGS });
+  const palettePanelRef = useRef<PalettePanelHandle>(null);
   const preEyedropperToolRef = useRef<ToolType>('paint');
 
   // Probe for built-in resources availability
@@ -233,6 +236,12 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  const handleSelectPrefab = useCallback((prefab: PrefabData) => {
+    prefabPlaceTool.setPrefab(prefab);
+    dispatch({ type: 'SET_TOOL', tool: 'prefabPlace' });
+    setStatusMessage(t('app.status.prefabSelected', { name: prefab.name, width: prefab.width, height: prefab.height }));
+  }, [t]);
+
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
@@ -258,8 +267,25 @@ export const App: React.FC = () => {
     setIsDraggingFile(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-    file.text().then(handleImport);
-  }, [handleImport]);
+
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.json')) {
+      file.text().then(json => {
+        try {
+          const prefab = parsePrefabJson(json);
+          // Register in the Prefabs tab (switches to it) and select for placement,
+          // same as importing via the '+' button.
+          palettePanelRef.current?.addAndSelectDroppedPrefab(prefab, file.name);
+        } catch (err) {
+          setStatusMessage(t('app.status.prefabDropFailed', { error: String(err) }));
+        }
+      });
+    } else if (lowerName.endsWith('.yml') || lowerName.endsWith('.yaml')) {
+      file.text().then(handleImport);
+    } else {
+      setStatusMessage(t('app.status.unsupportedFileType'));
+    }
+  }, [handleImport, t]);
 
   const handleSearchNavigate = useCallback((entity: ImportedEntity) => {
     // Switch to entity select tool so the selection is visible
@@ -543,12 +569,6 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  const handleSelectPrefab = useCallback((prefab: PrefabData) => {
-    prefabPlaceTool.setPrefab(prefab);
-    dispatch({ type: 'SET_TOOL', tool: 'prefabPlace' });
-    setStatusMessage(t('app.status.prefabSelected', { name: prefab.name, width: prefab.width, height: prefab.height }));
-  }, [t]);
-
   // Track cursor position (world coordinates)
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -794,6 +814,7 @@ export const App: React.FC = () => {
           )}
           {/* Palette, always visible, takes remaining space */}
           <PalettePanel
+            ref={palettePanelRef}
             registry={state.registry}
             selectedItem={state.selectedPaletteItem}
             onSelect={handleSelectPaletteItem}

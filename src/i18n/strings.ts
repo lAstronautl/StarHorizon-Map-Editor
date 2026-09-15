@@ -107,6 +107,9 @@ export const strings: Record<string, Record<Locale, string>> = {
   // LayerPanel
   'layerPanel.layer.subfloor.label': { ru: 'Подпол', en: 'SubFloor' },
   'layerPanel.layer.subfloor.desc': { ru: 'Кабели, трубы, мусоропровод (-22 до -13)', en: 'Cables, pipes, disposal (-22 to -13)' },
+  'layerPanel.layer.subfloorCables.label': { ru: 'Кабели', en: 'Cables' },
+  'layerPanel.layer.subfloorPipes.label': { ru: 'Трубы', en: 'Pipes' },
+  'layerPanel.layer.subfloorDisposal.label': { ru: 'Утилизационные трубы', en: 'Disposal pipes' },
   'layerPanel.layer.floorObjects.label': { ru: 'Объ. пола', en: 'Floor Obj' },
   'layerPanel.layer.floorObjects.desc': { ru: 'Ковры, напольные предметы (-12 до -5)', en: 'Carpets, floor items (-12 to -5)' },
   'layerPanel.layer.structures.label': { ru: 'Конструкции', en: 'Structures' },
