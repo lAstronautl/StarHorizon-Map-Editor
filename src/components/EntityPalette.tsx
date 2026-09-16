@@ -10,6 +10,9 @@ interface Props {
   onSelect: (item: PaletteItem) => void;
 }
 
+/** Entities tagged HideSpawnMenu are debug/internal spawns, hidden by default. */
+const isDebugEntity = (e: ResolvedEntity) => e.categories?.includes('HideSpawnMenu') ?? false;
+
 /** Common entity categories to prioritize at top */
 const PRIORITY_CATEGORIES = [
   'Structures',
@@ -27,6 +30,7 @@ const PRIORITY_CATEGORIES = [
 export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelect }) => {
   const { t } = useT();
   const [search, setSearch] = useState('');
+  const [showDebug, setShowDebug] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const { hovered, onMouseEnter, onMouseLeave } = useHoverPreview(250);
 
@@ -36,7 +40,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
     const map = new Map<string, ResolvedEntity[]>();
     for (const cat of registry.getCategories()) {
       const entities = registry.getEntitiesByCategory(cat)
-        .filter(e => !e.abstract)
+        .filter(e => !e.abstract && (showDebug || !isDebugEntity(e)))
         .sort((a, b) => a.name.localeCompare(b.name));
       if (entities.length > 0) {
         map.set(cat, entities);
@@ -50,7 +54,7 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
     const rest = allCats.filter(c => !prioritySet.has(c)).sort();
 
     return { categories: [...priority, ...rest], entityMap: map };
-  }, [registry]);
+  }, [registry, showDebug]);
 
   const filteredEntities = useMemo(() => {
     if (!search || !registry) return null;
@@ -102,6 +106,16 @@ export const EntityPalette: React.FC<Props> = ({ registry, selectedItem, onSelec
           className="w-full px-2 py-1 bg-surface border border-subtle rounded-sm text-primary text-xs outline-none focus:border-accent"
         />
       </div>
+
+      <label className="mx-1 mb-1 flex items-center gap-1.5 px-1 text-[11px] text-muted cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={showDebug}
+          onChange={e => setShowDebug(e.target.checked)}
+          className="cursor-pointer"
+        />
+        {t('entityPalette.showDebug')}
+      </label>
 
       <div className="flex-1 overflow-y-auto py-1">
         {filteredEntities ? (

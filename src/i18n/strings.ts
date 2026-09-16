@@ -103,6 +103,13 @@ export const strings: Record<string, Record<Locale, string>> = {
   // InfrastructurePanel
   'infrastructurePanel.cables': { ru: 'Кабели', en: 'Cables' },
   'infrastructurePanel.pipes': { ru: 'Трубы', en: 'Pipes' },
+  'infrastructurePanel.pipeLayer': { ru: 'Слой труб', en: 'Pipe Layer' },
+  'infrastructurePanel.pipeLayerName.Primary': { ru: '1', en: '1' },
+  'infrastructurePanel.pipeLayerName.Secondary': { ru: '2', en: '2' },
+  'infrastructurePanel.pipeLayerName.Tertiary': { ru: '3', en: '3' },
+  'infrastructurePanel.pipeLayerHint.Primary': { ru: 'Основной слой труб (можно наложить до 3 независимых труб на один тайл)', en: 'Primary pipe layer (up to 3 independent runs can overlap one tile)' },
+  'infrastructurePanel.pipeLayerHint.Secondary': { ru: 'Второй слой труб (Alt1)', en: 'Secondary pipe layer (Alt1)' },
+  'infrastructurePanel.pipeLayerHint.Tertiary': { ru: 'Третий слой труб (Alt2)', en: 'Tertiary pipe layer (Alt2)' },
 
   // LayerPanel
   'layerPanel.layer.subfloor.label': { ru: 'Подпол', en: 'SubFloor' },
@@ -407,12 +414,18 @@ export const strings: Record<string, Record<Locale, string>> = {
   'mapValidator.rules.danglingDeviceRef': { ru: 'Битые ссылки на устройства', en: 'Dangling Device References' },
   'mapValidator.rules.unlinkedAirAlarms': { ru: 'Несвязанные датчики воздуха', en: 'Unlinked Air Alarms' },
   'mapValidator.rules.unlinkedFireAlarms': { ru: 'Несвязанные пожарные датчики', en: 'Unlinked Fire Alarms' },
+  'mapValidator.rules.abstractPrototype': { ru: 'Абстрактные прототипы на карте', en: 'Abstract Prototypes on Map' },
+  'mapValidator.rules.unconnectedPowerDevice': { ru: 'Не подключено к проводам', en: 'Not Connected to Wires' },
+  'mapValidator.rules.unconnectedPipeDevice': { ru: 'Не подключено к трубам', en: 'Not Connected to Pipes' },
   'mapValidator.issues.floorUnderWall': { ru: 'Тайл пола ({tile}) под стеной на ({x}, {y}). Стены должны стоять на Plating.', en: 'Floor tile ({tile}) under wall at ({x}, {y}). Walls should be on Plating.' },
   'mapValidator.issues.doorWithoutFloor': { ru: 'Дверь ({prototype}) без тайла пола на ({x}, {y}).', en: 'Door ({prototype}) has no floor tile at ({x}, {y}).' },
   'mapValidator.issues.danglingDeviceRefDeviceList': { ru: '{prototype} (UID {uid}) ссылается на несуществующий UID {targetUid} в DeviceList.', en: '{prototype} (UID {uid}) references non-existent entity UID {targetUid} in DeviceList.' },
   'mapValidator.issues.danglingDeviceRefLinkSource': { ru: '{prototype} (UID {uid}) ссылается на несуществующий UID {targetUid} в DeviceLinkSource.', en: '{prototype} (UID {uid}) references non-existent entity UID {targetUid} in DeviceLinkSource.' },
   'mapValidator.issues.danglingDeviceRefNetwork': { ru: '{prototype} (UID {uid}) ссылается на несуществующий UID {targetUid} в DeviceNetwork.', en: '{prototype} (UID {uid}) references non-existent entity UID {targetUid} in DeviceNetwork.' },
   'mapValidator.issues.noLinkedDevices': { ru: '{prototype} на ({x}, {y}) не имеет связанных устройств.', en: '{prototype} at ({x}, {y}) has no linked devices.' },
+  'mapValidator.issues.abstractPrototype': { ru: 'На карте обнаружен абстрактный прототип ({prototype}) на ({x}, {y}). Такая сущность не заспавнится в игре.', en: 'Abstract prototype ({prototype}) found on map at ({x}, {y}). This entity will not spawn in-game.' },
+  'mapValidator.issues.unconnectedPowerDevice': { ru: '{prototype} на ({x}, {y}) не подключено к СВ/НН проводам.', en: '{prototype} at ({x}, {y}) is not connected to MV/HV wires.' },
+  'mapValidator.issues.unconnectedPipeDevice': { ru: '{prototype} на ({x}, {y}) не подключено к трубам.', en: '{prototype} at ({x}, {y}) is not connected to pipes.' },
 
   // ValidatorModal
   'validatorModal.title': { ru: 'Проверка карты', en: 'Map Validation' },
@@ -470,6 +483,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   'entityPalette.searchPlaceholder': { ru: 'Поиск сущностей...', en: 'Search entities...' },
   'entityPalette.noResults': { ru: 'Ничего не найдено', en: 'No results' },
   'entityPalette.entityCount': { ru: 'Сущностей: {count}', en: '{count} entities' },
+  'entityPalette.showDebug': { ru: 'Показать дебаг', en: 'Show debug' },
 
   // EntitySearchBar
   'entitySearchBar.searchPlaceholder': { ru: 'Поиск сущностей...', en: 'Search entities...' },

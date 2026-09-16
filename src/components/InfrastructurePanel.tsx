@@ -1,5 +1,5 @@
 import React from 'react';
-import type { InfrastructureSelection, CableType, PipeType } from '../types';
+import type { InfrastructureSelection, CableType, PipeType, PipeLayerSelection } from '../types';
 import { getCableDisplay, getPipeDisplay } from '../types';
 import { useT } from '../i18n';
 
@@ -10,6 +10,7 @@ interface Props {
 
 const CABLES: CableType[] = ['CableHV', 'CableMV', 'CableApcExtension'];
 const PIPES: PipeType[] = ['supply', 'return', 'disposal'];
+const PIPE_LAYERS: PipeLayerSelection[] = ['Primary', 'Secondary', 'Tertiary'];
 
 export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) => {
   const { t, locale } = useT();
@@ -58,6 +59,29 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
           </button>
         );
       })}
+
+      {selection.pipeType !== 'disposal' && (
+        <>
+          <div className="text-muted text-[10px] uppercase tracking-wider mb-1 mt-3">{t('infrastructurePanel.pipeLayer')}</div>
+          <div className="flex gap-0.5">
+            {PIPE_LAYERS.map(layer => {
+              const active = selection.pipeLayer === layer;
+              return (
+                <button
+                  key={layer}
+                  onClick={() => onChange({ ...selection, pipeLayer: layer })}
+                  title={t(`infrastructurePanel.pipeLayerHint.${layer}`)}
+                  className={`flex-1 px-1 py-1 rounded-sm border text-primary text-[10px] cursor-pointer text-center
+                              ${active ? 'border-accent ring-1 ring-accent' : 'border-subtle hover:border-muted'}`}
+                  style={{ backgroundColor: active ? '#0f3460' : 'transparent' }}
+                >
+                  {t(`infrastructurePanel.pipeLayerName.${layer}`)}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 };

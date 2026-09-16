@@ -184,6 +184,73 @@ describe('PipeDrawTool', () => {
     }
   });
 
+  it('allows a Secondary layer pipe to occupy the same tile as an existing Primary pipe', () => {
+    const existing: ImportedEntity[] = [
+      {
+        uid: 100, prototype: 'GasPipeStraight',
+        position: { x: 5.5, y: 5.5 }, rotation: 0,
+        components: [{ type: 'AtmosPipeColor', color: '#0055CCFF' }],
+      },
+    ];
+
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply';
+    tool.pipeLayer = 'Secondary';
+    const { ctx, dispatched } = makeToolContext(existing);
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseUp(ctx);
+
+    const cmd = dispatched[0].command;
+    const removes = cmd.entityChanges.filter((ec: any) => ec.action === 'remove');
+    const adds = cmd.entityChanges.filter((ec: any) => ec.action === 'add');
+
+    // The existing Primary pipe must be left untouched
+    expect(removes.some((ec: any) => ec.entity.uid === 100)).toBe(false);
+
+    // A new Secondary-layer pipe should be added at the same tile
+    const newPipe = adds.find((ec: any) =>
+      Math.floor(ec.entity.position.x) === 5 && Math.floor(ec.entity.position.y) === 5,
+    );
+    expect(newPipe).toBeDefined();
+    expect(newPipe.entity.prototype).toBe('GasPipeStraightAlt1');
+    const layerComp = newPipe.entity.components.find((c: any) => c.type === 'AtmosPipeLayers');
+    expect(layerComp).toBeDefined();
+    expect(layerComp.pipeLayer).toBe('Secondary');
+
+    // Existing Primary pipe should still be present in state, untouched
+    expect(ctx.state.entities.some((e: ImportedEntity) => e.uid === 100)).toBe(true);
+  });
+
+  it('erasing one layer does not remove pipes on another layer at the same tile', () => {
+    const existing: ImportedEntity[] = [
+      {
+        uid: 100, prototype: 'GasPipeStraight',
+        position: { x: 5.5, y: 5.5 }, rotation: 0,
+        components: [{ type: 'AtmosPipeColor', color: '#0055CCFF' }],
+      },
+      {
+        uid: 101, prototype: 'GasPipeStraightAlt1',
+        position: { x: 5.5, y: 5.5 }, rotation: 0,
+        components: [{ type: 'AtmosPipeColor', color: '#0055CCFF' }, { type: 'AtmosPipeLayers', pipeLayer: 'Secondary' }],
+      },
+    ];
+
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply';
+    tool.pipeLayer = 'Secondary';
+    const { ctx, dispatched } = makeToolContext(existing);
+
+    // Right-click erase at (5,5) should only remove the Secondary-layer pipe
+    tool.onMouseDown(ctx, 5, 5, 2);
+
+    expect(dispatched).toHaveLength(1);
+    const cmd = dispatched[0].command;
+    const removes = cmd.entityChanges.filter((ec: any) => ec.action === 'remove');
+    expect(removes.map((ec: any) => ec.entity.uid)).toEqual([101]);
+    expect(ctx.state.entities.some((e: ImportedEntity) => e.uid === 100)).toBe(true);
+  });
+
   it('refits existing neighbors when extending a pipe', () => {
     // Existing vertical pipe at (5,4) and (5,5)
     const existing: ImportedEntity[] = [

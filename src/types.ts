@@ -73,11 +73,15 @@ export type ToolType = 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' |
 
 export type CableType = 'CableHV' | 'CableMV' | 'CableApcExtension';
 export type PipeType = 'supply' | 'return' | 'disposal';
+/** SS14 supports up to 3 independent gas pipe runs overlapping the same tiles
+ *  (AtmosPipeLayer: Primary/Secondary/Tertiary); disposal has no layer system. */
+export type PipeLayerSelection = 'Primary' | 'Secondary' | 'Tertiary';
 
 export interface InfrastructureSelection {
   mode: 'cable' | 'pipe';
   cableType: CableType;
   pipeType: PipeType;
+  pipeLayer: PipeLayerSelection;
 }
 
 export const PIPE_COLORS: Record<'supply' | 'return', string> = {

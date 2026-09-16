@@ -58,6 +58,7 @@ function makeMockRegistry(
     getSpriteInfo: () => null,
     getDecal: () => null,
     getAllDecals: () => [],
+    isAbstractPrototype: () => false,
     get tileCount() { return 0; },
     get entityCount() { return 0; },
     get decalCount() { return 0; },

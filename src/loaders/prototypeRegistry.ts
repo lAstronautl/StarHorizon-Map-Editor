@@ -5,15 +5,18 @@ export class PrototypeRegistry implements IPrototypeRegistry {
   private entities: Map<string, ResolvedEntity>;
   private decals: Map<string, DecalPrototypeInfo>;
   private categoryIndex: Map<string, ResolvedEntity[]>;
+  private abstractIds: Set<string>;
 
   constructor(
     tiles: Map<string, ResolvedTile>,
     entities: Map<string, ResolvedEntity>,
     decals: Map<string, DecalPrototypeInfo> = new Map(),
+    abstractIds: Set<string> = new Set(),
   ) {
     this.tiles = tiles;
     this.entities = entities;
     this.decals = decals;
+    this.abstractIds = abstractIds;
     this.categoryIndex = new Map();
     for (const entity of entities.values()) {
       const cat = entity.sourceCategory;
@@ -31,6 +34,7 @@ export class PrototypeRegistry implements IPrototypeRegistry {
   getEntitiesByCategory(category: string): ResolvedEntity[] { return this.categoryIndex.get(category) ?? []; }
   getCategories(): string[] { return Array.from(this.categoryIndex.keys()).sort(); }
   getSpriteInfo(entityId: string): SpriteInfo | null { return this.entities.get(entityId)?.spriteInfo ?? null; }
+  isAbstractPrototype(id: string): boolean { return this.abstractIds.has(id); }
   get tileCount(): number { return this.tiles.size; }
   get entityCount(): number { return this.entities.size; }
   get decalCount(): number { return this.decals.size; }

@@ -1,5 +1,5 @@
 import { discoverPrototypes } from './prototypeDiscovery';
-import { resolveTiles, resolveEntities, resolveDecals } from './prototypeResolver';
+import { resolveTiles, resolveEntitiesWithAbstractIds, resolveDecals } from './prototypeResolver';
 import { PrototypeRegistry } from './prototypeRegistry';
 import type { ResourceProvider } from './resourceProvider';
 import { HttpResourceProvider } from './resourceProvider';
@@ -26,9 +26,9 @@ export async function initRegistry(
 
   onProgress?.(`Resolving ${rawTiles.length} tiles, ${rawEntities.length} entities, ${rawDecals.length} decals...`);
   const tiles = resolveTiles(rawTiles);
-  const entities = resolveEntities(rawEntities);
+  const { entities, abstractIds } = resolveEntitiesWithAbstractIds(rawEntities);
   const decals = resolveDecals(rawDecals);
 
   onProgress?.(`Registry ready: ${tiles.size} tiles, ${entities.size} entities, ${decals.size} decals`);
-  return new PrototypeRegistry(tiles, entities, decals);
+  return new PrototypeRegistry(tiles, entities, decals, abstractIds);
 }

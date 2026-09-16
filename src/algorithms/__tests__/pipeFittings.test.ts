@@ -196,6 +196,48 @@ describe('fitPipes', () => {
   });
 });
 
+describe('fitPipes layers', () => {
+  it('defaults to Primary layer prototypes and no AtmosPipeLayers component', () => {
+    const tiles = new Set(['5,5']);
+    const result = fitPipes(tiles, 'gas', undefined, 'Primary');
+    expect(result[0].prototype).toBe('GasPipeStraight');
+    expect(result[0].pipeLayer).toBeUndefined();
+  });
+
+  it('Secondary layer uses Alt1 prototypes and tags AtmosPipeLayers', () => {
+    const tiles = new Set(['5,4', '5,5', '5,6']);
+    const result = fitPipes(tiles, 'gas', undefined, 'Secondary');
+    const mid = result.find(p => p.x === 5 && p.y === 5)!;
+    expect(mid.prototype).toBe('GasPipeStraightAlt1');
+    expect(mid.pipeLayer).toBe('Secondary');
+  });
+
+  it('Tertiary layer uses Alt2 prototypes for bends too', () => {
+    const tiles = new Set(['5,5', '5,4', '4,5']);
+    const result = fitPipes(tiles, 'gas', undefined, 'Tertiary');
+    const corner = result.find(p => p.x === 5 && p.y === 5)!;
+    expect(corner.prototype).toBe('GasPipeBendAlt2');
+    expect(corner.pipeLayer).toBe('Tertiary');
+  });
+
+  it('three layers on the same tile set fit independently without affecting each other', () => {
+    const tiles = new Set(['5,5', '5,6', '5,4', '6,5', '4,5']);
+    const primary = fitPipes(tiles, 'gas', undefined, 'Primary').find(p => p.x === 5 && p.y === 5)!;
+    const secondary = fitPipes(tiles, 'gas', undefined, 'Secondary').find(p => p.x === 5 && p.y === 5)!;
+    const tertiary = fitPipes(tiles, 'gas', undefined, 'Tertiary').find(p => p.x === 5 && p.y === 5)!;
+    expect(primary.prototype).toBe('GasPipeFourway');
+    expect(secondary.prototype).toBe('GasPipeFourwayAlt1');
+    expect(tertiary.prototype).toBe('GasPipeFourwayAlt2');
+  });
+
+  it('disposal pipes never get a pipeLayer tag regardless of layer argument', () => {
+    const tiles = new Set(['5,5']);
+    const result = fitPipes(tiles, 'disposal', undefined, 'Tertiary');
+    expect(result[0].prototype).toBe('DisposalPipe');
+    expect(result[0].pipeLayer).toBeUndefined();
+  });
+});
+
 describe('computePipeChanges', () => {
   it('adds new pipes and refits affected neighbors', () => {
     // Existing vertical pipe at (5,4) and (5,5)

@@ -14,15 +14,40 @@ export interface FittedPipe {
   prototype: string;
   rotation: number; // radians
   color?: string;
+  /** Non-Primary layers get an explicit AtmosPipeLayers component so the game
+   *  keeps this run from mixing with pipes on other layers occupying the same tile. */
+  pipeLayer?: 'Secondary' | 'Tertiary';
 }
 
 export type PipeFamily = 'gas' | 'disposal';
 
-const GAS_PROTOTYPES = {
-  straight: 'GasPipeStraight',
-  bend: 'GasPipeBend',
-  tJunction: 'GasPipeTJunction',
-  fourway: 'GasPipeFourway',
+/**
+ * Which of up to 3 independent pipe runs (SS14 AtmosPipeLayer: Primary/Secondary/Tertiary)
+ * this fitting pass targets. Gas pipes support all 3 (via the Alt1/Alt2 prototype families,
+ * which bake in the layer + a distinct sprite/drawdepth so overlapping runs stay visually
+ * distinct). Disposal pipes have no layer system in the game, always Primary.
+ */
+export type PipeLayer = 'Primary' | 'Secondary' | 'Tertiary';
+
+const GAS_PROTOTYPES: Record<PipeLayer, { straight: string; bend: string; tJunction: string; fourway: string }> = {
+  Primary: {
+    straight: 'GasPipeStraight',
+    bend: 'GasPipeBend',
+    tJunction: 'GasPipeTJunction',
+    fourway: 'GasPipeFourway',
+  },
+  Secondary: {
+    straight: 'GasPipeStraightAlt1',
+    bend: 'GasPipeBendAlt1',
+    tJunction: 'GasPipeTJunctionAlt1',
+    fourway: 'GasPipeFourwayAlt1',
+  },
+  Tertiary: {
+    straight: 'GasPipeStraightAlt2',
+    bend: 'GasPipeBendAlt2',
+    tJunction: 'GasPipeTJunctionAlt2',
+    fourway: 'GasPipeFourwayAlt2',
+  },
 };
 
 const DISPOSAL_PROTOTYPES = {
@@ -35,17 +60,25 @@ const DISPOSAL_PROTOTYPES = {
 /**
  * Compute fitted pipe entities for a set of tile positions.
  *
+ * Fitting only considers neighbors within the given `tiles` set, which the caller
+ * must have already restricted to the same pipe layer (and, for gas, the same
+ * color/network) so that up to 3 independent runs can overlap the same tiles
+ * without cross-connecting or being fitted against each other.
+ *
  * @param tiles - Set of "x,y" strings representing pipe tile positions
  * @param family - 'gas' or 'disposal'
  * @param color - Optional hex color string for AtmosPipeColor (gas pipes only)
+ * @param layer - Which of the 3 overlapping gas pipe layers to fit for (default Primary; ignored for disposal)
  * @returns Array of fitted pipe entities with correct prototypes and rotations
  */
 export function fitPipes(
   tiles: ReadonlySet<string>,
   family: PipeFamily = 'gas',
   color?: string,
+  layer: PipeLayer = 'Primary',
 ): FittedPipe[] {
-  const protos = family === 'gas' ? GAS_PROTOTYPES : DISPOSAL_PROTOTYPES;
+  const protos = family === 'gas' ? GAS_PROTOTYPES[layer] : DISPOSAL_PROTOTYPES;
+  const pipeLayer = family === 'gas' && layer !== 'Primary' ? layer : undefined;
   const results: FittedPipe[] = [];
 
   for (const key of tiles) {
@@ -93,6 +126,7 @@ export function fitPipes(
       prototype,
       rotation,
       color: family === 'gas' ? color : undefined,
+      pipeLayer,
     });
   }
 
@@ -150,9 +184,11 @@ function parseKey(key: string): [number, number] {
  * compute fittings for the combined set, and return the entity changes needed.
  *
  * @param newTiles - Array of {x,y} tile positions to add
- * @param existingPipeEntities - Existing pipe entities on the map (same network)
+ * @param existingPipeEntities - Existing pipe entities on the map, already filtered to the
+ *   same network (same layer, and for gas, same color) as the run being drawn
  * @param family - 'gas' or 'disposal'
  * @param color - Optional pipe color
+ * @param layer - Which of the 3 overlapping gas pipe layers this run belongs to (default Primary)
  * @returns Object with entitiesToRemove (UIDs) and entitiesToAdd (fitted pipes)
  */
 export function computePipeChanges(
@@ -160,6 +196,7 @@ export function computePipeChanges(
   existingPipeEntities: { uid: number; x: number; y: number }[],
   family: PipeFamily = 'gas',
   color?: string,
+  layer: PipeLayer = 'Primary',
 ): {
   removedUids: number[];
   fittedPipes: FittedPipe[];
@@ -193,7 +230,7 @@ export function computePipeChanges(
   }
 
   // Compute fittings for affected tiles using the full combined set for neighbor lookups
-  const fitted = fitPipes(allTiles, family, color);
+  const fitted = fitPipes(allTiles, family, color, layer);
 
   // Filter to only affected tiles
   const affectedFitted = fitted.filter(p => affectedKeys.has(`${p.x},${p.y}`));

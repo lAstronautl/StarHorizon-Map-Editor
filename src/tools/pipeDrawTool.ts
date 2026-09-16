@@ -2,7 +2,7 @@ import type { ITool, ToolContext } from './toolTypes';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { PipeType } from '../types';
 import { PIPE_COLORS, getPipeDisplay } from '../types';
-import { computePipeChanges, fitPipes, type PipeFamily } from '../algorithms/pipeFittings';
+import { computePipeChanges, fitPipes, type PipeFamily, type PipeLayer } from '../algorithms/pipeFittings';
 import { buildTransformComponent } from './entityHelpers';
 
 /** Pipe prototypes that belong to gas pipe network */
@@ -19,6 +19,26 @@ const DISPOSAL_PIPE_PROTOTYPES = new Set([
 ]);
 
 /**
+ * Determine which of the 3 overlapping gas pipe layers an entity belongs to.
+ * The Alt1/Alt2 prototype families bake in Secondary/Tertiary in-game, so the
+ * prototype name is authoritative; an explicit AtmosPipeLayers component (as used
+ * to override the layer on single-port devices like vents/ports) takes precedence
+ * when present. Defaults to Primary, matching the game's component default.
+ */
+function getEntityPipeLayer(entity: ImportedEntity): PipeLayer {
+  for (const comp of entity.components) {
+    const c = comp as Record<string, unknown>;
+    if (c.type === 'AtmosPipeLayers' && typeof c.pipeLayer === 'string') {
+      if (c.pipeLayer === 'Secondary' || c.pipeLayer === 'Tertiary') return c.pipeLayer;
+      return 'Primary';
+    }
+  }
+  if (entity.prototype.endsWith('Alt1')) return 'Secondary';
+  if (entity.prototype.endsWith('Alt2')) return 'Tertiary';
+  return 'Primary';
+}
+
+/**
  * Pipe draw tool, drag to lay pipe paths with auto-fitting on commit.
  *
  * On mouseup, collects existing pipe entities of the same network,
@@ -32,6 +52,11 @@ export class PipeDrawTool implements ITool {
 
   /** Set externally from infrastructure panel selection */
   pipeType: PipeType = 'supply';
+
+  /** Set externally from infrastructure panel selection. Lets up to 3 independent gas
+   *  pipe runs (Primary/Secondary/Tertiary) overlap the same tiles without cross-fitting.
+   *  Disposal pipes ignore this (always Primary in-game). */
+  pipeLayer: PipeLayer = 'Primary';
 
   private drawing = false;
   private visitedTiles: { x: number; y: number }[] = [];
@@ -49,6 +74,11 @@ export class PipeDrawTool implements ITool {
 
   private get prototypeSet(): Set<string> {
     return this.family === 'gas' ? GAS_PIPE_PROTOTYPES : DISPOSAL_PIPE_PROTOTYPES;
+  }
+
+  /** Disposal pipes have no in-game layer system; only gas pipes support Secondary/Tertiary. */
+  private get effectiveLayer(): PipeLayer {
+    return this.family === 'gas' ? this.pipeLayer : 'Primary';
   }
 
   onMouseDown(ctx: ToolContext, tileX: number, tileY: number, button: number) {
@@ -76,7 +106,7 @@ export class PipeDrawTool implements ITool {
     if (this.visitedTiles.length === 0) return;
 
     // Collect existing pipe entities of the same network type
-    // For gas pipes, also filter by color to separate supply/return networks
+    // For gas pipes, also filter by color and layer to separate overlapping networks
     const existingPipes = this.getMatchingPipeEntities(ctx);
 
     const { removedUids, fittedPipes } = computePipeChanges(
@@ -88,6 +118,7 @@ export class PipeDrawTool implements ITool {
       })),
       this.family,
       this.color,
+      this.effectiveLayer,
     );
 
     // Build entity changes
@@ -109,6 +140,9 @@ export class PipeDrawTool implements ITool {
       const components: Record<string, unknown>[] = buildTransformComponent(pos, pipe.rotation, gridUid);
       if (pipe.color) {
         components.push({ type: 'AtmosPipeColor', color: pipe.color });
+      }
+      if (pipe.pipeLayer) {
+        components.push({ type: 'AtmosPipeLayers', pipeLayer: pipe.pipeLayer });
       }
       const entity: ImportedEntity = {
         uid: nextUid++,
@@ -217,13 +251,16 @@ export class PipeDrawTool implements ITool {
 
   /**
    * Get existing pipe entities that belong to the same network.
-   * For gas pipes, separates supply/return by AtmosPipeColor.
+   * For gas pipes, separates supply/return by AtmosPipeColor, and separates
+   * up to 3 overlapping runs on the same tiles by pipe layer.
    */
   private getMatchingPipeEntities(ctx: ToolContext): ImportedEntity[] {
     const protos = this.prototypeSet;
     return ctx.state.entities.filter(e => {
       if (!protos.has(e.prototype)) return false;
       if (this.family === 'disposal') return true;
+
+      if (getEntityPipeLayer(e) !== this.effectiveLayer) return false;
 
       // For gas pipes, match by color
       const entityColor = this.getEntityPipeColor(e);
@@ -242,9 +279,10 @@ export class PipeDrawTool implements ITool {
   }
 
   private erasePipeAt(ctx: ToolContext, tileX: number, tileY: number) {
-    const protos = this.prototypeSet;
-    const toRemove = ctx.state.entities.filter(e =>
-      protos.has(e.prototype) &&
+    // Only erase the currently-selected layer/network at this tile, so up to 3
+    // overlapping gas pipe runs can be erased independently of one another.
+    const matching = this.getMatchingPipeEntities(ctx);
+    const toRemove = matching.filter(e =>
       Math.floor(e.position.x) === tileX &&
       Math.floor(e.position.y) === tileY,
     );
@@ -277,7 +315,7 @@ export class PipeDrawTool implements ITool {
     }
 
     if (allRemainingTiles.size > 0) {
-      const allFitted = fitPipes(allRemainingTiles, this.family, this.color);
+      const allFitted = fitPipes(allRemainingTiles, this.family, this.color, this.effectiveLayer);
 
       // Only refit tiles that are neighbors of removed tiles
       let nextUid = ctx.state.nextEntityId;
@@ -298,6 +336,9 @@ export class PipeDrawTool implements ITool {
         const refitComps: Record<string, unknown>[] = buildTransformComponent(refitPos, pipe.rotation, ctx.state.gridUid);
         if (pipe.color) {
           refitComps.push({ type: 'AtmosPipeColor', color: pipe.color });
+        }
+        if (pipe.pipeLayer) {
+          refitComps.push({ type: 'AtmosPipeLayers', pipeLayer: pipe.pipeLayer });
         }
         entityChanges.push({
           action: 'add',

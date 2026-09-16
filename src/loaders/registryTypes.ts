@@ -125,6 +125,8 @@ export interface IPrototypeRegistry {
   getSpriteInfo(entityId: string): SpriteInfo | null;
   getDecal(id: string): DecalPrototypeInfo | null;
   getAllDecals(): DecalPrototypeInfo[];
+  /** True if `id` refers to a prototype declared with `abstract: true` (never spawnable). */
+  isAbstractPrototype(id: string): boolean;
   readonly tileCount: number;
   readonly entityCount: number;
   readonly decalCount: number;

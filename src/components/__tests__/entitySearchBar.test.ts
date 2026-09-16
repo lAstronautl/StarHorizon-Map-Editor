@@ -29,6 +29,7 @@ function makeRegistry(names: Record<string, string>): IPrototypeRegistry {
     getDecal: () => null,
     getAllDecals: () => [],
     decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 

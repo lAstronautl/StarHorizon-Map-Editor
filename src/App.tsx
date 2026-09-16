@@ -117,7 +117,7 @@ export const App: React.FC = () => {
   const [validatorIssues, setValidatorIssues] = useState<ValidationIssue[] | null>(null);
   const [highlightTile, setHighlightTile] = useState<{ x: number; y: number; startTime: number } | null>(null);
   const [infraSelection, setInfraSelection] = useState<InfrastructureSelection>({
-    mode: 'cable', cableType: 'CableHV', pipeType: 'supply',
+    mode: 'cable', cableType: 'CableHV', pipeType: 'supply', pipeLayer: 'Primary',
   });
   const cameraRef = useRef(new Camera());
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -561,6 +561,7 @@ export const App: React.FC = () => {
     setInfraSelection(sel);
     cableDrawTool.cableType = sel.cableType;
     pipeDrawTool.pipeType = sel.pipeType;
+    pipeDrawTool.pipeLayer = sel.pipeLayer;
     // Auto-switch to appropriate tool
     if (sel.mode === 'cable') {
       dispatch({ type: 'SET_TOOL', tool: 'cableDraw' });

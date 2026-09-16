@@ -32,6 +32,7 @@ function makeMockRegistry(): IPrototypeRegistry {
     getDecal: () => null,
     getAllDecals: () => [],
     decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 

@@ -138,6 +138,7 @@ function makeSmoothRegistry(): IPrototypeRegistry {
       }
       return null;
     },
+    isAbstractPrototype: () => false,
     tileCount: 0,
     entityCount: 0,
     getDecal: () => null,
@@ -435,6 +436,7 @@ describe('hasSubFloorHide', () => {
       getDecal: () => null,
       getAllDecals: () => [],
       decalCount: 0,
+      isAbstractPrototype: () => false,
     };
   }
 

@@ -23,6 +23,7 @@ function makeRegistry(protoComponents: Record<string, unknown>[]): IPrototypeReg
     getTile: () => null, getAllTiles: () => [], getAllEntities: () => [],
     getEntitiesByCategory: () => [], getCategories: () => [],
     getSpriteInfo: () => null, tileCount: 0, entityCount: 0, getDecal: () => null, getAllDecals: () => [], decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 
@@ -227,6 +228,7 @@ function makeOccluderRegistry(): IPrototypeRegistry {
     getTile: () => null, getAllTiles: () => [], getAllEntities: () => [],
     getEntitiesByCategory: () => [], getCategories: () => [],
     getSpriteInfo: () => null, tileCount: 0, entityCount: 0, getDecal: () => null, getAllDecals: () => [], decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 
@@ -314,6 +316,7 @@ const nullRegistry: IPrototypeRegistry = {
   getDecal: () => null,
   getAllDecals: () => [],
   decalCount: 0,
+  isAbstractPrototype: () => false,
 };
 
 describe('collectVisibleLights', () => {

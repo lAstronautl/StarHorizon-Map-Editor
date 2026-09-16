@@ -25,6 +25,7 @@ function makeRegistry(spriteInfo: { rsiPath: string; baseState: string } | null)
     getDecal: () => null,
     getAllDecals: () => [],
     decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 

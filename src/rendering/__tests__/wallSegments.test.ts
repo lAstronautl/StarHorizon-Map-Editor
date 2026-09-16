@@ -33,6 +33,7 @@ function makeRegistry(): IPrototypeRegistry {
     getTile: () => null, getAllTiles: () => [], getAllEntities: () => [],
     getEntitiesByCategory: () => [], getCategories: () => [],
     getSpriteInfo: () => null, tileCount: 0, entityCount: 0, getDecal: () => null, getAllDecals: () => [], decalCount: 0,
+    isAbstractPrototype: () => false,
   };
 }
 

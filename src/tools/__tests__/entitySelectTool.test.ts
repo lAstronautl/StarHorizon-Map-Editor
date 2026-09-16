@@ -48,6 +48,7 @@ function makeMockRegistry(): IPrototypeRegistry {
       if (id.includes('Airlock') || id.includes('Door')) return { rsiPath: 'test.rsi', baseState: 'base', layers: [], drawDepth: 'Doors' } as any;
       return null;
     },
+    isAbstractPrototype: () => false,
     tileCount: 0,
     entityCount: 0,
     getDecal: () => null,

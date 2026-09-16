@@ -231,6 +231,13 @@ function mergeComponents(chain: RawEntityPrototype[]): RawComponent[] {
 export function resolveEntities(
   entries: EntityEntry[],
 ): Map<string, ResolvedEntity> {
+  return resolveEntitiesWithAbstractIds(entries).entities;
+}
+
+/** Same as resolveEntities, but also returns the set of prototype IDs marked `abstract: true`. */
+export function resolveEntitiesWithAbstractIds(
+  entries: EntityEntry[],
+): { entities: Map<string, ResolvedEntity>; abstractIds: Set<string> } {
   // Index all prototypes by ID (including abstract ones, needed for resolution)
   const protoById = new Map<string, EntityEntry>();
   for (const entry of entries) {
@@ -278,12 +285,17 @@ export function resolveEntities(
 
   // Resolve all entities
   const result = new Map<string, ResolvedEntity>();
+  const abstractIds = new Set<string>();
 
   for (const entry of entries) {
     const proto = entry.proto;
 
-    // Skip abstract entities from the output
-    if (proto.abstract) continue;
+    // Skip abstract entities from the output, but remember their IDs so map
+    // validation can flag entities placed with an abstract-only prototype.
+    if (proto.abstract) {
+      abstractIds.add(proto.id);
+      continue;
+    }
 
     const chain = buildChain(proto.id);
     const components = mergeComponents(chain);
@@ -306,7 +318,7 @@ export function resolveEntities(
     result.set(proto.id, resolved);
   }
 
-  return result;
+  return { entities: result, abstractIds };
 }
 
 /**
