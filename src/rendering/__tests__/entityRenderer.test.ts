@@ -7,6 +7,7 @@ import {
   buildSmoothKeyGrid,
   getTintedCacheSize, TINTED_CACHE_MAX,
   clearPipeColorCache,
+  getAtmosPipeColor, invalidatePipeColorForEntity,
   getPrototypeFlags, clearPrototypeFlags,
   hasSubFloorHide,
   isBaseLayerPipeVisual, clearBaseLayerPipeVisualCache,
@@ -547,6 +548,32 @@ describe('isBaseLayerPipeVisual', () => {
       rsiPath: 'x.rsi', baseState: 'icon', layers: [{ state: 'icon' }],
     });
     expect(isBaseLayerPipeVisual('SomePrototype', reg)).toBe(true);
+  });
+});
+
+describe('getAtmosPipeColor caching', () => {
+  beforeEach(() => clearPipeColorCache());
+
+  function makeEntity(uid: number, components: Record<string, unknown>[]): ImportedEntity {
+    return { uid, prototype: 'GasPipeStraight', position: { x: 0.5, y: 0.5 }, rotation: 0, components };
+  }
+
+  it('picks up a changed AtmosPipeColor after invalidatePipeColorForEntity', () => {
+    const blue = makeEntity(1, [{ type: 'AtmosPipeColor', color: '#0055CCFF' }]);
+    expect(getAtmosPipeColor(blue)).toBe('#0055CCFF');
+
+    // Same uid, edited color: without invalidation the stale cached value would leak through.
+    const red = makeEntity(1, [{ type: 'AtmosPipeColor', color: '#990000FF' }]);
+    invalidatePipeColorForEntity(1);
+    expect(getAtmosPipeColor(red)).toBe('#990000FF');
+  });
+
+  it('without invalidation, a same-uid edit would otherwise return the stale cached color', () => {
+    const blue = makeEntity(2, [{ type: 'AtmosPipeColor', color: '#0055CCFF' }]);
+    expect(getAtmosPipeColor(blue)).toBe('#0055CCFF');
+
+    const red = makeEntity(2, [{ type: 'AtmosPipeColor', color: '#990000FF' }]);
+    expect(getAtmosPipeColor(red)).toBe('#0055CCFF'); // demonstrates why invalidation is required
   });
 });
 

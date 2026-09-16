@@ -44,7 +44,7 @@ import { ForkSelector } from './components/ForkSelector';
 import { importMap } from './import/mapImporter';
 import type { ImportedEntity } from './import/mapImporter';
 import { exportMap } from './export/mapExporter';
-import { DEFAULT_LAYER_VISIBILITY } from './rendering/entityRenderer';
+import { DEFAULT_LAYER_VISIBILITY, invalidatePipeColorForEntity } from './rendering/entityRenderer';
 import type { LayerVisibility } from './rendering/entityRenderer';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
 import type { InfrastructureSelection } from './types';
@@ -114,6 +114,7 @@ export const App: React.FC = () => {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({ ...DEFAULT_LAYER_VISIBILITY });
   const [pendingDeleteGridUid, setPendingDeleteGridUid] = useState<number | null>(null);
+  const [pendingDroppedMap, setPendingDroppedMap] = useState<string | null>(null);
   const [validatorIssues, setValidatorIssues] = useState<ValidationIssue[] | null>(null);
   const [highlightTile, setHighlightTile] = useState<{ x: number; y: number; startTime: number } | null>(null);
   const [infraSelection, setInfraSelection] = useState<InfrastructureSelection>({
@@ -281,11 +282,20 @@ export const App: React.FC = () => {
         }
       });
     } else if (lowerName.endsWith('.yml') || lowerName.endsWith('.yaml')) {
-      file.text().then(handleImport);
+      // Dropping a map file discards the current map, so confirm before replacing it
+      // (unlike the menu-bar Import button, a drop can happen accidentally mid-edit).
+      file.text().then(setPendingDroppedMap);
     } else {
       setStatusMessage(t('app.status.unsupportedFileType'));
     }
-  }, [handleImport, t]);
+  }, [t]);
+
+  const confirmDroppedMap = useCallback(() => {
+    if (pendingDroppedMap !== null) {
+      handleImport(pendingDroppedMap);
+      setPendingDroppedMap(null);
+    }
+  }, [pendingDroppedMap, handleImport]);
 
   const handleSearchNavigate = useCallback((entity: ImportedEntity) => {
     // Switch to entity select tool so the selection is visible
@@ -498,6 +508,9 @@ export const App: React.FC = () => {
   const handleUpdateEntity = useCallback((updated: import('./import/mapImporter').ImportedEntity) => {
     const original = state.entities.find(e => e.uid === updated.uid);
     if (!original) return;
+    // The entity keeps the same uid across this remove+add edit, so per-uid rendering caches
+    // (e.g. AtmosPipeColor) must be explicitly invalidated or they'd keep serving stale data.
+    invalidatePipeColorForEntity(updated.uid);
     dispatch({
       type: 'APPLY_COMMAND',
       command: {
@@ -678,6 +691,17 @@ export const App: React.FC = () => {
           />
         );
       })()}
+      {pendingDroppedMap !== null && (
+        <ConfirmModal
+          title={t('app.dropMap.title')}
+          message={t('app.dropMap.message')}
+          confirmLabel={t('app.dropMap.confirm')}
+          cancelLabel={t('app.dropMap.cancel')}
+          danger
+          onConfirm={confirmDroppedMap}
+          onCancel={() => setPendingDroppedMap(null)}
+        />
+      )}
       {validatorIssues !== null && (
         <ValidatorModal
           issues={validatorIssues}

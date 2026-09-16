@@ -698,7 +698,7 @@ function drawPlaceholder(
 
 const pipeColorCache = new Map<number, string | null>();
 
-function getAtmosPipeColor(entity: ImportedEntity): string | null {
+export function getAtmosPipeColor(entity: ImportedEntity): string | null {
   if (pipeColorCache.has(entity.uid)) return pipeColorCache.get(entity.uid)!;
   let result: string | null = null;
   for (const comp of entity.components) {
@@ -710,6 +710,12 @@ function getAtmosPipeColor(entity: ImportedEntity): string | null {
   }
   pipeColorCache.set(entity.uid, result);
   return result;
+}
+
+/** Invalidate the cached AtmosPipeColor for a single entity (e.g. after editing its
+ *  AtmosPipeColor component via the info panel), instead of clearing every entity's cache. */
+export function invalidatePipeColorForEntity(uid: number): void {
+  pipeColorCache.delete(uid);
 }
 
 export function clearPipeColorCache(): void {
