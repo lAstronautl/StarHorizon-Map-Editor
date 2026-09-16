@@ -539,6 +539,41 @@ interface ExtraLayerSprite {
 }
 
 /**
+ * Get the prototype-level AtmosPipeLayers.spriteLayersRsiPaths override table for the
+ * PipeVisualLayers.Pipe key, if the prototype declares one (e.g. GasPipeBase and everything
+ * that inherits it — plain pipes and unary/binary devices alike). Returns null if absent.
+ */
+const pipeLayerRsiPathsCache = new Map<string, Record<string, string> | null>();
+export function getPipeLayerRsiPaths(prototype: string, registry: IPrototypeRegistry): Record<string, string> | null {
+  if (pipeLayerRsiPathsCache.has(prototype)) return pipeLayerRsiPathsCache.get(prototype)!;
+  const resolved = registry.getEntity(prototype);
+  let result: Record<string, string> | null = null;
+  const comp = resolved?.components.find(c => c.type === 'AtmosPipeLayers') as Record<string, unknown> | undefined;
+  const table = comp?.spriteLayersRsiPaths as Record<string, unknown> | undefined;
+  const pipeTable = table?.[PIPE_VISUAL_LAYER_KEY] as Record<string, unknown> | undefined;
+  if (pipeTable) {
+    result = {};
+    for (const [layerName, path] of Object.entries(pipeTable)) {
+      if (typeof path === 'string') result[layerName] = path;
+    }
+  }
+  pipeLayerRsiPathsCache.set(prototype, result);
+  return result;
+}
+
+export function clearPipeLayerRsiPathsCache(): void {
+  pipeLayerRsiPathsCache.clear();
+}
+
+/** Resolve which AtmosPipeLayer name (Primary/Secondary/Tertiary) an entity is on: instance
+ *  AtmosPipeLayers.pipeLayer takes precedence, falling back to Primary. */
+export function getEntityPipeLayerName(entity: ImportedEntity): string {
+  const comp = entity.components.find(c => (c as Record<string, unknown>).type === 'AtmosPipeLayers') as Record<string, unknown> | undefined;
+  const layer = comp?.pipeLayer;
+  return layer === 'Secondary' || layer === 'Tertiary' ? layer : 'Primary';
+}
+
+/**
  * Get extra sprite layers for an entity (layers beyond the base layer).
  * Returns cached layers, null (no extra layers or failed), or undefined (still loading).
  */
@@ -546,8 +581,9 @@ function getExtraLayers(
   prototype: string,
   direction: CardinalDirection,
   registry: IPrototypeRegistry,
+  pipeLayerName: string,
 ): ExtraLayerSprite[] | null | undefined {
-  const cacheKey = `${prototype}:${direction}:layers`;
+  const cacheKey = `${prototype}:${direction}:${pipeLayerName}:layers`;
 
   if (extraLayerCache.has(cacheKey)) {
     return extraLayerCache.get(cacheKey)!;
@@ -567,20 +603,25 @@ function getExtraLayers(
   const skipIndex = spriteInfo.baseLayerIndex ?? 0;
   extraLayerLoadingSet.add(cacheKey);
   const layerPromises: Promise<ExtraLayerSprite | null>[] = [];
+  const pipeLayerRsiPaths = getPipeLayerRsiPaths(prototype, registry);
 
   for (let i = 0; i < spriteInfo.layers.length; i++) {
     if (i === skipIndex) continue;
     const layer = spriteInfo.layers[i];
     if (layer.visible === false || !layer.state) continue;
 
+    const isPipeLayer = layer.map?.includes(PIPE_VISUAL_LAYER_KEY) ?? false;
+    // Non-Primary AtmosPipeLayers swap the pipe-visual layer's RSI to a distinct palette
+    // (pipe.rsi / pipe_alt1.rsi / pipe_alt2.rsi), matching the game's SetPipeLayer behavior.
+    const rsiOverride = isPipeLayer ? pipeLayerRsiPaths?.[pipeLayerName] : undefined;
+
     // Layer can override the RSI path
     const layerSpriteInfo = {
       ...spriteInfo,
-      rsiPath: layer.sprite ?? spriteInfo.rsiPath,
+      rsiPath: rsiOverride ?? layer.sprite ?? spriteInfo.rsiPath,
       baseState: layer.state,
     };
 
-    const isPipeLayer = layer.map?.includes(PIPE_VISUAL_LAYER_KEY) ?? false;
     layerPromises.push(
       loadSprite(layerSpriteInfo, direction, 0).then(sprite => sprite ? { sprite, isPipeLayer } : null),
     );
@@ -1094,7 +1135,7 @@ export function renderEntities(
     // Draw extra sprite layers (e.g., spawner entity preview over the X marker,
     // GasPort/GasVentPump/GasVentScrubber's pipe stub layer)
     if (!cablePrefix) {
-      const extraLayers = getExtraLayers(prototype, direction, registry);
+      const extraLayers = getExtraLayers(prototype, direction, registry, getEntityPipeLayerName(entity));
       if (extraLayers) {
         for (const { sprite: layerSprite, isPipeLayer } of extraLayers) {
           const lw = tileScreenSize * (layerSprite.sw / TILE_SIZE);

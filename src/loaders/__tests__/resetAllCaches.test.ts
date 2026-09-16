@@ -23,6 +23,7 @@ describe('resetAllCaches', () => {
       vi.spyOn(entityRenderer, 'clearSpriteColorCache'),
       vi.spyOn(entityRenderer, 'clearPipeColorCache'),
       vi.spyOn(entityRenderer, 'clearBaseLayerPipeVisualCache'),
+      vi.spyOn(entityRenderer, 'clearPipeLayerRsiPathsCache'),
       vi.spyOn(rsiLoader, 'clearRsiCache'),
       vi.spyOn(decalRenderer, 'clearDecalSpriteCache'),
       vi.spyOn(gridRenderer, 'clearTileImageCache'),

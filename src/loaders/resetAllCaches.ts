@@ -2,7 +2,7 @@ import {
   clearEntitySpriteCache, clearExtraLayerCache, clearPrototypeFlags,
   clearSmoothInfoCache, clearCornerFillCache, clearCardinalMaskCache,
   clearNoRotCache, clearDrawDepthCache, clearSpriteColorCache, clearPipeColorCache,
-  clearBaseLayerPipeVisualCache,
+  clearBaseLayerPipeVisualCache, clearPipeLayerRsiPathsCache,
 } from '../rendering/entityRenderer';
 import { clearRsiCache } from './rsiLoader';
 import { clearDecalSpriteCache } from '../rendering/decalRenderer';
@@ -29,6 +29,7 @@ export function resetAllCaches(): void {
   clearSpriteColorCache();
   clearPipeColorCache();
   clearBaseLayerPipeVisualCache();
+  clearPipeLayerRsiPathsCache();
   // RSI sprite/meta caches
   clearRsiCache();
   // Decal rendering + thumbnail caches

@@ -10,6 +10,8 @@ import {
   getPrototypeFlags, clearPrototypeFlags,
   hasSubFloorHide,
   isBaseLayerPipeVisual, clearBaseLayerPipeVisualCache,
+  getPipeLayerRsiPaths, clearPipeLayerRsiPathsCache,
+  getEntityPipeLayerName,
   hasCableConnectionAt,
   getSubfloorCategory, clearSubfloorCategoryCache,
   isLayerVisible, DEFAULT_LAYER_VISIBILITY,
@@ -545,6 +547,72 @@ describe('isBaseLayerPipeVisual', () => {
       rsiPath: 'x.rsi', baseState: 'icon', layers: [{ state: 'icon' }],
     });
     expect(isBaseLayerPipeVisual('SomePrototype', reg)).toBe(true);
+  });
+});
+
+describe('getPipeLayerRsiPaths', () => {
+  beforeEach(() => clearPipeLayerRsiPathsCache());
+
+  function makeRegistryWithComponents(components: { type: string; [key: string]: unknown }[]): IPrototypeRegistry {
+    return {
+      getTile: () => null,
+      getEntity: () => ({
+        id: 'test', name: 'test', description: '', suffix: '', abstract: false,
+        categories: [], placement: {}, components,
+        spriteInfo: null, sourceCategory: 'Other',
+        raw: { type: 'entity' as const, id: 'test' },
+      }),
+      getAllTiles: () => [],
+      getAllEntities: () => [],
+      getEntitiesByCategory: () => [],
+      getCategories: () => [],
+      getSpriteInfo: () => null,
+      tileCount: 0,
+      entityCount: 0,
+      getDecal: () => null,
+      getAllDecals: () => [],
+      decalCount: 0,
+      isAbstractPrototype: () => false,
+    };
+  }
+
+  it('extracts the PipeVisualLayers.Pipe RSI path table from AtmosPipeLayers', () => {
+    const reg = makeRegistryWithComponents([{
+      type: 'AtmosPipeLayers',
+      spriteLayersRsiPaths: {
+        'enum.PipeVisualLayers.Pipe': {
+          Primary: 'Structures/Piping/Atmospherics/pipe.rsi',
+          Secondary: 'Structures/Piping/Atmospherics/pipe_alt1.rsi',
+          Tertiary: 'Structures/Piping/Atmospherics/pipe_alt2.rsi',
+        },
+      },
+    }]);
+    const paths = getPipeLayerRsiPaths('GasVentPump', reg);
+    expect(paths).toEqual({
+      Primary: 'Structures/Piping/Atmospherics/pipe.rsi',
+      Secondary: 'Structures/Piping/Atmospherics/pipe_alt1.rsi',
+      Tertiary: 'Structures/Piping/Atmospherics/pipe_alt2.rsi',
+    });
+  });
+
+  it('returns null when the prototype has no AtmosPipeLayers component', () => {
+    const reg = makeRegistryWithComponents([{ type: 'Sprite' }]);
+    expect(getPipeLayerRsiPaths('TableWood', reg)).toBeNull();
+  });
+});
+
+describe('getEntityPipeLayerName', () => {
+  function makeEntity(components: Record<string, unknown>[]): ImportedEntity {
+    return { uid: 1, prototype: 'GasVentPump', position: { x: 0.5, y: 0.5 }, rotation: 0, components };
+  }
+
+  it('reads Secondary/Tertiary from an instance AtmosPipeLayers override', () => {
+    expect(getEntityPipeLayerName(makeEntity([{ type: 'AtmosPipeLayers', pipeLayer: 'Secondary' }]))).toBe('Secondary');
+    expect(getEntityPipeLayerName(makeEntity([{ type: 'AtmosPipeLayers', pipeLayer: 'Tertiary' }]))).toBe('Tertiary');
+  });
+
+  it('defaults to Primary when no override is present', () => {
+    expect(getEntityPipeLayerName(makeEntity([]))).toBe('Primary');
   });
 });
 
