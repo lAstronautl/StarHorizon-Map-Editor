@@ -1,8 +1,20 @@
 import React, { useRef, useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 import type { PrefabData } from '../prefab/prefabTypes';
 import { parsePrefabJson } from '../prefab/prefabIO';
+import { mapToPrefab } from '../prefab/mapToPrefab';
 import { withBase } from '../basePath';
 import { useT } from '../i18n';
+
+/** Parse either a .prefab.json file or a whole SS14 map .yml/.yaml file (converted to a
+ *  prefab covering its full grid), based on the filename extension. */
+function parsePrefabOrMap(content: string, filename: string): PrefabData {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.yml') || lower.endsWith('.yaml')) {
+    const name = filename.replace(/\.ya?ml$/i, '');
+    return mapToPrefab(content, name);
+  }
+  return parsePrefabJson(content);
+}
 
 interface LoadedPrefab {
   data: PrefabData;
@@ -104,9 +116,9 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    file.text().then(json => {
+    file.text().then(content => {
       try {
-        const data = parsePrefabJson(json);
+        const data = parsePrefabOrMap(content, file.name);
         registerLocalPrefab(data, file.name);
       } catch (err) {
         console.error('Failed to parse prefab:', err);
@@ -165,7 +177,7 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
       <input
         ref={fileInputRef}
         type="file"
-        accept=".prefab.json,.json"
+        accept=".prefab.json,.json,.yml,.yaml"
         className="hidden"
         onChange={handleFileChange}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import type { PaletteItem } from '../types';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import type { PrefabData } from '../prefab/prefabTypes';
@@ -8,6 +8,8 @@ import { DecalPalette } from './DecalPalette';
 import type { DecalPlacementSettings } from './DecalPalette';
 import { PrefabPanel } from './PrefabPanel';
 import type { PrefabPanelHandle } from './PrefabPanel';
+import { mapToPrefab } from '../prefab/mapToPrefab';
+import { parsePrefabJson } from '../prefab/prefabIO';
 import { useT } from '../i18n';
 
 interface Props {
@@ -28,20 +30,82 @@ export interface PalettePanelHandle {
 
 export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, selectedItem, onSelect, onSelectPrefab, decalPlacementSettingsRef }, ref) => {
   const [activeTab, setActiveTab] = useState<Tab>('tiles');
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const { t } = useT();
   const prefabPanelRef = useRef<PrefabPanelHandle>(null);
 
+  const addAndSelectDroppedPrefab = useCallback((data: PrefabData, filename: string) => {
+    setActiveTab('prefabs');
+    // PrefabPanel mounts on the next render (tab switch above); defer registration
+    // one tick so the ref is attached before we call into it.
+    setTimeout(() => prefabPanelRef.current?.addAndSelectPrefab(data, filename), 0);
+  }, []);
+
   useImperativeHandle(ref, () => ({
-    addAndSelectDroppedPrefab: (data, filename) => {
-      setActiveTab('prefabs');
-      // PrefabPanel mounts on the next render (tab switch above); defer registration
-      // one tick so the ref is attached before we call into it.
-      setTimeout(() => prefabPanelRef.current?.addAndSelectPrefab(data, filename), 0);
-    },
-  }), []);
+    addAndSelectDroppedPrefab,
+  }), [addAndSelectDroppedPrefab]);
+
+  // Dropping a file onto this panel (entities/prefabs/etc.) saves it as a prefab instead of
+  // replacing the current map, unlike dropping onto the canvas — this lets a whole exported
+  // station .yml or a .prefab.json be turned into a stampable prefab without leaving the map.
+  const handlePanelDragOver = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handlePanelDragEnter = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(true);
+  }, []);
+
+  const handlePanelDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+  }, []);
+
+  const handlePanelDrop = useCallback((e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    const lowerName = file.name.toLowerCase();
+    file.text().then(content => {
+      try {
+        const data = lowerName.endsWith('.yml') || lowerName.endsWith('.yaml')
+          ? mapToPrefab(content, file.name.replace(/\.ya?ml$/i, ''))
+          : parsePrefabJson(content);
+        addAndSelectDroppedPrefab(data, file.name);
+      } catch {
+        // Ignore unparsable drops here; the canvas-level drop handler covers map loading.
+      }
+    });
+  }, [addAndSelectDroppedPrefab]);
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div
+      className="flex-1 flex flex-col overflow-hidden relative"
+      onDragEnter={handlePanelDragEnter}
+      onDragOver={handlePanelDragOver}
+      onDragLeave={handlePanelDragLeave}
+      onDrop={handlePanelDrop}
+    >
+      {isDraggingOver && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+          style={{ backgroundColor: 'rgba(30, 100, 220, 0.35)' }}
+        >
+          <div className="text-sm font-bold text-white text-center px-3" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+            {t('palettePanel.dropAsPrefab')}
+          </div>
+        </div>
+      )}
       <div className="flex border-b border-subtle bg-surface">
         <TabButton label={t('palettePanel.tabs.tiles')} active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
         <TabButton label={t('palettePanel.tabs.entities')} active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />

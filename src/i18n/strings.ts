@@ -93,6 +93,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   'palettePanel.tabs.entities': { ru: 'Сущности', en: 'Entities' },
   'palettePanel.tabs.decals': { ru: 'Декали', en: 'Decals' },
   'palettePanel.tabs.prefabs': { ru: 'Префабы', en: 'Prefabs' },
+  'palettePanel.dropAsPrefab': { ru: 'Отпустите, чтобы сохранить как префаб', en: 'Drop to save as a prefab' },
 
   // GridTabBar
   'gridTabBar.renameGridPrompt': { ru: 'Переименовать сетку:', en: 'Rename grid:' },
