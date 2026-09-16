@@ -151,6 +151,47 @@ describe('serializePrefab', () => {
     });
   });
 
+  it('ignores malformed linkedPorts entries instead of throwing', () => {
+    const grid = makeGrid(10, 10, 0, 0);
+    const source = makeEntity(10, 'SignalButton', 2, 2, [
+      {
+        type: 'DeviceLinkSource',
+        linkedPorts: {
+          '11': null, // malformed: not an array of pairs
+          '12': [['Pressed', 'Toggle']], // well-formed, should still be captured
+          '13': [['NotAPair']], // malformed pair (missing sink), should be skipped
+        },
+      },
+    ]);
+    const target1 = makeEntity(11, 'DoorBolt', 3, 2);
+    const target2 = makeEntity(12, 'DoorBolt', 3, 3);
+    const target3 = makeEntity(13, 'DoorBolt', 4, 2);
+
+    expect(() => serializePrefab({
+      name: 'MalformedLinkTest',
+      minX: 2,
+      minY: 2,
+      maxX: 4,
+      maxY: 3,
+      grid,
+      entities: [source, target1, target2, target3],
+      entityRawComponents: {},
+    })).not.toThrow();
+
+    const result = serializePrefab({
+      name: 'MalformedLinkTest',
+      minX: 2,
+      minY: 2,
+      maxX: 4,
+      maxY: 3,
+      grid,
+      entities: [source, target1, target2, target3],
+      entityRawComponents: {},
+    });
+    expect(result.deviceLinks).toHaveLength(1);
+    expect(result.deviceLinks[0].targetIdx).toBe(2); // target2 (uid 12)'s index
+  });
+
   it('handles multiple port pairs per link', () => {
     const grid = makeGrid(10, 10, 0, 0);
     const source = makeEntity(10, 'SignalButton', 2, 2, [

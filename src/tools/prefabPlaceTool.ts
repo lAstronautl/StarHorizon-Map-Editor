@@ -30,6 +30,14 @@ export class PrefabPlaceTool implements ITool {
   }
 
   onMouseDown(ctx: ToolContext, tileX: number, tileY: number, button: number): void {
+    if (button === 2) {
+      // Right-click cancels prefab placement instead of placing/opening a context menu.
+      if (this.prefab) {
+        this.setPrefab(null);
+        ctx.dispatch({ type: 'SET_TOOL', tool: 'select' });
+      }
+      return;
+    }
     if (button !== 0) return;
     if (!this.prefab) return;
 

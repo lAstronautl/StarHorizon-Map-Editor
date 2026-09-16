@@ -696,10 +696,17 @@ function drawPlaceholder(
 
 // ---- Pipe color extraction (cached) ----
 
-const pipeColorCache = new Map<number, string | null>();
+// Keyed by entity object identity (not uid): uids are recycled across undo/redo, across
+// entity edits (which replace the object via remove+add), and especially across loading a
+// different map into the same session — a uid-keyed cache would then serve one entity's
+// cached color to a completely unrelated entity that merely reused the same numeric uid
+// (e.g. two AirCanisters in different maps both at uid 4007, only one with AtmosPipeColor).
+// A WeakMap keyed by the entity object itself can never collide this way, and needs no
+// manual invalidation on edit since editing always produces a new object.
+let pipeColorCache = new WeakMap<ImportedEntity, string | null>();
 
 export function getAtmosPipeColor(entity: ImportedEntity): string | null {
-  if (pipeColorCache.has(entity.uid)) return pipeColorCache.get(entity.uid)!;
+  if (pipeColorCache.has(entity)) return pipeColorCache.get(entity)!;
   let result: string | null = null;
   for (const comp of entity.components) {
     if ((comp as Record<string, unknown>).type === 'AtmosPipeColor') {
@@ -708,18 +715,14 @@ export function getAtmosPipeColor(entity: ImportedEntity): string | null {
       break;
     }
   }
-  pipeColorCache.set(entity.uid, result);
+  pipeColorCache.set(entity, result);
   return result;
 }
 
-/** Invalidate the cached AtmosPipeColor for a single entity (e.g. after editing its
- *  AtmosPipeColor component via the info panel), instead of clearing every entity's cache. */
-export function invalidatePipeColorForEntity(uid: number): void {
-  pipeColorCache.delete(uid);
-}
-
 export function clearPipeColorCache(): void {
-  pipeColorCache.clear();
+  // WeakMap has no clear(); replacing the binding lets old entries be GC'd naturally, and
+  // is also what actually matters here since object-identity keys can't go stale anyway.
+  pipeColorCache = new WeakMap<ImportedEntity, string | null>();
   tintedSpriteCache.clear();
 }
 

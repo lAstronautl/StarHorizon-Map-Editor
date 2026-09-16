@@ -44,7 +44,7 @@ import { ForkSelector } from './components/ForkSelector';
 import { importMap } from './import/mapImporter';
 import type { ImportedEntity } from './import/mapImporter';
 import { exportMap } from './export/mapExporter';
-import { DEFAULT_LAYER_VISIBILITY, invalidatePipeColorForEntity } from './rendering/entityRenderer';
+import { DEFAULT_LAYER_VISIBILITY } from './rendering/entityRenderer';
 import type { LayerVisibility } from './rendering/entityRenderer';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
 import type { InfrastructureSelection } from './types';
@@ -508,9 +508,6 @@ export const App: React.FC = () => {
   const handleUpdateEntity = useCallback((updated: import('./import/mapImporter').ImportedEntity) => {
     const original = state.entities.find(e => e.uid === updated.uid);
     if (!original) return;
-    // The entity keeps the same uid across this remove+add edit, so per-uid rendering caches
-    // (e.g. AtmosPipeColor) must be explicitly invalidated or they'd keep serving stale data.
-    invalidatePipeColorForEntity(updated.uid);
     dispatch({
       type: 'APPLY_COMMAND',
       command: {

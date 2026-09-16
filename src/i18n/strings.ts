@@ -269,10 +269,11 @@ export const strings: Record<string, Record<Locale, string>> = {
   'circleTool.command.fill': { ru: 'Заливка круга', en: 'Circle fill' },
 
   // PrefabPanel
-  'prefabPanel.importTitle': { ru: 'Импортировать файл префаба .json', en: 'Import prefab .json file' },
+  'prefabPanel.importTitle': { ru: 'Импортировать файл префаба .json или карту .yml', en: 'Import prefab .json file or a map .yml' },
   'prefabPanel.refreshTitle': { ru: 'Обновить из public/prefabs/', en: 'Refresh from public/prefabs/' },
   'prefabPanel.noPrefabsFound': { ru: 'Префабы не найдены.', en: 'No prefabs found.' },
   'prefabPanel.savePrefabsHint': { ru: 'Сохраните файлы .prefab.json в', en: 'Save .prefab.json files to' },
+  'prefabPanel.importFailed': { ru: 'Не удалось загрузить файл: {error}', en: 'Failed to load file: {error}' },
 
   // ForkSelector
   'forkSelector.subtitle': { ru: 'Выберите форк, чтобы начать', en: 'Select a fork to get started' },

@@ -116,11 +116,25 @@ describe('PrefabPlaceTool', () => {
     expect(tool.getPreviewHeight()).toBe(2);
   });
 
-  it('does nothing on right click', () => {
+  it('right click cancels placement instead of stamping', () => {
     const tool = new PrefabPlaceTool();
     const { ctx, dispatched } = makeToolContext();
 
     tool.setPrefab(testPrefab);
+    tool.onMouseDown(ctx, 5, 10, 2);
+
+    // No prefab placement command should be dispatched...
+    expect(dispatched.some(a => a.type === 'APPLY_COMMAND')).toBe(false);
+    // ...the prefab should be cleared...
+    expect(tool.getPrefab()).toBeNull();
+    // ...and the tool should switch back to select.
+    expect(dispatched.some(a => a.type === 'SET_TOOL' && a.tool === 'select')).toBe(true);
+  });
+
+  it('right click is a no-op when no prefab is loaded', () => {
+    const tool = new PrefabPlaceTool();
+    const { ctx, dispatched } = makeToolContext();
+
     tool.onMouseDown(ctx, 5, 10, 2);
 
     expect(dispatched.length).toBe(0);

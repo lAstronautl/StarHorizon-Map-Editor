@@ -30,6 +30,9 @@ interface Props {
  *  register a prefab into the visible list and select it, as if imported via '+'. */
 export interface PrefabPanelHandle {
   addAndSelectPrefab: (data: PrefabData, filename: string) => void;
+  /** Parse a dropped .prefab.json/.json/.yml/.yaml file's raw text and register it,
+   *  surfacing a visible error in this panel if parsing fails (instead of failing silently). */
+  handleDroppedFile: (content: string, filename: string) => void;
 }
 
 export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefab }, ref) => {
@@ -38,6 +41,7 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /** Fetch prefab listing, tries dev server endpoint first, falls back to build manifest. */
@@ -113,23 +117,28 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
     handleSelect({ data, filename, folder: '' });
   }, [handleSelect]);
 
+  const handleDroppedFile = useCallback((content: string, filename: string) => {
+    try {
+      const data = parsePrefabOrMap(content, filename);
+      setImportError(null);
+      registerLocalPrefab(data, filename);
+    } catch (err) {
+      console.error('Failed to parse prefab:', err);
+      setImportError(t('prefabPanel.importFailed', { error: String(err instanceof Error ? err.message : err) }));
+    }
+  }, [registerLocalPrefab, t]);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    file.text().then(content => {
-      try {
-        const data = parsePrefabOrMap(content, file.name);
-        registerLocalPrefab(data, file.name);
-      } catch (err) {
-        console.error('Failed to parse prefab:', err);
-      }
-    });
+    file.text().then(content => handleDroppedFile(content, file.name));
     e.target.value = '';
-  }, [registerLocalPrefab]);
+  }, [handleDroppedFile]);
 
   useImperativeHandle(ref, () => ({
     addAndSelectPrefab: registerLocalPrefab,
-  }), [registerLocalPrefab]);
+    handleDroppedFile,
+  }), [registerLocalPrefab, handleDroppedFile]);
 
   const toggleFolder = useCallback((folder: string) => {
     setCollapsedFolders(prev => {
@@ -173,6 +182,12 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
           {loading ? '...' : '\u21BB'}
         </button>
       </div>
+
+      {importError && (
+        <div className="px-2 py-1.5 text-[11px] text-danger bg-elevated border-b border-subtle">
+          {importError}
+        </div>
+      )}
 
       <input
         ref={fileInputRef}

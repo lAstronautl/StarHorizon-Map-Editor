@@ -8,8 +8,6 @@ import { DecalPalette } from './DecalPalette';
 import type { DecalPlacementSettings } from './DecalPalette';
 import { PrefabPanel } from './PrefabPanel';
 import type { PrefabPanelHandle } from './PrefabPanel';
-import { mapToPrefab } from '../prefab/mapToPrefab';
-import { parsePrefabJson } from '../prefab/prefabIO';
 import { useT } from '../i18n';
 
 interface Props {
@@ -39,6 +37,14 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
     // PrefabPanel mounts on the next render (tab switch above); defer registration
     // one tick so the ref is attached before we call into it.
     setTimeout(() => prefabPanelRef.current?.addAndSelectPrefab(data, filename), 0);
+  }, []);
+
+  /** Switch to the Prefabs tab and hand raw dropped file text to PrefabPanel, which parses
+   *  it (as .prefab.json or a whole map .yml/.yaml) and shows a visible error if that fails,
+   *  instead of a silent no-op. */
+  const handleDroppedFileContent = useCallback((content: string, filename: string) => {
+    setActiveTab('prefabs');
+    setTimeout(() => prefabPanelRef.current?.handleDroppedFile(content, filename), 0);
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -75,19 +81,8 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
     setIsDraggingOver(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
-
-    const lowerName = file.name.toLowerCase();
-    file.text().then(content => {
-      try {
-        const data = lowerName.endsWith('.yml') || lowerName.endsWith('.yaml')
-          ? mapToPrefab(content, file.name.replace(/\.ya?ml$/i, ''))
-          : parsePrefabJson(content);
-        addAndSelectDroppedPrefab(data, file.name);
-      } catch {
-        // Ignore unparsable drops here; the canvas-level drop handler covers map loading.
-      }
-    });
-  }, [addAndSelectDroppedPrefab]);
+    file.text().then(content => handleDroppedFileContent(content, file.name));
+  }, [handleDroppedFileContent]);
 
   return (
     <div
@@ -98,8 +93,15 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
       onDrop={handlePanelDrop}
     >
       {isDraggingOver && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
+        // pointer-events: auto (not none) so this overlay itself is the drop target — otherwise
+        // hovering over a child element (e.g. an existing row in a long prefab list) would make
+        // that element's own dragover/drop the effective target instead of this panel's handler.
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center"
           style={{ backgroundColor: 'rgba(30, 100, 220, 0.35)' }}
+          onDragOver={handlePanelDragOver}
+          onDragLeave={handlePanelDragLeave}
+          onDrop={handlePanelDrop}
         >
           <div className="text-sm font-bold text-white text-center px-3" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
             {t('palettePanel.dropAsPrefab')}

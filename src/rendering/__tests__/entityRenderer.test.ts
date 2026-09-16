@@ -7,7 +7,7 @@ import {
   buildSmoothKeyGrid,
   getTintedCacheSize, TINTED_CACHE_MAX,
   clearPipeColorCache,
-  getAtmosPipeColor, invalidatePipeColorForEntity,
+  getAtmosPipeColor,
   getPrototypeFlags, clearPrototypeFlags,
   hasSubFloorHide,
   isBaseLayerPipeVisual, clearBaseLayerPipeVisualCache,
@@ -558,22 +558,25 @@ describe('getAtmosPipeColor caching', () => {
     return { uid, prototype: 'GasPipeStraight', position: { x: 0.5, y: 0.5 }, rotation: 0, components };
   }
 
-  it('picks up a changed AtmosPipeColor after invalidatePipeColorForEntity', () => {
+  it('caches by entity object identity, so editing (a new object) is never stale', () => {
     const blue = makeEntity(1, [{ type: 'AtmosPipeColor', color: '#0055CCFF' }]);
     expect(getAtmosPipeColor(blue)).toBe('#0055CCFF');
 
-    // Same uid, edited color: without invalidation the stale cached value would leak through.
+    // Same uid, but a distinct object (as produced by the remove+add edit flow):
+    // no manual invalidation needed, the new object is simply a fresh cache entry.
     const red = makeEntity(1, [{ type: 'AtmosPipeColor', color: '#990000FF' }]);
-    invalidatePipeColorForEntity(1);
     expect(getAtmosPipeColor(red)).toBe('#990000FF');
+    // The original object's cached value is untouched.
+    expect(getAtmosPipeColor(blue)).toBe('#0055CCFF');
   });
 
-  it('without invalidation, a same-uid edit would otherwise return the stale cached color', () => {
-    const blue = makeEntity(2, [{ type: 'AtmosPipeColor', color: '#0055CCFF' }]);
-    expect(getAtmosPipeColor(blue)).toBe('#0055CCFF');
+  it('never bleeds color between two different entities that share the same uid (e.g. across maps)', () => {
+    // Simulates loading a different map where an unrelated entity reuses the same numeric uid.
+    const withColor = makeEntity(4007, [{ type: 'AtmosPipeColor', color: '#0055CCFF' }]);
+    expect(getAtmosPipeColor(withColor)).toBe('#0055CCFF');
 
-    const red = makeEntity(2, [{ type: 'AtmosPipeColor', color: '#990000FF' }]);
-    expect(getAtmosPipeColor(red)).toBe('#0055CCFF'); // demonstrates why invalidation is required
+    const withoutColor = makeEntity(4007, []);
+    expect(getAtmosPipeColor(withoutColor)).toBeNull();
   });
 });
 
