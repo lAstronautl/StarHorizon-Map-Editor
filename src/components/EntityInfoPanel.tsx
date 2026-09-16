@@ -492,7 +492,13 @@ const PipeLayerSelector: React.FC<PipeLayerSelectorProps> = ({ entity, onUpdateE
     } else {
       newComponents.push({ type: 'AtmosPipeLayers', pipeLayer: layer });
     }
-    onUpdateEntity({ ...entity, components: newComponents });
+    // Plain pipe segments (GasPipeStraight/Bend/TJunction/Fourway/Half) bake their layer into
+    // a distinct prototype family with its own sprite/drawdepth (Alt1 = Secondary, Alt2 =
+    // Tertiary) rather than reading AtmosPipeLayers at render time, so the visible sprite only
+    // changes if we also swap the prototype. Devices (vents/scrubbers/ports) render their
+    // connector-nub color from AtmosPipeColor/the component directly and keep one prototype.
+    const newPrototype = getPipeLayerPrototype(entity.prototype, layer);
+    onUpdateEntity({ ...entity, prototype: newPrototype, components: newComponents });
   };
 
   return (
@@ -521,7 +527,33 @@ const PipeLayerSelector: React.FC<PipeLayerSelectorProps> = ({ entity, onUpdateE
 function getPipeLayerValue(entity: ImportedEntity): string {
   const comp = entity.components.find((c) => (c as Record<string, unknown>).type === 'AtmosPipeLayers') as Record<string, unknown> | undefined;
   const layer = comp?.pipeLayer;
-  return layer === 'Secondary' || layer === 'Tertiary' ? layer : 'Primary';
+  if (layer === 'Secondary' || layer === 'Tertiary') return layer;
+  if (comp) return 'Primary'; // explicit AtmosPipeLayers present but not Secondary/Tertiary
+  // No component override: pipe-family prototypes bake the layer into an Alt1/Alt2 suffix.
+  if (entity.prototype.endsWith('Alt1')) return 'Secondary';
+  if (entity.prototype.endsWith('Alt2')) return 'Tertiary';
+  return 'Primary';
+}
+
+/** Strip any existing Alt1/Alt2 suffix from a pipe prototype name, if present. */
+function stripPipeLayerSuffix(prototype: string): string {
+  if (prototype.endsWith('Alt1')) return prototype.slice(0, -4);
+  if (prototype.endsWith('Alt2')) return prototype.slice(0, -4);
+  return prototype;
+}
+
+/**
+ * Compute the prototype to switch to when picking a pipe layer. Only plain gas pipe segments
+ * (GasPipeStraight/Bend/TJunction/Fourway/Half and their Alt1/Alt2 siblings) have per-layer
+ * prototype families; every other entity (vents, scrubbers, ports, disposal pipes, etc.)
+ * keeps its prototype unchanged and relies solely on the AtmosPipeLayers component.
+ */
+function getPipeLayerPrototype(prototype: string, layer: string): string {
+  const base = stripPipeLayerSuffix(prototype);
+  if (!base.startsWith('GasPipe')) return prototype;
+  if (layer === 'Secondary') return `${base}Alt1`;
+  if (layer === 'Tertiary') return `${base}Alt2`;
+  return base;
 }
 
 function hasDeviceList(entity: ImportedEntity): boolean {
