@@ -93,15 +93,14 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
       onDrop={handlePanelDrop}
     >
       {isDraggingOver && (
-        // pointer-events: auto (not none) so this overlay itself is the drop target — otherwise
-        // hovering over a child element (e.g. an existing row in a long prefab list) would make
-        // that element's own dragover/drop the effective target instead of this panel's handler.
+        // pointer-events: none — this is a purely visual indicator. Native dragover/drop
+        // already bubble up through the DOM to this panel's own handlers below regardless of
+        // which descendant (e.g. a prefab list row) is directly under the cursor, so making
+        // this overlay itself interactive isn't needed and previously caused rapid
+        // dragenter/dragleave flicker as the cursor crossed the overlay's own boundary.
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center"
+          className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none"
           style={{ backgroundColor: 'rgba(30, 100, 220, 0.35)' }}
-          onDragOver={handlePanelDragOver}
-          onDragLeave={handlePanelDragLeave}
-          onDrop={handlePanelDrop}
         >
           <div className="text-sm font-bold text-white text-center px-3" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
             {t('palettePanel.dropAsPrefab')}

@@ -622,7 +622,7 @@ export const App: React.FC = () => {
     >
       {isDraggingFile && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 10000,
+          position: 'absolute', inset: 0, zIndex: 10000,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           backgroundColor: 'rgba(30, 100, 220, 0.35)',
           pointerEvents: 'none',
