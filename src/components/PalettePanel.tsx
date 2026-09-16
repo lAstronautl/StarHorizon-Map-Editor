@@ -29,6 +29,12 @@ export interface PalettePanelHandle {
 export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, selectedItem, onSelect, onSelectPrefab, decalPlacementSettingsRef }, ref) => {
   const [activeTab, setActiveTab] = useState<Tab>('tiles');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
+  // dragenter/dragleave fire in pairs as the cursor crosses child element boundaries (e.g.
+  // moving over a row in the prefab list), not just when truly entering/leaving this panel.
+  // A plain boolean toggled by each event flickers the overlay off between those pairs;
+  // a depth counter (only hiding at 0, same pattern as App.tsx's page-level drop overlay)
+  // stays stable across nested enter/leave churn.
+  const dragDepthRef = useRef(0);
   const { t } = useT();
   const prefabPanelRef = useRef<PrefabPanelHandle>(null);
 
@@ -64,6 +70,7 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
+    dragDepthRef.current += 1;
     setIsDraggingOver(true);
   }, []);
 
@@ -71,13 +78,15 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingOver(false);
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingOver(false);
   }, []);
 
   const handlePanelDrop = useCallback((e: React.DragEvent) => {
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
+    dragDepthRef.current = 0;
     setIsDraggingOver(false);
     const file = e.dataTransfer.files?.[0];
     if (!file) return;
