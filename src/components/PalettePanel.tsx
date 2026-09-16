@@ -32,11 +32,11 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
   const { t } = useT();
   const prefabPanelRef = useRef<PrefabPanelHandle>(null);
 
+  // PrefabPanel stays mounted at all times (see render below), so its ref is always
+  // attached — no need to defer these calls until after a tab-switch remount.
   const addAndSelectDroppedPrefab = useCallback((data: PrefabData, filename: string) => {
     setActiveTab('prefabs');
-    // PrefabPanel mounts on the next render (tab switch above); defer registration
-    // one tick so the ref is attached before we call into it.
-    setTimeout(() => prefabPanelRef.current?.addAndSelectPrefab(data, filename), 0);
+    prefabPanelRef.current?.addAndSelectPrefab(data, filename);
   }, []);
 
   /** Switch to the Prefabs tab and hand raw dropped file text to PrefabPanel, which parses
@@ -44,7 +44,7 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
    *  instead of a silent no-op. */
   const handleDroppedFileContent = useCallback((content: string, filename: string) => {
     setActiveTab('prefabs');
-    setTimeout(() => prefabPanelRef.current?.handleDroppedFile(content, filename), 0);
+    prefabPanelRef.current?.handleDroppedFile(content, filename);
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -114,21 +114,30 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
         <TabButton label={t('palettePanel.tabs.prefabs')} active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
       </div>
 
-      {activeTab === 'tiles' ? (
+      {/* All tab contents stay mounted at all times (visibility toggled via CSS) instead of
+          being conditionally rendered, so switching tabs never discards their state — this
+          matters most for PrefabPanel, whose locally-imported/dropped prefab list previously
+          reset every time the Prefabs tab was left and re-entered. */}
+      <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'tiles' ? '' : 'hidden'}`}>
         <TilePalette registry={registry} selectedItem={selectedItem} onSelect={onSelect} />
-      ) : activeTab === 'entities' ? (
+      </div>
+      <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'entities' ? '' : 'hidden'}`}>
         <EntityPalette registry={registry} selectedItem={selectedItem} onSelect={onSelect} />
-      ) : activeTab === 'decals' ? (
-        decalPlacementSettingsRef && (
+      </div>
+      {decalPlacementSettingsRef && (
+        <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'decals' ? '' : 'hidden'}`}>
           <DecalPalette
             registry={registry}
             selectedItem={selectedItem}
             onSelect={onSelect}
             placementSettingsRef={decalPlacementSettingsRef}
           />
-        )
-      ) : (
-        onSelectPrefab && <PrefabPanel ref={prefabPanelRef} onSelectPrefab={onSelectPrefab} />
+        </div>
+      )}
+      {onSelectPrefab && (
+        <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'prefabs' ? '' : 'hidden'}`}>
+          <PrefabPanel ref={prefabPanelRef} onSelectPrefab={onSelectPrefab} />
+        </div>
       )}
     </div>
   );

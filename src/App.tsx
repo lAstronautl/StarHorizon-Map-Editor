@@ -615,26 +615,8 @@ export const App: React.FC = () => {
   return (
     <div
       className="flex flex-col w-full h-full relative"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
     >
-      {isDraggingFile && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10000,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          backgroundColor: 'rgba(30, 100, 220, 0.35)',
-          pointerEvents: 'none',
-        }}>
-          <div style={{
-            fontSize: 32, fontWeight: 700, color: '#fff',
-            textShadow: '0 2px 8px rgba(0,0,0,0.6)',
-          }}>
-            {t('app.dropOverlay.title')}
-          </div>
-        </div>
-      )}
+
       {showDisclaimer && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
@@ -750,7 +732,28 @@ export const App: React.FC = () => {
             searchInputRef={searchInputRef}
             onValidate={handleValidate}
           />
-          <div className="flex-1 relative overflow-hidden">
+          <div
+            className="flex-1 relative overflow-hidden"
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {isDraggingFile && (
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 10000,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'rgba(30, 100, 220, 0.35)',
+                pointerEvents: 'none',
+              }}>
+                <div style={{
+                  fontSize: 32, fontWeight: 700, color: '#fff',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+                }}>
+                  {t('app.dropOverlay.title')}
+                </div>
+              </div>
+            )}
             {showPerfHUD && <PerformanceHUD />}
             {showBenchmark && <BenchmarkOverlay />}
             <EditorCanvas
