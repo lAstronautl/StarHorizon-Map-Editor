@@ -9,6 +9,7 @@ import {
   clearPipeColorCache,
   getPrototypeFlags, clearPrototypeFlags,
   hasSubFloorHide,
+  isBaseLayerPipeVisual, clearBaseLayerPipeVisualCache,
   hasCableConnectionAt,
   getSubfloorCategory, clearSubfloorCategoryCache,
   isLayerVisible, DEFAULT_LAYER_VISIBILITY,
@@ -493,6 +494,57 @@ describe('getSubfloorCategory', () => {
 
   it('falls back to other for unrelated prototypes', () => {
     expect(getSubfloorCategory('TableWood')).toBe('other');
+  });
+});
+
+describe('isBaseLayerPipeVisual', () => {
+  beforeEach(() => clearBaseLayerPipeVisualCache());
+
+  function makeRegistryWithSprite(spriteInfo: import('../../loaders/registryTypes').SpriteInfo | null): IPrototypeRegistry {
+    return {
+      getTile: () => null,
+      getEntity: () => null,
+      getAllTiles: () => [],
+      getAllEntities: () => [],
+      getEntitiesByCategory: () => [],
+      getCategories: () => [],
+      getSpriteInfo: () => spriteInfo,
+      tileCount: 0,
+      entityCount: 0,
+      getDecal: () => null,
+      getAllDecals: () => [],
+      decalCount: 0,
+      isAbstractPrototype: () => false,
+    };
+  }
+
+  it('is true for a plain pipe segment whose single layer maps to PipeVisualLayers.Pipe', () => {
+    const reg = makeRegistryWithSprite({
+      rsiPath: 'pipe.rsi', baseState: 'pipeStraight',
+      layers: [{ state: 'pipeStraight', map: ['enum.PipeVisualLayers.Pipe'] }],
+    });
+    expect(isBaseLayerPipeVisual('GasPipeStraight', reg)).toBe(true);
+  });
+
+  it('is false for a unary device whose base layer is its body, not the connector nub', () => {
+    // GasVentPump-shaped: layer 0 is the pipe connector nub (extra layer, skipped as base),
+    // layer 1 is the device body (baseLayerIndex), which does not map to PipeVisualLayers.Pipe.
+    const reg = makeRegistryWithSprite({
+      rsiPath: 'vent.rsi', baseState: 'vent_off', baseLayerIndex: 1,
+      layers: [
+        { state: 'pipeUnaryConnectors', sprite: 'pipe.rsi', map: ['enum.PipeVisualLayers.Pipe'] },
+        { state: 'vent_off' },
+      ],
+    });
+    expect(isBaseLayerPipeVisual('GasVentPump', reg)).toBe(false);
+  });
+
+  it('defaults to true when there is no sprite info or only one undifferentiated layer', () => {
+    expect(isBaseLayerPipeVisual('SomePrototype', makeRegistryWithSprite(null))).toBe(true);
+    const reg = makeRegistryWithSprite({
+      rsiPath: 'x.rsi', baseState: 'icon', layers: [{ state: 'icon' }],
+    });
+    expect(isBaseLayerPipeVisual('SomePrototype', reg)).toBe(true);
   });
 });
 

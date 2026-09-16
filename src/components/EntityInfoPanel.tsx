@@ -112,6 +112,13 @@ export const EntityInfoPanel: React.FC<Props> = ({
         />
       )}
 
+      {onUpdateEntity && registry && hasAtmosPipeLayers(entity, registry) && (
+        <PipeLayerSelector
+          entity={entity}
+          onUpdateEntity={onUpdateEntity}
+        />
+      )}
+
       <InfoRow label={t('entityInfoPanel.category')} value={category} />
       {description && (
         <div className="text-muted text-[10px] mt-1 italic">
@@ -461,8 +468,73 @@ const SpriteStateSelector: React.FC<SpriteStateSelectorProps> = ({ entity, regis
   );
 };
 
+// ---- Pipe Layer Selector ----
+
+const PIPE_LAYERS: readonly string[] = ['Primary', 'Secondary', 'Tertiary'];
+
+interface PipeLayerSelectorProps {
+  entity: ImportedEntity;
+  onUpdateEntity: (entity: ImportedEntity) => void;
+}
+
+const PipeLayerSelector: React.FC<PipeLayerSelectorProps> = ({ entity, onUpdateEntity }) => {
+  const { t } = useT();
+  const currentLayer = getPipeLayerValue(entity);
+
+  const handleSelect = (layer: string) => {
+    const idx = entity.components.findIndex((c) => (c as Record<string, unknown>).type === 'AtmosPipeLayers');
+    const newComponents = [...entity.components];
+    if (layer === 'Primary') {
+      // Primary is the component's default; omit the override entirely (matches the game's default).
+      if (idx >= 0) newComponents.splice(idx, 1);
+    } else if (idx >= 0) {
+      newComponents[idx] = { ...(newComponents[idx] as Record<string, unknown>), pipeLayer: layer };
+    } else {
+      newComponents.push({ type: 'AtmosPipeLayers', pipeLayer: layer });
+    }
+    onUpdateEntity({ ...entity, components: newComponents });
+  };
+
+  return (
+    <div className="py-0.5">
+      <div className="flex justify-between items-center">
+        <span className="text-muted">{t('entityInfoPanel.pipeLayer')}:</span>
+        <div className="flex gap-0.5">
+          {PIPE_LAYERS.map((layer) => (
+            <button
+              key={layer}
+              onClick={() => handleSelect(layer)}
+              className={`px-1.5 py-0.5 rounded-sm border text-[10px] cursor-pointer ${
+                currentLayer === layer ? 'bg-active border-accent text-accent' : 'bg-elevated border-subtle text-primary hover:bg-hover'
+              }`}
+              title={t(`entityInfoPanel.pipeLayerHint.${layer}`)}
+            >
+              {t(`entityInfoPanel.pipeLayerName.${layer}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+function getPipeLayerValue(entity: ImportedEntity): string {
+  const comp = entity.components.find((c) => (c as Record<string, unknown>).type === 'AtmosPipeLayers') as Record<string, unknown> | undefined;
+  const layer = comp?.pipeLayer;
+  return layer === 'Secondary' || layer === 'Tertiary' ? layer : 'Primary';
+}
+
 function hasDeviceList(entity: ImportedEntity): boolean {
   return entity.components.some(
     (c) => (c as Record<string, unknown>).type === 'DeviceList',
   );
+}
+
+/** Atmos pipe entities (pipes, vents, scrubbers, ports, etc.) all inherit AtmosPipeLayers
+ *  from GasPipeBase, so its presence (instance or prototype default) is what gates showing
+ *  the layer selector, matching the game's own up-to-3-overlapping-runs mechanism. */
+function hasAtmosPipeLayers(entity: ImportedEntity, registry: IPrototypeRegistry): boolean {
+  if (entity.components.some((c) => (c as Record<string, unknown>).type === 'AtmosPipeLayers')) return true;
+  const resolved = registry.getEntity(entity.prototype);
+  return resolved?.components.some((c) => c.type === 'AtmosPipeLayers') ?? false;
 }

@@ -30,6 +30,29 @@ function makeMinimalMap(): ImportedMap {
 }
 
 describe('exportMap', () => {
+  describe('category', () => {
+    it('always writes category: Map for format 7+ when none is set (engine only infers category for format < 7)', () => {
+      const map = makeMinimalMap();
+      map.meta = { format: 7, postmapinit: false };
+      const yamlStr = exportMap(map);
+      expect(yamlStr).toMatch(/^meta:\n {2}format: 7\n {2}category: Map\n/);
+    });
+
+    it('preserves an explicit category for format 7+', () => {
+      const map = makeMinimalMap();
+      map.meta = { format: 7, postmapinit: false, category: 'Grid' };
+      const yamlStr = exportMap(map);
+      expect(yamlStr).toMatch(/^meta:\n {2}format: 7\n {2}category: Grid\n/);
+    });
+
+    it('does not add a category for format < 7 when none was present', () => {
+      const map = makeMinimalMap();
+      map.meta = { format: 6, postmapinit: false };
+      const yamlStr = exportMap(map);
+      expect(yamlStr).not.toContain('category:');
+    });
+  });
+
   it('produces valid YAML that can be re-imported', () => {
     const original = makeMinimalMap();
     const yamlStr = exportMap(original);
@@ -302,9 +325,10 @@ describe('exportMap', () => {
       const chunkGrid100 = makeChunkBase64F7({ 0: 3 });
 
       // Meta field order matches exporter emission order:
-      // format, entityCount, postmapinit
+      // format, category, entityCount, postmapinit
       return `meta:
   format: 7
+  category: Map
   entityCount: 5
   postmapinit: false
 maps:

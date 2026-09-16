@@ -521,8 +521,22 @@ export function getEntitySprite(
 
 // ---- Extra layer loading (for multi-layer sprites like spawners) ----
 
-const extraLayerCache = new Map<string, SpriteDrawInfo[] | null>();
+const extraLayerCache = new Map<string, ExtraLayerSprite[] | null>();
 const extraLayerLoadingSet = new Set<string>();
+
+/**
+ * The engine's PipeVisualLayers.Pipe map key (see Content.Client's PipeColorVisualizerSystem):
+ * AtmosPipeColor only ever recolors the sprite layer mapped to this key (the small connector
+ * nub on unary/binary atmos devices, or the entire sprite for plain pipe segments that map
+ * their one layer to it) — never a device's main body layer.
+ */
+const PIPE_VISUAL_LAYER_KEY = 'enum.PipeVisualLayers.Pipe';
+
+interface ExtraLayerSprite {
+  sprite: SpriteDrawInfo;
+  /** True if this layer is mapped to PipeVisualLayers.Pipe and should receive AtmosPipeColor tint. */
+  isPipeLayer: boolean;
+}
 
 /**
  * Get extra sprite layers for an entity (layers beyond the base layer).
@@ -532,7 +546,7 @@ function getExtraLayers(
   prototype: string,
   direction: CardinalDirection,
   registry: IPrototypeRegistry,
-): SpriteDrawInfo[] | null | undefined {
+): ExtraLayerSprite[] | null | undefined {
   const cacheKey = `${prototype}:${direction}:layers`;
 
   if (extraLayerCache.has(cacheKey)) {
@@ -552,7 +566,7 @@ function getExtraLayers(
   // layer 0 keeps its own sprite override and layer 1 supplies the resolved baseState).
   const skipIndex = spriteInfo.baseLayerIndex ?? 0;
   extraLayerLoadingSet.add(cacheKey);
-  const layerPromises: Promise<SpriteDrawInfo | null>[] = [];
+  const layerPromises: Promise<ExtraLayerSprite | null>[] = [];
 
   for (let i = 0; i < spriteInfo.layers.length; i++) {
     if (i === skipIndex) continue;
@@ -566,12 +580,15 @@ function getExtraLayers(
       baseState: layer.state,
     };
 
-    layerPromises.push(loadSprite(layerSpriteInfo, direction, 0));
+    const isPipeLayer = layer.map?.includes(PIPE_VISUAL_LAYER_KEY) ?? false;
+    layerPromises.push(
+      loadSprite(layerSpriteInfo, direction, 0).then(sprite => sprite ? { sprite, isPipeLayer } : null),
+    );
   }
 
   Promise.all(layerPromises)
     .then(results => {
-      const validLayers = results.filter((r): r is SpriteDrawInfo => r !== null);
+      const validLayers = results.filter((r): r is ExtraLayerSprite => r !== null);
       extraLayerCache.set(cacheKey, validLayers.length > 0 ? validLayers : null);
       markSceneDirty();
     })
@@ -585,9 +602,32 @@ function getExtraLayers(
   return undefined;
 }
 
+const baseLayerPipeVisualCache = new Map<string, boolean>();
+
+/**
+ * Whether an entity's base/main sprite layer (the one drawn as its primary sprite,
+ * not an "extra layer") is itself mapped to PipeVisualLayers.Pipe. True for plain pipe
+ * segments (their one layer IS the pipe); false for unary/binary devices (vents, scrubbers,
+ * ports) whose base layer is their device body and whose pipe connector nub is a
+ * separate extra layer instead.
+ */
+export function isBaseLayerPipeVisual(prototype: string, registry: IPrototypeRegistry): boolean {
+  if (baseLayerPipeVisualCache.has(prototype)) return baseLayerPipeVisualCache.get(prototype)!;
+  const spriteInfo = registry.getSpriteInfo(prototype);
+  const baseIndex = spriteInfo?.baseLayerIndex ?? 0;
+  const baseLayer = spriteInfo?.layers[baseIndex];
+  const result = baseLayer?.map?.includes(PIPE_VISUAL_LAYER_KEY) ?? (spriteInfo?.layers.length ?? 0) <= 1;
+  baseLayerPipeVisualCache.set(prototype, result);
+  return result;
+}
+
 export function clearExtraLayerCache(): void {
   extraLayerCache.clear();
   extraLayerLoadingSet.clear();
+}
+
+export function clearBaseLayerPipeVisualCache(): void {
+  baseLayerPipeVisualCache.clear();
 }
 
 // ---- Placeholder drawing ----
@@ -1001,10 +1041,15 @@ export function renderEntities(
       ctx.translate(-cx, -cy);
     }
 
-    // Color tinting, pipe color, layer color, or component color
+    // Color tinting, pipe color, layer color, or component color.
+    // AtmosPipeColor only recolors the sprite layer mapped to PipeVisualLayers.Pipe
+    // (see PipeColorVisualizerSystem) — for plain pipe segments that's the whole/only
+    // layer, but for unary/binary devices (vents, scrubbers, ports) it's just their small
+    // connector-nub layer, drawn separately below; their main body must stay untinted.
     const pipeColor = getAtmosPipeColor(entity);
+    const baseIsPipeLayer = pipeColor ? isBaseLayerPipeVisual(prototype, registry) : false;
     const spriteColor = !pipeColor ? getSpriteColor(prototype, registry) : null;
-    const tintColor = pipeColor ?? spriteColor;
+    const tintColor = (pipeColor && baseIsPipeLayer) ? pipeColor : spriteColor;
 
     // Handle alpha from color (e.g., "#FFFFFF80" = 50% opacity)
     const hasAlpha = tintColor && tintColor.length === 9; // #RRGGBBAA format
@@ -1051,7 +1096,7 @@ export function renderEntities(
     if (!cablePrefix) {
       const extraLayers = getExtraLayers(prototype, direction, registry);
       if (extraLayers) {
-        for (const layerSprite of extraLayers) {
+        for (const { sprite: layerSprite, isPipeLayer } of extraLayers) {
           const lw = tileScreenSize * (layerSprite.sw / TILE_SIZE);
           const lh = tileScreenSize * (layerSprite.sh / TILE_SIZE);
           const layerDx = screenX + (tileScreenSize - lw) / 2;
@@ -1069,11 +1114,16 @@ export function renderEntities(
             ctx.translate(-cx, -cy);
           }
 
-          ctx.drawImage(
-            layerSprite.image,
-            layerSprite.sx, layerSprite.sy, layerSprite.sw, layerSprite.sh,
-            layerDx, layerDy, lw, lh,
-          );
+          const layerTinted = (isPipeLayer && pipeColor) ? getTintedSprite(layerSprite, pipeColor) : null;
+          if (layerTinted) {
+            ctx.drawImage(layerTinted, layerDx, layerDy, lw, lh);
+          } else {
+            ctx.drawImage(
+              layerSprite.image,
+              layerSprite.sx, layerSprite.sy, layerSprite.sw, layerSprite.sh,
+              layerDx, layerDy, lw, lh,
+            );
+          }
 
           if (layerNeedsRotation) {
             ctx.restore();

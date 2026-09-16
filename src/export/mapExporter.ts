@@ -35,7 +35,15 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   // Meta
   lines.push('meta:');
   lines.push(`  format: ${format}`);
-  if (map.meta.category) lines.push(`  category: ${map.meta.category}`);
+  // Format 7+ files must always declare a category: the engine only infers
+  // category from map count for format < 7 (EntityDeserializer.InferCategory
+  // is gated on Version < 7); an absent category on a v7+ file stays
+  // FileCategory.Unknown and loadmap's expected-category checks misbehave.
+  if (format >= 7) {
+    lines.push(`  category: ${map.meta.category ?? 'Map'}`);
+  } else if (map.meta.category) {
+    lines.push(`  category: ${map.meta.category}`);
+  }
   if (map.meta.engineVersion) lines.push(`  engineVersion: ${map.meta.engineVersion}`);
   if (map.meta.forkId !== undefined) lines.push(`  forkId: ${formatPrimitive(map.meta.forkId)}`);
   if (map.meta.forkVersion !== undefined) lines.push(`  forkVersion: ${formatPrimitive(map.meta.forkVersion)}`);
