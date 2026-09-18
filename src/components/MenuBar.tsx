@@ -271,7 +271,6 @@ function useShortcutSections(): { title: string; rows: [string, string][] }[] {
         ['C', t('menuBar.shortcuts.circle')],
         ['S', t('menuBar.shortcuts.selectTilesEntities')],
         ['V', t('menuBar.shortcuts.entitySelect')],
-        ['P', t('menuBar.shortcuts.entityPlace')],
         ['K', t('menuBar.shortcuts.cableDraw')],
         ['J', t('menuBar.shortcuts.pipeDraw')],
         ['D', t('menuBar.shortcuts.deviceLink')],

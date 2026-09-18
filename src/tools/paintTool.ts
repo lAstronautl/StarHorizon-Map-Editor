@@ -1,9 +1,10 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { TileChange, EntityChange, DecalChange } from '../types';
 import { ensureGridContains, getCell, setCell } from '../state/editorState';
-import { createEntitiesAtPositions, removeEntitiesAtPositions } from './entityBrushHelper';
+import { removeEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions, removeDecalsAtPositions } from './decalBrushHelper';
 import { markSceneDirty } from '../rendering/dirtyFlags';
+import { EntityPlaceTool } from './entityPlaceTool';
 
 export class PaintTool implements ITool {
   name = 'paint';
@@ -16,7 +17,36 @@ export class PaintTool implements ITool {
   private decalChanges: DecalChange[] = [];
   private visited = new Set<string>();
 
+  /** Entities are placed one-at-a-time with rotation/free-placement support, via the
+   *  same logic the old standalone "entityPlace" tool used — the brush's drag-paint
+   *  model (one entity per tile, no rotation) doesn't apply to entities. */
+  readonly entityPlaceTool = new EntityPlaceTool();
+
+  private isEntityMode(ctx: ToolContext): boolean {
+    return ctx.paletteItem?.type === 'entity';
+  }
+
   onMouseDown(ctx: ToolContext, tileX: number, tileY: number, button: number) {
+    if (this.isEntityMode(ctx)) {
+      if (button === 2) {
+        // Right-click still erases the entity under the cursor, same as before merging.
+        // Dispatched immediately (not batched via this.onMouseUp) since entity mode's
+        // mouse-up is handled entirely by entityPlaceTool, which knows nothing about erasing.
+        const removals = removeEntitiesAtPositions(
+          [[Math.floor(tileX), Math.floor(tileY)]], ctx.state.entities, ctx.paletteItem?.id,
+        );
+        if (removals.length > 0) {
+          ctx.dispatch({
+            type: 'APPLY_COMMAND',
+            command: { label: 'Erase entity', tileChanges: [], entityChanges: removals },
+          });
+        }
+        return;
+      }
+      this.entityPlaceTool.onMouseDown(ctx, tileX, tileY, button);
+      return;
+    }
+
     if (button !== 0 && button !== 2) return;
     this.painting = button === 0;
     this.erasing = button === 2;
@@ -32,6 +62,11 @@ export class PaintTool implements ITool {
   }
 
   onMouseMove(ctx: ToolContext, tileX: number, tileY: number) {
+    if (this.isEntityMode(ctx)) {
+      this.entityPlaceTool.onMouseMove();
+      return;
+    }
+
     if (this.erasing) {
       this.eraseAt(ctx, tileX, tileY);
     } else if (this.painting) {
@@ -40,6 +75,11 @@ export class PaintTool implements ITool {
   }
 
   onMouseUp(ctx: ToolContext) {
+    if (this.isEntityMode(ctx)) {
+      this.entityPlaceTool.onMouseUp();
+      return;
+    }
+
     if (!this.painting && !this.erasing) return;
     const wasErasing = this.erasing;
     this.painting = false;
@@ -71,6 +111,11 @@ export class PaintTool implements ITool {
     cursorTileY: number,
   ) {
     if (!toolCtx.paletteItem) return;
+
+    if (this.isEntityMode(toolCtx)) {
+      this.entityPlaceTool.renderPreview(canvasCtx, toolCtx, cursorTileX, cursorTileY);
+      return;
+    }
 
     const { camera, canvasW, canvasH } = toolCtx;
     const tileScreenSize = camera.tileScreenSize;
@@ -109,20 +154,6 @@ export class PaintTool implements ITool {
 
       this.tileChanges.push({ x: worldX, y: worldY, before, after });
       markSceneDirty(); // Invalidate compositor tile layer so changes appear during drag
-    } else if (paletteItem.type === 'entity') {
-      // Entity painting, place one entity per tile
-      const { entityChanges, nextEntityId } = createEntitiesAtPositions(
-        [[worldX, worldY]],
-        paletteItem.id,
-        state.entities,
-        state.nextEntityId,
-        state.gridUid,
-      );
-      if (entityChanges.length > 0) {
-        this.entityChanges.push(...entityChanges);
-        // Update nextEntityId for subsequent placements in same stroke
-        state.nextEntityId = nextEntityId;
-      }
     } else if (paletteItem.type === 'decal' && ctx.decalSettings) {
       // Decal painting, place one decal per tile
       const activeGrid = state.grids[state.activeGridIndex];
@@ -149,13 +180,8 @@ export class PaintTool implements ITool {
     if (this.visited.has(key)) return;
     this.visited.add(key);
 
-    if (paletteItem && paletteItem.type === 'entity') {
-      const removals = removeEntitiesAtPositions(
-        [[worldX, worldY]], state.entities, paletteItem.id,
-      );
-      this.entityChanges.push(...removals);
-      return;
-    }
+    // Entity erasing (right-click) is handled directly in onMouseDown before reaching here,
+    // since entity placement no longer goes through this brush's drag/batch-on-mouseup flow.
 
     if (paletteItem && paletteItem.type === 'decal') {
       const activeGrid = state.grids[state.activeGridIndex];

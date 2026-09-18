@@ -29,7 +29,6 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   'c': 'circle',
   's': 'select',
   'v': 'entitySelect',
-  'p': 'entityPlace',
   'k': 'cableDraw',
   'j': 'pipeDraw',
   'd': 'deviceLink',

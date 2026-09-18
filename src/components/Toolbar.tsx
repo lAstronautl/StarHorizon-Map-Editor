@@ -14,7 +14,6 @@ import {
   faCircle,
   faObjectGroup,
   faMousePointer,
-  faCube,
   faLink,
   faBolt,
   faWater,
@@ -48,7 +47,6 @@ function useToolGroups(): { tileTools: ToolDef[]; entityTools: ToolDef[]; infraT
 
   const entityTools: ToolDef[] = [
     { id: 'entitySelect', label: t('toolbar.tool.entitySelect'), shortcut: 'V', icon: faMousePointer },
-    { id: 'entityPlace', label: t('toolbar.tool.entityPlace'), shortcut: 'P', icon: faCube },
     { id: 'deviceLink', label: t('toolbar.tool.deviceLink'), shortcut: 'D', icon: faLink },
   ];
 

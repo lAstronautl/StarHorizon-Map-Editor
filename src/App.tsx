@@ -15,7 +15,6 @@ import { LineTool } from './tools/lineTool';
 import { SelectTool } from './tools/selectTool';
 import { CircleTool } from './tools/circleTool';
 import { EntitySelectTool } from './tools/entitySelectTool';
-import { EntityPlaceTool } from './tools/entityPlaceTool';
 import { CableDrawTool } from './tools/cableDrawTool';
 import { PipeDrawTool } from './tools/pipeDrawTool';
 import { DeviceLinkTool } from './tools/deviceLinkTool';
@@ -63,14 +62,17 @@ import { useT } from './i18n';
 import './App.css';
 
 const entitySelectTool = new EntitySelectTool();
-const entityPlaceTool = new EntityPlaceTool();
+const paintTool = new PaintTool();
+// Entity placement (rotation, free placement, sprite ghost) now lives inside PaintTool,
+// used whenever the palette selection is an entity — see paintTool.ts's isEntityMode.
+const entityPlaceTool = paintTool.entityPlaceTool;
 const cableDrawTool = new CableDrawTool();
 const pipeDrawTool = new PipeDrawTool();
 const deviceLinkTool = new DeviceLinkTool();
 const prefabPlaceTool = new PrefabPlaceTool();
 
 const TOOL_MAP: Record<string, ITool> = {
-  paint: new PaintTool(),
+  paint: paintTool,
   erase: new EraseTool(),
   eyedropper: new EyedropperTool(),
   pan: new PanTool(),
@@ -80,7 +82,6 @@ const TOOL_MAP: Record<string, ITool> = {
   select: new SelectTool(),
   circle: new CircleTool(),
   entitySelect: entitySelectTool,
-  entityPlace: entityPlaceTool,
   cableDraw: cableDrawTool,
   pipeDraw: pipeDrawTool,
   deviceLink: deviceLinkTool,
@@ -189,19 +190,13 @@ export const App: React.FC = () => {
   }, [state.selectedEntityUids, state.entities]);
 
   const handleSelectTool = useCallback((tool: ToolType) => {
-    // Redirect entityPlace to paint when a decal palette item is active
-    // (entityPlace only handles entities, not decals)
-    if (tool === 'entityPlace' && state.selectedPaletteItem?.type === 'decal') {
-      dispatch({ type: 'SET_TOOL', tool: 'paint' });
-      return;
-    }
     // Remember the tool active before switching to the eyedropper, so picking an
-    // item restores it instead of always landing on paint/entityPlace.
+    // item restores it instead of always landing on paint.
     if (tool === 'eyedropper' && state.activeTool !== 'eyedropper') {
       preEyedropperToolRef.current = state.activeTool;
     }
     dispatch({ type: 'SET_TOOL', tool });
-  }, [state.selectedPaletteItem, state.activeTool]);
+  }, [state.activeTool]);
 
   const handleSelectPaletteItem = useCallback((item: PaletteItem) => {
     dispatch({ type: 'SET_PALETTE_ITEM', item });
@@ -521,8 +516,10 @@ export const App: React.FC = () => {
     });
   }, [state.entities, dispatch, t]);
 
+  const isEntityPlacementActive = state.activeTool === 'paint' && state.selectedPaletteItem?.type === 'entity';
+
   const handleCycleEntityRotationCW = useCallback(() => {
-    if (state.activeTool === 'entityPlace') {
+    if (isEntityPlacementActive) {
       entityPlaceTool.cycleRotation('cw');
     }
     // Rotate decal placement angle by 90° CW
@@ -530,10 +527,10 @@ export const App: React.FC = () => {
       const settings = decalPlacementSettingsRef.current;
       decalPlacementSettingsRef.current = { ...settings, angle: settings.angle - Math.PI / 2 };
     }
-  }, [state.activeTool, state.selectedPaletteItem]);
+  }, [isEntityPlacementActive, state.selectedPaletteItem]);
 
   const handleCycleEntityRotationCCW = useCallback(() => {
-    if (state.activeTool === 'entityPlace') {
+    if (isEntityPlacementActive) {
       entityPlaceTool.cycleRotation('ccw');
     }
     // Rotate decal placement angle by 90° CCW
@@ -541,7 +538,7 @@ export const App: React.FC = () => {
       const settings = decalPlacementSettingsRef.current;
       decalPlacementSettingsRef.current = { ...settings, angle: settings.angle + Math.PI / 2 };
     }
-  }, [state.activeTool]);
+  }, [isEntityPlacementActive, state.selectedPaletteItem]);
 
   const keyboardActions = useMemo(() => ({
     onSetTool: handleSelectTool,
@@ -553,12 +550,12 @@ export const App: React.FC = () => {
     onDelete: handleDelete,
     onRotateEntityCW: (state.activeTool === 'entitySelect' && (state.selectedEntityUids.length > 0 || state.selectedDecalIds.length > 0 || entitySelectTool.isPasting())) || state.activeTool === 'select' ? handleRotateEntityCW : undefined,
     onRotateEntityCCW: (state.activeTool === 'entitySelect' && (state.selectedEntityUids.length > 0 || state.selectedDecalIds.length > 0 || entitySelectTool.isPasting())) || state.activeTool === 'select' ? handleRotateEntityCCW : undefined,
-    onCycleEntityRotationCW: state.activeTool === 'entityPlace' || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCW : undefined,
-    onCycleEntityRotationCCW: state.activeTool === 'entityPlace' || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCCW : undefined,
+    onCycleEntityRotationCW: isEntityPlacementActive || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCW : undefined,
+    onCycleEntityRotationCCW: isEntityPlacementActive || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCCW : undefined,
     onEscape: state.activeTool === 'deviceLink' ? () => deviceLinkTool.cancelLinking() : undefined,
     onShowShortcuts: () => setShowShortcuts(s => !s),
     onFocusSearch: () => searchInputRef.current?.focus(),
-  }), [handleSelectTool, handleUndo, handleRedo, handleCopy, handleCut, handlePaste, handleDelete, handleRotateEntityCW, handleRotateEntityCCW, handleCycleEntityRotationCW, handleCycleEntityRotationCCW, state.activeTool, state.selectedEntityUids, state.selectedDecalIds, state.selectedPaletteItem]);
+  }), [handleSelectTool, handleUndo, handleRedo, handleCopy, handleCut, handlePaste, handleDelete, handleRotateEntityCW, handleRotateEntityCCW, handleCycleEntityRotationCW, handleCycleEntityRotationCCW, state.activeTool, state.selectedEntityUids, state.selectedDecalIds, state.selectedPaletteItem, isEntityPlacementActive]);
 
   const { isSpaceHeld, isRHeld } = useKeyboard(keyboardActions);
 

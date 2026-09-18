@@ -9,7 +9,7 @@ import { renderGrid, getSpaceBgCache, STAR_DEPTH_LAYERS } from '../rendering/gri
 import { renderSpaceClown, isClownActive } from '../rendering/spaceClown';
 import { renderEntities, getEntitiesAtTile, isLayerVisible, getCachedDrawDepth } from '../rendering/entityRenderer';
 import { EntitySelectTool } from '../tools/entitySelectTool';
-import { EntityPlaceTool } from '../tools/entityPlaceTool';
+import { PaintTool } from '../tools/paintTool';
 import type { LayerVisibility } from '../rendering/entityRenderer';
 import { renderConnections } from '../rendering/connectionRenderer';
 import { renderDecals, getDecalSprite } from '../rendering/decalRenderer';
@@ -87,6 +87,15 @@ export const EditorCanvas: React.FC<Props> = ({
   stateRef.current = state;
   const toolRef = useRef(activeTool);
   toolRef.current = activeTool;
+
+  /** True for tools that place things at fractional (non-tile-snapped) positions when
+   *  Shift is held: entitySelect always, and paint specifically while an entity is the
+   *  selected palette item (paint delegates that case to its internal EntityPlaceTool). */
+  const usesPreciseCoords = useCallback((tool: ITool | null | undefined) => {
+    if (!tool) return false;
+    if (tool.name === 'entitySelect') return true;
+    return tool.name === 'paint' && stateRef.current.selectedPaletteItem?.type === 'entity';
+  }, []);
   const showEntitiesRef = useRef(showEntities);
   showEntitiesRef.current = showEntities;
   const showGridRef = useRef(showGrid);
@@ -245,7 +254,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
 
     // Free placement: fractional coords when Shift held + placement-compatible tool
-    const usePrecise = e.shiftKey && (tool?.name === 'entityPlace' || tool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(tool);
     const tile = screenToWorld(e.clientX, e.clientY, usePrecise);
 
     if (tool && tool instanceof EntitySelectTool) {
@@ -302,7 +311,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
 
     const moveTool = toolRef.current;
-    const usePrecise = e.shiftKey && (moveTool?.name === 'entityPlace' || moveTool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(moveTool);
     const moveCoord = usePrecise ? world : tile;
     moveTool?.onMouseMove(getToolContext(), moveCoord.x, moveCoord.y);
   }, [camera, screenToWorld, getToolContext]);
@@ -332,7 +341,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
     markOverlayDirty();
     const tool = toolRef.current;
-    const usePrecise = e.shiftKey && (tool?.name === 'entityPlace' || tool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(tool);
     const tile = screenToWorld(e.clientX, e.clientY, usePrecise);
     tool?.onMouseUp(getToolContext(), tile.x, tile.y);
   }, [screenToWorld, getToolContext]);
@@ -394,9 +403,10 @@ export const EditorCanvas: React.FC<Props> = ({
         return;
       }
 
-      // Rotate entity placement preview
-      if (tool instanceof EntityPlaceTool) {
-        tool.smoothRotate(deltaRadians);
+      // Rotate entity placement preview (PaintTool delegates entity placement to its
+      // internal EntityPlaceTool whenever the palette selection is an entity)
+      if (tool instanceof PaintTool && s.selectedPaletteItem?.type === 'entity') {
+        tool.entityPlaceTool.smoothRotate(deltaRadians);
         markOverlayDirty();
         return;
       }
@@ -751,7 +761,7 @@ export const EditorCanvas: React.FC<Props> = ({
           ctrlHeld: isCtrlHeldRef.current,
           decalSettings: decalPlacementSettingsRef.current,
         };
-        const usePreciseCursor = isShiftHeldRef.current && (tool.name === 'entityPlace' || tool.name === 'entitySelect');
+        const usePreciseCursor = isShiftHeldRef.current && usesPreciseCoords(tool);
         const cx = usePreciseCursor ? cursorWorld.current.x : cursorTile.current.x;
         const cy = usePreciseCursor ? cursorWorld.current.y : cursorTile.current.y;
         tool.renderPreview(ctx, toolCtx, cx, cy);
