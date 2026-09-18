@@ -124,7 +124,7 @@ export class RectangleTool implements ITool {
 
       canvasCtx.fillStyle = 'rgba(68, 136, 255, 0.15)';
       canvasCtx.fillRect(screenX, screenY, w, h);
-      canvasCtx.strokeStyle = '#4488ff';
+      canvasCtx.strokeStyle = '#c0c0c0';
       canvasCtx.lineWidth = 2;
       canvasCtx.setLineDash([6, 3]);
       canvasCtx.strokeRect(screenX, screenY, w, h);
@@ -133,7 +133,7 @@ export class RectangleTool implements ITool {
       // Dimension label
       const dimW = maxX - minX + 1;
       const dimH = maxY - minY + 1;
-      canvasCtx.fillStyle = '#4488ff';
+      canvasCtx.fillStyle = '#c0c0c0';
       canvasCtx.font = '12px monospace';
       canvasCtx.textAlign = 'center';
       canvasCtx.fillText(`${dimW}x${dimH}`, screenX + w / 2, screenY - 4);
@@ -141,7 +141,7 @@ export class RectangleTool implements ITool {
       // Single tile cursor
       const drawX = camera.worldToScreenX(cursorTileX, canvasW);
       const drawY = camera.worldToScreenY(cursorTileY, canvasH);
-      canvasCtx.strokeStyle = '#4488ff';
+      canvasCtx.strokeStyle = '#c0c0c0';
       canvasCtx.lineWidth = 2;
       canvasCtx.strokeRect(drawX, drawY, tileScreenSize, tileScreenSize);
     }

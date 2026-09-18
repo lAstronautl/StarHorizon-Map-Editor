@@ -69,6 +69,11 @@ const DISPOSAL_PROTOTYPES = {
  * @param family - 'gas' or 'disposal'
  * @param color - Optional hex color string for AtmosPipeColor (gas pipes only)
  * @param layer - Which of the 3 overlapping gas pipe layers to fit for (default Primary; ignored for disposal)
+ * @param devicePorts - Tile keys of same-network devices (vents/scrubbers/ports), each mapped to
+ *   the set of world-cardinal directions ('N'/'S'/'E'/'W') their NodeContainer exposes an open
+ *   port toward (accounting for the device's own rotation). A pipe adjacent to such a tile bends
+ *   toward it exactly when the device's open port faces back at the pipe — the devices are never
+ *   themselves added to the output or used as an iterated tile.
  * @returns Array of fitted pipe entities with correct prototypes and rotations
  */
 export function fitPipes(
@@ -76,18 +81,27 @@ export function fitPipes(
   family: PipeFamily = 'gas',
   color?: string,
   layer: PipeLayer = 'Primary',
+  devicePorts: ReadonlyMap<string, ReadonlySet<'N' | 'S' | 'E' | 'W'>> = new Map(),
 ): FittedPipe[] {
   const protos = family === 'gas' ? GAS_PROTOTYPES[layer] : DISPOSAL_PROTOTYPES;
   const pipeLayer = family === 'gas' && layer !== 'Primary' ? layer : undefined;
   const results: FittedPipe[] = [];
+  // From a pipe tile's perspective, is there a neighbor in `dir` at (nx,ny)? True for another
+  // pipe tile unconditionally, or for a device tile whose open port faces back (`opposite`).
+  const hasNeighbor = (nx: number, ny: number, opposite: 'N' | 'S' | 'E' | 'W') => {
+    const key = `${nx},${ny}`;
+    if (tiles.has(key)) return true;
+    const ports = devicePorts.get(key);
+    return ports ? ports.has(opposite) : false;
+  };
 
   for (const key of tiles) {
     const [x, y] = parseKey(key);
 
-    const hasN = tiles.has(`${x},${y + 1}`);
-    const hasS = tiles.has(`${x},${y - 1}`);
-    const hasE = tiles.has(`${x + 1},${y}`);
-    const hasW = tiles.has(`${x - 1},${y}`);
+    const hasN = hasNeighbor(x, y + 1, 'S');
+    const hasS = hasNeighbor(x, y - 1, 'N');
+    const hasE = hasNeighbor(x + 1, y, 'W');
+    const hasW = hasNeighbor(x - 1, y, 'E');
 
     const count = (hasN ? 1 : 0) + (hasS ? 1 : 0) + (hasE ? 1 : 0) + (hasW ? 1 : 0);
 
@@ -189,6 +203,8 @@ function parseKey(key: string): [number, number] {
  * @param family - 'gas' or 'disposal'
  * @param color - Optional pipe color
  * @param layer - Which of the 3 overlapping gas pipe layers this run belongs to (default Primary)
+ * @param devicePorts - Same-network devices (vents/scrubbers/ports) mapped from tile key to the
+ *   open port directions they expose, so pipes bend/tee toward them like they would toward a pipe.
  * @returns Object with entitiesToRemove (UIDs) and entitiesToAdd (fitted pipes)
  */
 export function computePipeChanges(
@@ -197,6 +213,7 @@ export function computePipeChanges(
   family: PipeFamily = 'gas',
   color?: string,
   layer: PipeLayer = 'Primary',
+  devicePorts: ReadonlyMap<string, ReadonlySet<'N' | 'S' | 'E' | 'W'>> = new Map(),
 ): {
   removedUids: number[];
   fittedPipes: FittedPipe[];
@@ -230,7 +247,7 @@ export function computePipeChanges(
   }
 
   // Compute fittings for affected tiles using the full combined set for neighbor lookups
-  const fitted = fitPipes(allTiles, family, color, layer);
+  const fitted = fitPipes(allTiles, family, color, layer, devicePorts);
 
   // Filter to only affected tiles
   const affectedFitted = fitted.filter(p => affectedKeys.has(`${p.x},${p.y}`));

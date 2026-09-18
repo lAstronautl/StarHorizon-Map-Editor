@@ -115,7 +115,7 @@ export class PrefabPlaceTool implements ITool {
     for (const tile of prefab.tiles) {
       const sx = camera.worldToScreenX(cursorTileX + tile.dx, canvasW);
       const sy = camera.worldToScreenY(cursorTileY + tile.dy, canvasH);
-      canvasCtx.fillStyle = '#4488ff';
+      canvasCtx.fillStyle = '#c0c0c0';
       canvasCtx.fillRect(sx, sy, tileScreenSize, tileScreenSize);
     }
 

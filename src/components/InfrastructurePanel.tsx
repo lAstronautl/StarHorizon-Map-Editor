@@ -28,7 +28,7 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
             onClick={() => onChange({ ...selection, mode: 'cable', cableType: type })}
             className={`w-full px-2 py-1 rounded-sm border text-primary text-[10px] cursor-pointer mb-0.5 text-left flex items-center gap-1.5
                         ${active ? 'border-accent ring-1 ring-accent' : 'border-subtle hover:border-muted'}`}
-            style={{ backgroundColor: active ? '#0f3460' : 'transparent' }}
+            style={{ backgroundColor: active ? 'var(--color-active)' : 'transparent' }}
           >
             <span
               className="inline-block w-2 h-2 rounded-sm shrink-0"
@@ -49,7 +49,7 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
             onClick={() => onChange({ ...selection, mode: 'pipe', pipeType: type })}
             className={`w-full px-2 py-1 rounded-sm border text-primary text-[10px] cursor-pointer mb-0.5 text-left flex items-center gap-1.5
                         ${active ? 'border-accent ring-1 ring-accent' : 'border-subtle hover:border-muted'}`}
-            style={{ backgroundColor: active ? '#0f3460' : 'transparent' }}
+            style={{ backgroundColor: active ? 'var(--color-active)' : 'transparent' }}
           >
             <span
               className="inline-block w-2 h-2 rounded-sm shrink-0"
@@ -106,7 +106,7 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
                   title={t(`infrastructurePanel.pipeLayerHint.${layer}`)}
                   className={`flex-1 px-1 py-1 rounded-sm border text-primary text-[10px] cursor-pointer text-center
                               ${active ? 'border-accent ring-1 ring-accent' : 'border-subtle hover:border-muted'}`}
-                  style={{ backgroundColor: active ? '#0f3460' : 'transparent' }}
+                  style={{ backgroundColor: active ? 'var(--color-active)' : 'transparent' }}
                 >
                   {t(`infrastructurePanel.pipeLayerName.${layer}`)}
                 </button>

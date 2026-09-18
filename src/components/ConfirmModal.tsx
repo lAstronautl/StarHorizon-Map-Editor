@@ -44,7 +44,7 @@ export const ConfirmModal: React.FC<Props> = ({
     >
       <div
         style={{
-          backgroundColor: '#1a1a2e', border: '1px solid #2a2a4a',
+          backgroundColor: 'var(--color-elevated)', border: '1px solid var(--color-subtle)',
           borderRadius: 8, padding: '32px 40px', maxWidth: 480,
           color: '#ccc', fontSize: 14, lineHeight: 1.7, textAlign: 'center',
         }}
@@ -65,7 +65,7 @@ export const ConfirmModal: React.FC<Props> = ({
           <button
             onClick={onCancel}
             style={{
-              backgroundColor: '#2a2a4a', border: '1px solid #3a3a5a',
+              backgroundColor: 'var(--color-subtle)', border: '1px solid #4a4a4a',
               borderRadius: 4, color: '#ccc', fontSize: 14,
               padding: '10px 24px', cursor: 'pointer',
             }}
@@ -76,8 +76,8 @@ export const ConfirmModal: React.FC<Props> = ({
             ref={confirmRef}
             onClick={onConfirm}
             style={{
-              backgroundColor: danger ? '#6b2020' : '#0f3460',
-              border: `1px solid ${danger ? '#8b3030' : '#2a2a4a'}`,
+              backgroundColor: danger ? '#6b2020' : 'var(--color-active)',
+              border: `1px solid ${danger ? '#8b3030' : 'var(--color-subtle)'}`,
               borderRadius: 4, color: '#fff', fontSize: 14,
               padding: '10px 24px', cursor: 'pointer',
             }}

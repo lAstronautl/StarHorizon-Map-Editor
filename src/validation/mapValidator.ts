@@ -4,6 +4,13 @@ import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import { getCell } from '../state/editorState';
 import { t } from '../i18n';
+import {
+  type CardinalDir,
+  OPPOSITE_DIR,
+  DIR_OFFSET,
+  getPipeNodes,
+  getPipeNodeDirections,
+} from '../algorithms/pipeDirections';
 
 export interface ValidationIssue {
   ruleId: string;
@@ -65,58 +72,6 @@ function getNodeContainerNodes(entity: ImportedEntity, registry: IPrototypeRegis
   return nc.nodes as Record<string, unknown>;
 }
 
-const CARDINAL_DIRS = ['North', 'South', 'East', 'West'] as const;
-type CardinalDir = typeof CARDINAL_DIRS[number];
-const OPPOSITE_DIR: Record<CardinalDir, CardinalDir> = {
-  North: 'South', South: 'North', East: 'West', West: 'East',
-};
-const DIR_OFFSET: Record<CardinalDir, [number, number]> = {
-  North: [0, 1], South: [0, -1], East: [1, 0], West: [-1, 0],
-};
-
-/** Named pipeDirection flag combos used by SS14 pipe prototypes (bend/tee/fourway/straight). */
-const PIPE_DIRECTION_FLAGS: Record<string, CardinalDir[]> = {
-  North: ['North'], South: ['South'], East: ['East'], West: ['West'],
-  Longitudinal: ['North', 'South'],
-  Lateral: ['East', 'West'],
-  NEBend: ['North', 'East'], NWBend: ['North', 'West'],
-  SEBend: ['South', 'East'], SWBend: ['South', 'West'],
-  TNorth: ['East', 'West', 'North'], TSouth: ['East', 'West', 'South'],
-  TEast: ['North', 'South', 'East'], TWest: ['North', 'South', 'West'],
-  Fourway: ['North', 'South', 'East', 'West'],
-};
-
-/**
- * Rotate a set of cardinal directions by the entity's rotation (radians, multiple of 90deg).
- *
- * Must match the game's actual pipe rotation convention, per pipeFittings.ts's
- * getBendRotation: a SWBend (S+W at rot 0) becomes E+S at rot +pi/2, i.e. S->E and W->S
- * under +pi/2 — extending that to all 4 directions gives the cycle S->E->N->W->S (order
- * below), NOT N->E->S->W->N. Using the wrong cycle here previously made this rule check
- * the wrong neighbor tile for any rotated pipe/vent/scrubber/port, reporting them as
- * disconnected even when correctly hooked up in-game.
- */
-function rotateDirs(dirs: CardinalDir[], rotationRad: number): CardinalDir[] {
-  const steps = Math.round(rotationRad / (Math.PI / 2)) & 3;
-  if (steps === 0) return dirs;
-  const order: CardinalDir[] = ['South', 'East', 'North', 'West'];
-  return dirs.map(d => order[(order.indexOf(d) + steps) % 4]);
-}
-
-/** Resolve a pipe-carrying node's effective cardinal directions, accounting for entity rotation. */
-function getPipeNodeDirections(entity: ImportedEntity, node: Record<string, unknown>): CardinalDir[] {
-  const raw = node.pipeDirection;
-  if (typeof raw !== 'string') return [];
-  const parts = raw.split(/[,|]/).map(s => s.trim());
-  const dirs = new Set<CardinalDir>();
-  for (const part of parts) {
-    const flags = PIPE_DIRECTION_FLAGS[part];
-    if (flags) for (const f of flags) dirs.add(f);
-    else if ((CARDINAL_DIRS as readonly string[]).includes(part)) dirs.add(part as CardinalDir);
-  }
-  return rotateDirs(Array.from(dirs), entity.rotation ?? 0);
-}
-
 /** Power node group IDs (from NodeContainer nodes) an entity exposes, e.g. ["MVPower", "Apc"]. */
 function getPowerNodeGroups(entity: ImportedEntity, registry: IPrototypeRegistry): string[] {
   const nodes = getNodeContainerNodes(entity, registry);
@@ -129,18 +84,6 @@ function getPowerNodeGroups(entity: ImportedEntity, registry: IPrototypeRegistry
     }
   }
   return groups;
-}
-
-/** Whether the entity's NodeContainer has at least one PipeNode-family node (Pipe network). */
-function getPipeNodes(entity: ImportedEntity, registry: IPrototypeRegistry): Record<string, unknown>[] {
-  const nodes = getNodeContainerNodes(entity, registry);
-  if (!nodes) return [];
-  const result: Record<string, unknown>[] = [];
-  for (const node of Object.values(nodes)) {
-    const n = node as Record<string, unknown>;
-    if (n.nodeGroupID === 'Pipe') result.push(n);
-  }
-  return result;
 }
 
 /**

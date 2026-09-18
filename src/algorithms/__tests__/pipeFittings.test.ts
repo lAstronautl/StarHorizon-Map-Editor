@@ -238,6 +238,42 @@ describe('fitPipes layers', () => {
   });
 });
 
+describe('fitPipes device ports', () => {
+  it('bends a pipe toward a device whose open port faces back at it', () => {
+    // Pipe run: (5,4) and (5,5) vertical. Device (e.g. a vent) sits at (6,5) with its
+    // port facing West (back toward the pipe), so (5,5) should bend to expose East too.
+    const tiles = new Set(['5,4', '5,5']);
+    const devicePorts = new Map<string, Set<'N' | 'S' | 'E' | 'W'>>([
+      ['6,5', new Set(['W'])],
+    ]);
+    const result = fitPipes(tiles, 'gas', undefined, 'Primary', devicePorts);
+    const mid = result.find(p => p.x === 5 && p.y === 5)!;
+    expect(mid.prototype).toBe('GasPipeBend');
+    expect(mid.rotation).toBeCloseTo(Math.PI / 2); // E+S
+  });
+
+  it('does not bend toward a device whose port faces away from the pipe', () => {
+    // Same geometry, but the device's port faces East (away from the pipe) — no connection.
+    const tiles = new Set(['5,4', '5,5']);
+    const devicePorts = new Map<string, Set<'N' | 'S' | 'E' | 'W'>>([
+      ['6,5', new Set(['E'])],
+    ]);
+    const result = fitPipes(tiles, 'gas', undefined, 'Primary', devicePorts);
+    const mid = result.find(p => p.x === 5 && p.y === 5)!;
+    expect(mid.prototype).toBe('GasPipeStraight');
+    expect(mid.rotation).toBe(0); // still vertical, no East connection
+  });
+
+  it('device tiles are never added to the fitted output', () => {
+    const tiles = new Set(['5,5']);
+    const devicePorts = new Map<string, Set<'N' | 'S' | 'E' | 'W'>>([
+      ['6,5', new Set(['W'])],
+    ]);
+    const result = fitPipes(tiles, 'gas', undefined, 'Primary', devicePorts);
+    expect(result.find(p => p.x === 6 && p.y === 5)).toBeUndefined();
+  });
+});
+
 describe('computePipeChanges', () => {
   it('adds new pipes and refits affected neighbors', () => {
     // Existing vertical pipe at (5,4) and (5,5)

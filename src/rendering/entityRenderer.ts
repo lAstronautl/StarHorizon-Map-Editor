@@ -468,7 +468,7 @@ export function clearEntitySpriteCache(): void {
  * Convert a rotation in radians to the nearest cardinal direction.
  * SS14 rotations: 0 = south, pi/2 = east, pi = north, 3pi/2 = west.
  */
-function rotationToDirection(rotation: number): CardinalDirection {
+export function rotationToDirection(rotation: number): CardinalDirection {
   const TWO_PI = 2 * Math.PI;
   const norm = ((rotation % TWO_PI) + TWO_PI) % TWO_PI;
   if (norm < Math.PI / 4 || norm >= 7 * Math.PI / 4) return 'south';

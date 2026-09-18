@@ -3,13 +3,41 @@ import { PipeDrawTool } from '../pipeDrawTool';
 import type { ToolContext } from '../toolTypes';
 import { createInitialState } from '../../state/editorState';
 import type { ImportedEntity } from '../../import/mapImporter';
+import type { IPrototypeRegistry } from '../../loaders/registryTypes';
 
-function makeToolContext(entities: ImportedEntity[] = []): { ctx: ToolContext; dispatched: any[] } {
+/** Minimal registry with just enough prototype data for GasVentPump's NodeContainer. */
+function makeMockRegistry(): IPrototypeRegistry {
+  return {
+    getTile: () => null,
+    getEntity: (id: string) => {
+      const components: { type: string;[key: string]: unknown }[] = [];
+      if (id === 'GasVentPump' || id === 'GasVentScrubber') {
+        components.push({ type: 'NodeContainer', nodes: {
+          pipe: { nodeGroupID: 'Pipe', pipeDirection: 'South' },
+        } });
+      }
+      return {
+        id, name: id, description: '', suffix: '', abstract: false,
+        categories: [], placement: {}, components,
+        spriteInfo: null, sourceCategory: 'Other',
+        raw: { type: 'entity' as const, id },
+      };
+    },
+    getAllTiles: () => [], getAllEntities: () => [],
+    getEntitiesByCategory: () => [], getCategories: () => [],
+    getSpriteInfo: () => null, tileCount: 0, entityCount: 0,
+    getDecal: () => null, getAllDecals: () => [], decalCount: 0,
+    isAbstractPrototype: () => false,
+  };
+}
+
+function makeToolContext(entities: ImportedEntity[] = [], registry: IPrototypeRegistry | null = null): { ctx: ToolContext; dispatched: any[] } {
   const dispatched: any[] = [];
   const state = {
     ...createInitialState(),
     entities: [...entities],
     nextEntityId: entities.length > 0 ? Math.max(...entities.map(e => e.uid)) + 1 : 1,
+    registry,
   };
   const ctx: ToolContext = {
     state,
@@ -341,5 +369,54 @@ describe('PipeDrawTool', () => {
     );
     expect(refitted55).toBeDefined();
     expect(refitted55.entity.prototype).toBe('GasPipeBend');
+  });
+
+  it('bends a drawn pipe toward a same-color vent whose port faces it', () => {
+    // GasVentPump at rotation 3pi/2 (270 deg) has its port facing West, per RobustToolbox's
+    // Direction rotation convention (South=0 -> East -> North -> West as rotation increases).
+    // Placed at (6,5), its port opens toward (5,5) — where the new pipe is drawn.
+    const vent: ImportedEntity = {
+      uid: 200, prototype: 'GasVentPump',
+      position: { x: 6.5, y: 5.5 }, rotation: (3 * Math.PI) / 2,
+      components: [{ type: 'AtmosPipeColor', color: '#0055CCFF' }],
+    };
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply'; // supply default color is #0055CCFF, matching the vent
+    const { ctx, dispatched } = makeToolContext([vent], makeMockRegistry());
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseUp(ctx);
+
+    const cmd = dispatched[0].command;
+    const adds = cmd.entityChanges.filter((ec: any) => ec.action === 'add');
+    const pipe = adds.find((ec: any) =>
+      Math.floor(ec.entity.position.x) === 5 && Math.floor(ec.entity.position.y) === 5,
+    );
+    expect(pipe).toBeDefined();
+    expect(pipe.entity.prototype).toBe('GasPipeStraight');
+    expect(pipe.entity.rotation).toBeCloseTo(Math.PI / 2); // horizontal, facing the vent's West port
+  });
+
+  it('does not bend toward a vent of a different color', () => {
+    const vent: ImportedEntity = {
+      uid: 200, prototype: 'GasVentPump',
+      position: { x: 6.5, y: 5.5 }, rotation: (3 * Math.PI) / 2,
+      components: [{ type: 'AtmosPipeColor', color: '#FF0000FF' }], // different color
+    };
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply'; // #0055CCFF, does not match the vent
+    const { ctx, dispatched } = makeToolContext([vent], makeMockRegistry());
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseUp(ctx);
+
+    const cmd = dispatched[0].command;
+    const adds = cmd.entityChanges.filter((ec: any) => ec.action === 'add');
+    const pipe = adds.find((ec: any) =>
+      Math.floor(ec.entity.position.x) === 5 && Math.floor(ec.entity.position.y) === 5,
+    );
+    expect(pipe).toBeDefined();
+    // No matching-color neighbor at all, so it falls back to the single-tile default (vertical).
+    expect(pipe.entity.rotation).toBe(0);
   });
 });

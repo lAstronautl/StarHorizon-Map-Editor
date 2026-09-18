@@ -3,7 +3,9 @@ import type { ImportedEntity } from '../import/mapImporter';
 import type { PipeType } from '../types';
 import { PIPE_COLORS, getPipeDisplay } from '../types';
 import { computePipeChanges, fitPipes, type PipeFamily, type PipeLayer } from '../algorithms/pipeFittings';
+import { getEntityPipeDirections } from '../algorithms/pipeDirections';
 import { buildTransformComponent } from './entityHelpers';
+import { getEntitySprite, rotationToDirection } from '../rendering/entityRenderer';
 
 /** Pipe prototypes that belong to gas pipe network */
 const GAS_PIPE_PROTOTYPES = new Set([
@@ -126,6 +128,7 @@ export class PipeDrawTool implements ITool {
       this.family,
       this.color,
       this.effectiveLayer,
+      this.getMatchingDevicePorts(ctx),
     );
 
     // Build entity changes
@@ -188,20 +191,67 @@ export class PipeDrawTool implements ITool {
       ? this.customColor.slice(0, 7) // strip alpha for the preview stroke/fill
       : getPipeDisplay()[this.pipeType].color;
 
-    // Draw pending tiles during drag
-    if (this.drawing) {
-      canvasCtx.fillStyle = color + '44';
-      canvasCtx.strokeStyle = color;
-      canvasCtx.lineWidth = 1;
-      for (const t of this.visitedTiles) {
-        const sx = camera.worldToScreenX(t.x, canvasW);
-        const sy = camera.worldToScreenY(t.y, canvasH);
+    // Tiles to preview: the in-progress drag path, plus the tile under the cursor
+    // (covers both "drawing" and "about to place a single pipe" states).
+    const cursorTile = { x: Math.floor(cursorTileX), y: Math.floor(cursorTileY) };
+    const previewTiles = this.drawing ? this.visitedTiles : [cursorTile];
+
+    // Run the same auto-fit used on commit, against existing pipes/devices, so the
+    // preview shows the real prototype/rotation the pipe will be placed with.
+    const registry = toolCtx.state.registry;
+    const existingPipes = this.getMatchingPipeEntities(toolCtx);
+    const devicePorts = this.getMatchingDevicePorts(toolCtx);
+    const { fittedPipes } = computePipeChanges(
+      previewTiles,
+      existingPipes.map(e => ({
+        uid: e.uid,
+        x: Math.floor(e.position.x),
+        y: Math.floor(e.position.y),
+      })),
+      this.family,
+      this.color,
+      this.effectiveLayer,
+      devicePorts,
+    );
+    // Only draw the tiles actually being placed, not refitted pre-existing neighbors.
+    const previewKeys = new Set(previewTiles.map(t => `${t.x},${t.y}`));
+    const toDraw = fittedPipes.filter(p => previewKeys.has(`${p.x},${p.y}`));
+
+    canvasCtx.save();
+    canvasCtx.globalAlpha = 0.6;
+    for (const pipe of toDraw) {
+      const sx = camera.worldToScreenX(pipe.x, canvasW);
+      const sy = camera.worldToScreenY(pipe.y, canvasH);
+      const sprite = registry ? getEntitySprite(pipe.prototype, rotationToDirection(pipe.rotation), registry) : null;
+
+      if (sprite) {
+        const needsRotation = pipe.rotation !== 0 && sprite.sh === sprite.image.height;
+        if (needsRotation) {
+          const cx = sx + tileScreenSize / 2;
+          const cy = sy + tileScreenSize / 2;
+          canvasCtx.save();
+          canvasCtx.translate(cx, cy);
+          canvasCtx.rotate(-pipe.rotation);
+          canvasCtx.translate(-cx, -cy);
+        }
+        canvasCtx.drawImage(
+          sprite.image,
+          sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+          sx, sy, tileScreenSize, tileScreenSize,
+        );
+        if (needsRotation) canvasCtx.restore();
+      } else {
+        // Fallback while the sprite is still loading or unavailable.
+        canvasCtx.fillStyle = color + '44';
+        canvasCtx.strokeStyle = color;
+        canvasCtx.lineWidth = 1;
         canvasCtx.fillRect(sx, sy, tileScreenSize, tileScreenSize);
         canvasCtx.strokeRect(sx, sy, tileScreenSize, tileScreenSize);
       }
     }
+    canvasCtx.restore();
 
-    // Cursor preview
+    // Cursor outline
     const drawX = camera.worldToScreenX(cursorTileX, canvasW);
     const drawY = camera.worldToScreenY(cursorTileY, canvasH);
     canvasCtx.strokeStyle = color;
@@ -287,6 +337,36 @@ export class PipeDrawTool implements ITool {
     return null;
   }
 
+  /**
+   * Same-network devices (vents/scrubbers/ports/etc — anything with a Pipe-network
+   * NodeContainer that isn't itself a plain pipe segment prototype), mapped from tile
+   * key to the world-cardinal directions their open port(s) face (post-rotation). Lets
+   * `fitPipes` bend a drawn pipe toward a matching-color device the same way it would
+   * toward another pipe, instead of only ever recognizing other pipe segments.
+   */
+  private getMatchingDevicePorts(ctx: ToolContext): Map<string, Set<'N' | 'S' | 'E' | 'W'>> {
+    const result = new Map<string, Set<'N' | 'S' | 'E' | 'W'>>();
+    if (this.family !== 'gas') return result; // disposal pipes have no devices in this scheme
+    const registry = ctx.state.registry;
+    if (!registry) return result;
+    const protos = this.prototypeSet;
+
+    for (const e of ctx.state.entities) {
+      if (protos.has(e.prototype)) continue; // plain pipe segments are handled separately
+      if (getEntityPipeLayer(e) !== this.effectiveLayer) continue;
+      if (this.getEntityPipeColor(e) !== (this.color ?? null)) continue;
+
+      const dirs = getEntityPipeDirections(e, registry);
+      if (dirs.size === 0) continue;
+
+      const key = `${Math.floor(e.position.x)},${Math.floor(e.position.y)}`;
+      const mapped = new Set<'N' | 'S' | 'E' | 'W'>();
+      for (const d of dirs) mapped.add(d[0] as 'N' | 'S' | 'E' | 'W');
+      result.set(key, mapped);
+    }
+    return result;
+  }
+
   private erasePipeAt(ctx: ToolContext, tileX: number, tileY: number) {
     // Only erase the currently-selected layer/network at this tile, so up to 3
     // overlapping gas pipe runs can be erased independently of one another.
@@ -324,7 +404,7 @@ export class PipeDrawTool implements ITool {
     }
 
     if (allRemainingTiles.size > 0) {
-      const allFitted = fitPipes(allRemainingTiles, this.family, this.color, this.effectiveLayer);
+      const allFitted = fitPipes(allRemainingTiles, this.family, this.color, this.effectiveLayer, this.getMatchingDevicePorts(ctx));
 
       // Only refit tiles that are neighbors of removed tiles
       let nextUid = ctx.state.nextEntityId;

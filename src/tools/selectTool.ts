@@ -893,7 +893,7 @@ export class SelectTool implements ITool {
       for (const snap of this.moveSnapshotTiles) {
         const sx = camera.worldToScreenX(snap.x + this.moveOffsetX, canvasW);
         const sy = camera.worldToScreenY(snap.y + this.moveOffsetY, canvasH);
-        canvasCtx.fillStyle = '#4488ff';
+        canvasCtx.fillStyle = '#c0c0c0';
         canvasCtx.fillRect(sx, sy, tileScreenSize, tileScreenSize);
       }
 
@@ -919,7 +919,7 @@ export class SelectTool implements ITool {
           if (!tile || tile.tileId === 'Space') continue;
           const sx = camera.worldToScreenX(this.pasteX + dx, canvasW);
           const sy = camera.worldToScreenY(this.pasteY + dy, canvasH);
-          canvasCtx.fillStyle = '#4488ff';
+          canvasCtx.fillStyle = '#c0c0c0';
           canvasCtx.fillRect(sx, sy, tileScreenSize, tileScreenSize);
         }
       }

@@ -625,7 +625,7 @@ export const App: React.FC = () => {
           backgroundColor: 'rgba(0,0,0,0.7)',
         }}>
           <div style={{
-            backgroundColor: '#1a1a2e', border: '1px solid #2a2a4a',
+            backgroundColor: 'var(--color-elevated)', border: '1px solid var(--color-subtle)',
             borderRadius: 8, padding: '32px 40px', maxWidth: 480,
             color: '#ccc', fontSize: 14, lineHeight: 1.7, textAlign: 'center',
           }}>
@@ -646,7 +646,7 @@ export const App: React.FC = () => {
                 setShowDisclaimer(false);
               }}
               style={{
-                backgroundColor: '#0f3460', border: '1px solid #2a2a4a',
+                backgroundColor: 'var(--color-active)', border: '1px solid var(--color-subtle)',
                 borderRadius: 4, color: '#fff', fontSize: 14,
                 padding: '10px 32px', cursor: 'pointer',
               }}
