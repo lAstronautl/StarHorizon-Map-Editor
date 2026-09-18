@@ -165,7 +165,7 @@ export function clearTileImageCache(): void {
  * If the image hasn't been requested yet, kicks off an async load and
  * returns null (the next render frame will pick it up once loaded).
  */
-function getTileImage(
+export function getTileImage(
   tileId: string,
   registry: IPrototypeRegistry,
 ): HTMLImageElement | null {
@@ -200,7 +200,7 @@ function getTileImage(
 /**
  * Get a simple fallback color for a tile when no texture is available.
  */
-function getFallbackColor(tileId: string): string {
+export function getFallbackColor(tileId: string): string {
   if (tileId === 'Space') return FALLBACK_COLORS.Space;
   if (tileId.startsWith('Wall')) return FALLBACK_COLORS.wall;
   return FALLBACK_COLORS.fallback;

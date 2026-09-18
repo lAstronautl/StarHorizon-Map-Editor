@@ -123,3 +123,80 @@ describe('PaintTool merged with entity placement', () => {
     expect(added.entity.position).toEqual({ x: 5.3, y: 5.7 });
   });
 });
+
+describe('PaintTool deferred tile painting (ghost preview)', () => {
+  it('does not mutate the grid while dragging, only on mouse-up', () => {
+    const { ctx, dispatched } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseMove(ctx, 6, 5);
+
+    // Nothing committed yet: no dispatch, and the grid still reads the original tile.
+    expect(dispatched).toHaveLength(0);
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).not.toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 6, 5)?.tileId).not.toBe('FloorSteel');
+
+    tool.onMouseUp(ctx);
+
+    // Now committed as a single command, and the grid reflects the result.
+    expect(dispatched).toHaveLength(1);
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 6, 5)?.tileId).toBe('FloorSteel');
+  });
+
+  it('does not mutate the grid while erasing, only on mouse-up', () => {
+    const { ctx, dispatched } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    const paintTool = new PaintTool();
+    paintTool.onMouseDown(ctx, 5, 5, 0);
+    paintTool.onMouseUp(ctx);
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).toBe('FloorSteel');
+
+    const eraseTool = new PaintTool();
+    eraseTool.onMouseDown(ctx, 5, 5, 2);
+    expect(dispatched).toHaveLength(1); // still just the paint from above
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).toBe('FloorSteel'); // not yet erased
+
+    eraseTool.onMouseUp(ctx);
+    expect(dispatched).toHaveLength(2);
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).toBe('Space');
+  });
+
+  it('renderPreview draws a ghost tile for the pending change at the cursor', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    const tool = new PaintTool();
+    const calls: string[] = [];
+    const canvasCtx = {
+      save: () => calls.push('save'),
+      restore: () => calls.push('restore'),
+      drawImage: () => calls.push('drawImage'),
+      fillRect: () => calls.push('fillRect'),
+      strokeRect: () => calls.push('strokeRect'),
+      set globalAlpha(_v: number) { calls.push('globalAlpha'); },
+      set fillStyle(_v: string) { calls.push('fillStyle'); },
+      set strokeStyle(_v: string) { calls.push('strokeStyle'); },
+      set lineWidth(_v: number) { /* noop */ },
+    } as unknown as CanvasRenderingContext2D;
+
+    tool.renderPreview(canvasCtx, ctx, 5, 5);
+
+    // A ghost fill/draw at reduced opacity must happen before the cursor outline is stroked.
+    expect(calls).toContain('globalAlpha');
+    expect(calls).toContain('strokeRect');
+    expect(calls.indexOf('globalAlpha')).toBeLessThan(calls.indexOf('strokeRect'));
+  });
+
+  it('accumulates multiple pending tile changes visible to renderPreview during a drag', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseMove(ctx, 6, 5);
+    tool.onMouseMove(ctx, 7, 5);
+
+    // Reach into the accumulated pending changes the same way renderPreview does.
+    const pending = (tool as unknown as { tileChanges: { x: number; y: number; after: { tileId: string } }[] }).tileChanges;
+    expect(pending.map(c => `${c.x},${c.y}`)).toEqual(['5,5', '6,5', '7,5']);
+    expect(pending.every(c => c.after.tileId === 'FloorSteel')).toBe(true);
+  });
+});

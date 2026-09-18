@@ -3,6 +3,7 @@ import type { ImportedEntity } from '../import/mapImporter';
 import type { CardinalDirection } from '../types';
 import { buildTransformComponent, normalizeRotation } from './entityHelpers';
 import { getEntitySprite } from '../rendering/entityRenderer';
+import { drawImageGhost, drawOutlineGhost } from './ghostPreviewHelper';
 
 function rotToDir(rotation: number): CardinalDirection {
   const TWO_PI = 2 * Math.PI;
@@ -85,32 +86,14 @@ export class EntityPlaceTool implements ITool {
       const sprite = getEntitySprite(protoId, direction, state.registry);
       if (sprite) {
         const needsRotation = this.currentRotation !== 0 && sprite.sh === sprite.image.height;
-        canvasCtx.save();
-        canvasCtx.globalAlpha = 0.5;
-        if (needsRotation) {
-          const cx = drawX + tileScreenSize / 2;
-          const cy = drawY + tileScreenSize / 2;
-          canvasCtx.translate(cx, cy);
-          canvasCtx.rotate(-this.currentRotation);
-          canvasCtx.translate(-cx, -cy);
-        }
-        canvasCtx.drawImage(
-          sprite.image,
-          sprite.sx, sprite.sy, sprite.sw, sprite.sh,
-          drawX, drawY, tileScreenSize, tileScreenSize,
-        );
-        canvasCtx.restore();
+        drawImageGhost(canvasCtx, sprite, drawX, drawY, tileScreenSize, 0.5, needsRotation ? this.currentRotation : 0);
         drewSprite = true;
       }
     }
 
     // Fallback: dashed rectangle when sprite not available
     if (!drewSprite) {
-      canvasCtx.strokeStyle = shiftHeld ? 'rgba(100, 200, 255, 0.6)' : 'rgba(0, 255, 100, 0.6)';
-      canvasCtx.lineWidth = 2;
-      canvasCtx.setLineDash([4, 4]);
-      canvasCtx.strokeRect(drawX, drawY, tileScreenSize, tileScreenSize);
-      canvasCtx.setLineDash([]);
+      drawOutlineGhost(canvasCtx, shiftHeld ? 'rgba(100, 200, 255, 0.6)' : 'rgba(0, 255, 100, 0.6)', drawX, drawY, tileScreenSize);
     }
 
     // Rotation indicator arrow

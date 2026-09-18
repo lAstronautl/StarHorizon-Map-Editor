@@ -1,10 +1,12 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { TileChange, EntityChange, DecalChange } from '../types';
-import { ensureGridContains, getCell, setCell } from '../state/editorState';
+import { getCell } from '../state/editorState';
 import { removeEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions, removeDecalsAtPositions } from './decalBrushHelper';
-import { markSceneDirty } from '../rendering/dirtyFlags';
+import { markSceneDirty, markOverlayDirty } from '../rendering/dirtyFlags';
 import { EntityPlaceTool } from './entityPlaceTool';
+import { getTileImage, getFallbackColor } from '../rendering/gridRenderer';
+import { drawImageGhost, drawFillGhost } from './ghostPreviewHelper';
 
 export class PaintTool implements ITool {
   name = 'paint';
@@ -102,6 +104,9 @@ export class PaintTool implements ITool {
     this.entityChanges = [];
     this.decalChanges = [];
     this.visited.clear();
+    // Tile changes are only committed to the grid here (via APPLY_COMMAND above), so the
+    // scene needs a repaint now that this.tileChanges (the ghost preview) is cleared.
+    markSceneDirty();
   }
 
   renderPreview(
@@ -119,12 +124,59 @@ export class PaintTool implements ITool {
 
     const { camera, canvasW, canvasH } = toolCtx;
     const tileScreenSize = camera.tileScreenSize;
+
+    // Ghost preview of tiles queued during the current drag (not yet committed to the
+    // grid — see paintAt/eraseAt), drawn with the real texture at reduced opacity so
+    // it's obvious what will land once the mouse is released. Uses the same
+    // drawImageGhost/drawFillGhost helpers entityPlaceTool uses for its own ghost.
+    const GHOST_OPACITY = 0.55;
+    if (this.tileChanges.length > 0) {
+      for (const tc of this.tileChanges) {
+        const sx = camera.worldToScreenX(tc.x, canvasW);
+        const sy = camera.worldToScreenY(tc.y, canvasH);
+        this.drawTileGhost(canvasCtx, toolCtx, tc.after.tileId, sx, sy, tileScreenSize, GHOST_OPACITY);
+      }
+    }
+
     const drawX = camera.worldToScreenX(cursorTileX, canvasW);
     const drawY = camera.worldToScreenY(cursorTileY, canvasH);
+
+    // Cursor ghost: the tile that would be painted/erased right here, same reduced opacity.
+    if (toolCtx.paletteItem.type === 'tile') {
+      this.drawTileGhost(canvasCtx, toolCtx, this.erasing ? 'Space' : toolCtx.paletteItem.id, drawX, drawY, tileScreenSize, GHOST_OPACITY);
+    }
 
     canvasCtx.strokeStyle = this.erasing ? '#ff4444' : '#00ff00';
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(drawX, drawY, tileScreenSize, tileScreenSize);
+  }
+
+  /** Draw a single tile's real texture (or a fallback fill) as a ghost at reduced opacity.
+   *  'Space' (erasing) always renders as a plain red fill — a gap would be indistinguishable
+   *  from "nothing queued here yet" since the real grid is untouched until mouse-up. */
+  private drawTileGhost(
+    canvasCtx: CanvasRenderingContext2D,
+    toolCtx: ToolContext,
+    tileId: string,
+    screenX: number,
+    screenY: number,
+    tileScreenSize: number,
+    opacity: number,
+  ) {
+    if (tileId === 'Space') {
+      drawFillGhost(canvasCtx, '#ff4444', screenX, screenY, tileScreenSize, opacity);
+      return;
+    }
+    const registry = toolCtx.state.registry;
+    const img = registry ? getTileImage(tileId, registry) : null;
+    if (img) {
+      const tile = registry!.getTile(tileId);
+      const variants = tile ? tile.variants : 1;
+      const srcSize = img.width / variants; // preview always shows variant 0
+      drawImageGhost(canvasCtx, { image: img, sx: 0, sy: 0, sw: srcSize, sh: img.height }, screenX, screenY, tileScreenSize, opacity);
+    } else {
+      drawFillGhost(canvasCtx, getFallbackColor(tileId), screenX, screenY, tileScreenSize, opacity);
+    }
   }
 
   private paintAt(ctx: ToolContext, worldX: number, worldY: number) {
@@ -136,24 +188,21 @@ export class PaintTool implements ITool {
     this.visited.add(key);
 
     if (paletteItem.type === 'tile') {
-      // Tile painting
-      const expanded = ensureGridContains(state.grid, worldX, worldY);
-      if (expanded !== state.grid) {
-        state.grid = expanded;
-      }
-
+      // Tile painting is deferred: don't touch state.grid or expand its bounds here —
+      // just queue the change and let renderPreview draw a ghost. The grid is only
+      // actually mutated (and expanded, by the reducer) once onMouseUp dispatches the
+      // accumulated tileChanges as a single command, so mid-drag tiles read as a
+      // translucent preview rather than the real, opaque result.
       const cell = getCell(state.grid, worldX, worldY);
-      if (!cell || cell.tileId === paletteItem.id) return;
+      const before = cell ? { ...cell } : { tileId: 'Space' };
+      if (before.tileId === paletteItem.id) return;
 
-      const before = { ...cell };
       // Reset variant/flags/rotationMirroring when changing tile type.
       // Preserving the old tile's variant on a new type can produce out-of-range
       // variants that crash the SS14 MapRenderer.
       const after = { tileId: paletteItem.id };
-      setCell(state.grid, worldX, worldY, after);
-
       this.tileChanges.push({ x: worldX, y: worldY, before, after });
-      markSceneDirty(); // Invalidate compositor tile layer so changes appear during drag
+      markOverlayDirty(); // Ghost preview lives on the overlay layer, not the tile layer
     } else if (paletteItem.type === 'decal' && ctx.decalSettings) {
       // Decal painting, place one decal per tile
       const activeGrid = state.grids[state.activeGridIndex];
@@ -193,15 +242,14 @@ export class PaintTool implements ITool {
       return;
     }
 
+    // Deferred, same as paintAt: queue for the ghost preview, commit on mouse-up.
     const cell = getCell(state.grid, worldX, worldY);
     if (!cell || cell.tileId === 'Space') return;
 
     const before = { ...cell };
     const after = { tileId: 'Space' };
-    setCell(state.grid, worldX, worldY, after);
-
     this.tileChanges.push({ x: worldX, y: worldY, before, after });
-    markSceneDirty();
+    markOverlayDirty();
   }
 
   deactivate() {

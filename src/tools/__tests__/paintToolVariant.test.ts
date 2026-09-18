@@ -22,7 +22,17 @@ describe('PaintTool variant handling', () => {
     return {
       ctx: {
         state,
-        dispatch: (action: any) => dispatched.push(action),
+        // Tile painting is now deferred (see paintTool.ts): PaintTool no longer mutates
+        // state.grid itself, it only dispatches a command on mouse-up — so the mock
+        // dispatch here must apply tileChanges, same as the real reducer would.
+        dispatch: (action: any) => {
+          dispatched.push(action);
+          if (action.type === 'APPLY_COMMAND') {
+            for (const tc of action.command.tileChanges) {
+              setCell(state.grid, tc.x, tc.y, tc.after);
+            }
+          }
+        },
         camera: { tileScreenSize: 32 } as any,
         canvasW: 800,
         canvasH: 600,
