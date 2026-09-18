@@ -53,12 +53,45 @@ export const InfrastructurePanel: React.FC<Props> = ({ selection, onChange }) =>
           >
             <span
               className="inline-block w-2 h-2 rounded-sm shrink-0"
-              style={{ backgroundColor: color }}
+              style={{ backgroundColor: selection.pipeType === type && selection.customPipeColor ? selection.customPipeColor.slice(0, 7) : color }}
             />
             {label}
           </button>
         );
       })}
+
+      {selection.pipeType !== 'disposal' && (
+        <div className="mb-1">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="color"
+              value={(selection.customPipeColor ?? '#0055CCFF').slice(0, 7)}
+              onChange={(e) => {
+                const alpha = (selection.customPipeColor ?? '#0055CCFF').slice(7, 9) || 'FF';
+                onChange({ ...selection, customPipeColor: `${e.target.value.toUpperCase()}${alpha}` });
+              }}
+              className="w-6 h-6 p-0 border border-subtle rounded-sm cursor-pointer bg-transparent shrink-0"
+              title={t('infrastructurePanel.customColorTitle')}
+            />
+            <input
+              type="text"
+              value={selection.customPipeColor ?? ''}
+              onChange={(e) => onChange({ ...selection, customPipeColor: e.target.value || undefined })}
+              placeholder={t('infrastructurePanel.customColorPlaceholder')}
+              className="flex-1 px-1.5 py-1 bg-elevated border border-subtle rounded-sm text-primary text-[10px] outline-none focus:border-accent min-w-0"
+            />
+            {selection.customPipeColor && (
+              <button
+                onClick={() => onChange({ ...selection, customPipeColor: undefined })}
+                title={t('infrastructurePanel.customColorClear')}
+                className="px-1.5 py-1 bg-elevated border border-subtle rounded-sm text-muted text-[10px] cursor-pointer hover:text-primary shrink-0"
+              >
+                &times;
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {selection.pipeType !== 'disposal' && (
         <>

@@ -111,6 +111,9 @@ export const strings: Record<string, Record<Locale, string>> = {
   'infrastructurePanel.pipeLayerHint.Primary': { ru: 'Основной слой труб (можно наложить до 3 независимых труб на один тайл)', en: 'Primary pipe layer (up to 3 independent runs can overlap one tile)' },
   'infrastructurePanel.pipeLayerHint.Secondary': { ru: 'Второй слой труб (Alt1)', en: 'Secondary pipe layer (Alt1)' },
   'infrastructurePanel.pipeLayerHint.Tertiary': { ru: 'Третий слой труб (Alt2)', en: 'Tertiary pipe layer (Alt2)' },
+  'infrastructurePanel.customColorTitle': { ru: 'Кастомный цвет трубы', en: 'Custom pipe color' },
+  'infrastructurePanel.customColorPlaceholder': { ru: 'Кастомный HEX (#RRGGBBAA)', en: 'Custom hex (#RRGGBBAA)' },
+  'infrastructurePanel.customColorClear': { ru: 'Сбросить кастомный цвет', en: 'Clear custom color' },
 
   // LayerPanel
   'layerPanel.layer.subfloor.label': { ru: 'Подпол', en: 'SubFloor' },
@@ -339,9 +342,9 @@ export const strings: Record<string, Record<Locale, string>> = {
   'types.cableDisplay.CableHV': { ru: 'Кабель ВН', en: 'HV Cable' },
   'types.cableDisplay.CableMV': { ru: 'Кабель СН', en: 'MV Cable' },
   'types.cableDisplay.CableApcExtension': { ru: 'Кабель APC', en: 'APC Cable' },
-  'types.pipeDisplay.supply': { ru: 'Труба подачи', en: 'Supply Pipe' },
-  'types.pipeDisplay.return': { ru: 'Труба возврата', en: 'Return Pipe' },
-  'types.pipeDisplay.disposal': { ru: 'Труба утилизации', en: 'Disposal Pipe' },
+  'types.pipeDisplay.supply': { ru: 'Воздух', en: 'Supply Pipe' },
+  'types.pipeDisplay.return': { ru: 'Скрубер', en: 'Return Pipe' },
+  'types.pipeDisplay.disposal': { ru: 'Утилизационная', en: 'Disposal Pipe' },
 
   // TilePalette
   'tilePalette.searchPlaceholder': { ru: 'Поиск тайлов...', en: 'Search tiles...' },
@@ -476,6 +479,13 @@ export const strings: Record<string, Record<Locale, string>> = {
   'entityInfoPanel.pipeLayerHint.Primary': { ru: 'Основной слой труб', en: 'Primary pipe layer' },
   'entityInfoPanel.pipeLayerHint.Secondary': { ru: 'Второй слой труб (Alt1)', en: 'Secondary pipe layer (Alt1)' },
   'entityInfoPanel.pipeLayerHint.Tertiary': { ru: 'Третий слой труб (Alt2)', en: 'Tertiary pipe layer (Alt2)' },
+  'entityInfoPanel.pipeColor': { ru: 'Цвет трубы', en: 'Pipe Color' },
+  'entityInfoPanel.pipeColorSupply': { ru: 'Подача', en: 'Supply' },
+  'entityInfoPanel.pipeColorSupplyShort': { ru: 'П', en: 'S' },
+  'entityInfoPanel.pipeColorReturn': { ru: 'Возврат', en: 'Return' },
+  'entityInfoPanel.pipeColorReturnShort': { ru: 'В', en: 'R' },
+  'entityInfoPanel.pipeColorCustomTitle': { ru: 'Кастомный цвет трубы', en: 'Custom pipe color' },
+  'entityInfoPanel.pipeColorCustomPlaceholder': { ru: 'Кастомный HEX (#RRGGBBAA)', en: 'Custom hex (#RRGGBBAA)' },
   'entityInfoPanel.rotateCcw': { ru: 'Повернуть против часовой (Shift+R)', en: 'Rotate CCW (Shift+R)' },
   'entityInfoPanel.rotateCw': { ru: 'Повернуть по часовой (R)', en: 'Rotate CW (R)' },
   'entityInfoPanel.delete': { ru: 'Удалить', en: 'Delete' },

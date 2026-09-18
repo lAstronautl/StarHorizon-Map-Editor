@@ -58,6 +58,11 @@ export class PipeDrawTool implements ITool {
    *  Disposal pipes ignore this (always Primary in-game). */
   pipeLayer: PipeLayer = 'Primary';
 
+  /** Set externally from infrastructure panel selection. When present, overrides the
+   *  supply/return default color for gas pipes — an arbitrary hex string that only
+   *  connects to other pipes sharing that exact color. */
+  customColor: string | undefined = undefined;
+
   private drawing = false;
   private visitedTiles: { x: number; y: number }[] = [];
   private visitedSet = new Set<string>();
@@ -67,6 +72,8 @@ export class PipeDrawTool implements ITool {
   }
 
   private get color(): string | undefined {
+    if (this.pipeType === 'disposal') return undefined;
+    if (this.customColor) return this.customColor;
     if (this.pipeType === 'supply') return PIPE_COLORS.supply;
     if (this.pipeType === 'return') return PIPE_COLORS.return;
     return undefined;
@@ -177,7 +184,9 @@ export class PipeDrawTool implements ITool {
   ) {
     const { camera, canvasW, canvasH } = toolCtx;
     const tileScreenSize = camera.tileScreenSize;
-    const color = getPipeDisplay()[this.pipeType].color;
+    const color = (this.pipeType !== 'disposal' && this.customColor)
+      ? this.customColor.slice(0, 7) // strip alpha for the preview stroke/fill
+      : getPipeDisplay()[this.pipeType].color;
 
     // Draw pending tiles during drag
     if (this.drawing) {

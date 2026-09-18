@@ -82,6 +82,10 @@ export interface InfrastructureSelection {
   cableType: CableType;
   pipeType: PipeType;
   pipeLayer: PipeLayerSelection;
+  /** Overrides the supply/return default color with an arbitrary hex string (e.g. "#00FF00FF")
+   *  when set. Pipes only auto-connect to others sharing the exact same color, so a custom
+   *  color creates its own independent network distinct from supply/return/other customs. */
+  customPipeColor?: string;
 }
 
 export const PIPE_COLORS: Record<'supply' | 'return', string> = {

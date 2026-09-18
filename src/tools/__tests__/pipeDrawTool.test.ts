@@ -97,6 +97,57 @@ describe('PipeDrawTool', () => {
     expect(colorComp.color).toBe('#0055CCFF');
   });
 
+  it('uses a custom hex color instead of the supply default when set', () => {
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply';
+    tool.customColor = '#00FF00FF';
+    const { ctx, dispatched } = makeToolContext();
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseUp(ctx);
+
+    const entity = dispatched[0].command.entityChanges[0].entity;
+    const colorComp = entity.components.find((c: any) => c.type === 'AtmosPipeColor');
+    expect(colorComp.color).toBe('#00FF00FF');
+  });
+
+  it('does not fit a custom-colored pipe together with an existing supply-colored pipe', () => {
+    // Existing supply-blue pipe at (5,4)
+    const existing: ImportedEntity[] = [
+      {
+        uid: 100, prototype: 'GasPipeStraight',
+        position: { x: 5.5, y: 4.5 }, rotation: 0,
+        components: [{ type: 'AtmosPipeColor', color: '#0055CCFF' }],
+      },
+    ];
+
+    const tool = new PipeDrawTool();
+    tool.pipeType = 'supply';
+    tool.customColor = '#00FF00FF';
+    const { ctx, dispatched } = makeToolContext(existing);
+
+    // Draw a custom-colored pipe at (5,5), directly south of the existing supply pipe
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseUp(ctx);
+
+    const cmd = dispatched[0].command;
+    const removes = cmd.entityChanges.filter((ec: any) => ec.action === 'remove');
+    const adds = cmd.entityChanges.filter((ec: any) => ec.action === 'add');
+
+    // The existing supply pipe must be left untouched (not refit as if connected)
+    expect(removes.some((ec: any) => ec.entity.uid === 100)).toBe(false);
+
+    // The new custom-colored pipe should be a standalone straight segment (no neighbor),
+    // not a pipe that thinks it's connected to the supply-blue one above it.
+    const newPipe = adds.find((ec: any) =>
+      Math.floor(ec.entity.position.x) === 5 && Math.floor(ec.entity.position.y) === 5,
+    );
+    expect(newPipe).toBeDefined();
+    expect(newPipe.entity.prototype).toBe('GasPipeStraight');
+    const colorComp = newPipe.entity.components.find((c: any) => c.type === 'AtmosPipeColor');
+    expect(colorComp.color).toBe('#00FF00FF');
+  });
+
   it('disposal pipes have no color component', () => {
     const tool = new PipeDrawTool();
     tool.pipeType = 'disposal';

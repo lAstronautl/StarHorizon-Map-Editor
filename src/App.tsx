@@ -572,6 +572,7 @@ export const App: React.FC = () => {
     cableDrawTool.cableType = sel.cableType;
     pipeDrawTool.pipeType = sel.pipeType;
     pipeDrawTool.pipeLayer = sel.pipeLayer;
+    pipeDrawTool.customColor = sel.customPipeColor;
     // Auto-switch to appropriate tool
     if (sel.mode === 'cable') {
       dispatch({ type: 'SET_TOOL', tool: 'cableDraw' });

@@ -8,6 +8,7 @@ import { ContainerContentsEditor, isContainerEntity } from './ContainerContentsE
 import { LightEditor, hasPointLight } from './LightEditor';
 import { getAvailableStates } from '../loaders/spriteStateHelper';
 import { loadSprite } from '../loaders/rsiLoader';
+import { PIPE_COLORS } from '../types';
 import { useT } from '../i18n';
 
 interface Props {
@@ -114,6 +115,13 @@ export const EntityInfoPanel: React.FC<Props> = ({
 
       {onUpdateEntity && registry && hasAtmosPipeLayers(entity, registry) && (
         <PipeLayerSelector
+          entity={entity}
+          onUpdateEntity={onUpdateEntity}
+        />
+      )}
+
+      {onUpdateEntity && registry && hasAtmosPipeColor(entity, registry) && (
+        <PipeColorSelector
           entity={entity}
           onUpdateEntity={onUpdateEntity}
         />
@@ -554,6 +562,107 @@ function getPipeLayerPrototype(prototype: string, layer: string): string {
   if (layer === 'Secondary') return `${base}Alt1`;
   if (layer === 'Tertiary') return `${base}Alt2`;
   return base;
+}
+
+// ---- Pipe Color Selector ----
+
+interface PipeColorSelectorProps {
+  entity: ImportedEntity;
+  onUpdateEntity: (entity: ImportedEntity) => void;
+}
+
+const PipeColorSelector: React.FC<PipeColorSelectorProps> = ({ entity, onUpdateEntity }) => {
+  const { t } = useT();
+  const currentColor = getPipeColorValue(entity);
+  const [customColor, setCustomColor] = useState(currentColor ?? '');
+
+  // Keep the text input in sync if the color changes from elsewhere (e.g. undo/redo).
+  useEffect(() => {
+    setCustomColor(currentColor ?? '');
+  }, [currentColor]);
+
+  const applyColor = (color: string | null) => {
+    const idx = entity.components.findIndex((c) => (c as Record<string, unknown>).type === 'AtmosPipeColor');
+    const newComponents = [...entity.components];
+    if (color === null) {
+      if (idx >= 0) newComponents.splice(idx, 1);
+    } else if (idx >= 0) {
+      newComponents[idx] = { ...(newComponents[idx] as Record<string, unknown>), color };
+    } else {
+      newComponents.push({ type: 'AtmosPipeColor', color });
+    }
+    onUpdateEntity({ ...entity, components: newComponents });
+  };
+
+  const handleCustomCommit = () => {
+    const trimmed = customColor.trim();
+    if (/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(trimmed)) {
+      applyColor(trimmed.toUpperCase());
+    }
+  };
+
+  return (
+    <div className="py-0.5">
+      <div className="flex justify-between items-center">
+        <span className="text-muted">{t('entityInfoPanel.pipeColor')}:</span>
+        <div className="flex gap-0.5">
+          <button
+            onClick={() => applyColor(PIPE_COLORS.supply)}
+            className={`px-1.5 py-0.5 rounded-sm border text-[10px] cursor-pointer ${
+              currentColor === PIPE_COLORS.supply ? 'bg-active border-accent text-accent' : 'bg-elevated border-subtle text-primary hover:bg-hover'
+            }`}
+            title={t('entityInfoPanel.pipeColorSupply')}
+          >
+            {t('entityInfoPanel.pipeColorSupplyShort')}
+          </button>
+          <button
+            onClick={() => applyColor(PIPE_COLORS.return)}
+            className={`px-1.5 py-0.5 rounded-sm border text-[10px] cursor-pointer ${
+              currentColor === PIPE_COLORS.return ? 'bg-active border-accent text-accent' : 'bg-elevated border-subtle text-primary hover:bg-hover'
+            }`}
+            title={t('entityInfoPanel.pipeColorReturn')}
+          >
+            {t('entityInfoPanel.pipeColorReturnShort')}
+          </button>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mt-1">
+        <input
+          type="color"
+          value={(currentColor ?? '#0055CCFF').slice(0, 7)}
+          onChange={(e) => {
+            const alpha = (currentColor ?? '#0055CCFF').slice(7, 9) || 'FF';
+            applyColor(`${e.target.value.toUpperCase()}${alpha}`);
+          }}
+          className="w-6 h-6 p-0 border border-subtle rounded-sm cursor-pointer bg-transparent shrink-0"
+          title={t('entityInfoPanel.pipeColorCustomTitle')}
+        />
+        <input
+          type="text"
+          value={customColor}
+          onChange={(e) => setCustomColor(e.target.value)}
+          onBlur={handleCustomCommit}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleCustomCommit(); }}
+          placeholder={t('entityInfoPanel.pipeColorCustomPlaceholder')}
+          className="flex-1 px-1.5 py-0.5 bg-elevated border border-subtle rounded-sm text-primary text-[10px] outline-none focus:border-accent min-w-0"
+        />
+      </div>
+    </div>
+  );
+};
+
+function getPipeColorValue(entity: ImportedEntity): string | null {
+  const comp = entity.components.find((c) => (c as Record<string, unknown>).type === 'AtmosPipeColor') as Record<string, unknown> | undefined;
+  const color = comp?.color;
+  return typeof color === 'string' ? color : null;
+}
+
+/** Gate the color selector on the entity actually supporting AtmosPipeColor (instance or
+ *  inherited from its prototype, e.g. GasPipeBase-derived pipes/vents/scrubbers/ports). */
+function hasAtmosPipeColor(entity: ImportedEntity, registry: IPrototypeRegistry): boolean {
+  if (entity.components.some((c) => (c as Record<string, unknown>).type === 'AtmosPipeColor')) return true;
+  const resolved = registry.getEntity(entity.prototype);
+  return resolved?.components.some((c) => c.type === 'AtmosPipeColor') ?? false;
 }
 
 function hasDeviceList(entity: ImportedEntity): boolean {
