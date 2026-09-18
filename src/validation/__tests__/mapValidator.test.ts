@@ -12,8 +12,8 @@ function makeGrid(width: number, height: number, tileId: string = 'Space'): Tile
   };
 }
 
-function makeEntity(uid: number, proto: string, x: number, y: number, components: Record<string, unknown>[] = []): ImportedEntity {
-  return { uid, prototype: proto, position: { x: x + 0.5, y: y + 0.5 }, rotation: 0, components };
+function makeEntity(uid: number, proto: string, x: number, y: number, components: Record<string, unknown>[] = [], rotation = 0): ImportedEntity {
+  return { uid, prototype: proto, position: { x: x + 0.5, y: y + 0.5 }, rotation, components };
 }
 
 function makeMockRegistry(): IPrototypeRegistry {
@@ -357,6 +357,36 @@ describe('validateMap', () => {
       const entities = [makeEntity(10, 'GasPort', 5, 5)];
       const issues = validateMap(grid, entities, makeMockRegistry());
       expect(issues.filter(i => i.ruleId === 'unconnected-pipe-device').length).toBe(1);
+    });
+
+    it('does not flag a GasVentPump rotated +90deg with a matching pipe to its East', () => {
+      // Base pipeDirection is South; rotating +pi/2 (matching the game's actual bend
+      // rotation convention: S->E, E->N, N->W, W->S) makes the vent face East instead.
+      // Override the neighbor pipe's direction to Lateral (East+West) via an instance
+      // NodeContainer so it actually exposes West back toward the vent.
+      const grid = makeGrid(16, 16, 'FloorSteel');
+      const entities = [
+        makeEntity(10, 'GasVentPump', 5, 5, [], Math.PI / 2),
+        makeEntity(20, 'GasPipeStraight', 6, 5, [
+          { type: 'NodeContainer', nodes: { pipe: { nodeGroupID: 'Pipe', pipeDirection: 'Lateral' } } },
+        ]),
+      ];
+      const issues = validateMap(grid, entities, makeMockRegistry());
+      const ventIssues = issues.filter(i => i.ruleId === 'unconnected-pipe-device' && i.entityUid === 10);
+      expect(ventIssues.length).toBe(0);
+    });
+
+    it('flags a GasVentPump rotated +90deg when the matching pipe is only to its South (wrong side)', () => {
+      // With the vent rotated to face East, a pipe still sitting to its South (the
+      // unrotated direction) must NOT satisfy the connection.
+      const grid = makeGrid(16, 16, 'FloorSteel');
+      const entities = [
+        makeEntity(10, 'GasVentPump', 5, 5, [], Math.PI / 2),
+        makeEntity(20, 'GasPipeStraight', 5, 4),
+      ];
+      const issues = validateMap(grid, entities, makeMockRegistry());
+      const ventIssues = issues.filter(i => i.ruleId === 'unconnected-pipe-device' && i.entityUid === 10);
+      expect(ventIssues.length).toBe(1);
     });
   });
 

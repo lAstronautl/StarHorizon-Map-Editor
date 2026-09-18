@@ -86,11 +86,20 @@ const PIPE_DIRECTION_FLAGS: Record<string, CardinalDir[]> = {
   Fourway: ['North', 'South', 'East', 'West'],
 };
 
-/** Rotate a set of cardinal directions by the entity's rotation (radians, multiple of 90deg). */
+/**
+ * Rotate a set of cardinal directions by the entity's rotation (radians, multiple of 90deg).
+ *
+ * Must match the game's actual pipe rotation convention, per pipeFittings.ts's
+ * getBendRotation: a SWBend (S+W at rot 0) becomes E+S at rot +pi/2, i.e. S->E and W->S
+ * under +pi/2 — extending that to all 4 directions gives the cycle S->E->N->W->S (order
+ * below), NOT N->E->S->W->N. Using the wrong cycle here previously made this rule check
+ * the wrong neighbor tile for any rotated pipe/vent/scrubber/port, reporting them as
+ * disconnected even when correctly hooked up in-game.
+ */
 function rotateDirs(dirs: CardinalDir[], rotationRad: number): CardinalDir[] {
   const steps = Math.round(rotationRad / (Math.PI / 2)) & 3;
   if (steps === 0) return dirs;
-  const order: CardinalDir[] = ['North', 'East', 'South', 'West'];
+  const order: CardinalDir[] = ['South', 'East', 'North', 'West'];
   return dirs.map(d => order[(order.indexOf(d) + steps) % 4]);
 }
 
