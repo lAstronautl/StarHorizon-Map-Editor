@@ -58,6 +58,7 @@ import { buildTransformComponent } from './tools/entityHelpers';
 import { resetAllCaches } from './loaders/resetAllCaches';
 import { validateMap } from './validation/mapValidator';
 import type { ValidationIssue } from './validation/mapValidator';
+import { AiChatPanel } from './components/AiChatPanel';
 import ValidatorModal from './components/ValidatorModal';
 import { useT } from './i18n';
 import './App.css';
@@ -116,6 +117,7 @@ export const App: React.FC = () => {
   const [pendingDeleteGridUid, setPendingDeleteGridUid] = useState<number | null>(null);
   const [pendingDroppedMap, setPendingDroppedMap] = useState<string | null>(null);
   const [validatorIssues, setValidatorIssues] = useState<ValidationIssue[] | null>(null);
+  const [showAiChat, setShowAiChat] = useState(false);
   const [highlightTile, setHighlightTile] = useState<{ x: number; y: number; startTime: number } | null>(null);
   const [infraSelection, setInfraSelection] = useState<InfrastructureSelection>({
     mode: 'cable', cableType: 'CableHV', pipeType: 'supply', pipeLayer: 'Primary',
@@ -689,6 +691,13 @@ export const App: React.FC = () => {
           onClose={() => setValidatorIssues(null)}
         />
       )}
+      {showAiChat && (
+        <AiChatPanel
+          state={state}
+          dispatch={dispatch}
+          onClose={() => setShowAiChat(false)}
+        />
+      )}
       <MenuBar
         onNewMap={handleNewMap}
         onImport={handleImport}
@@ -732,6 +741,7 @@ export const App: React.FC = () => {
             onSearchNavigate={handleSearchNavigate}
             searchInputRef={searchInputRef}
             onValidate={handleValidate}
+            onToggleAiChat={() => setShowAiChat(v => !v)}
           />
           <div
             className="flex-1 relative overflow-hidden"

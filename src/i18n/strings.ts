@@ -100,6 +100,28 @@ export const strings: Record<string, Record<Locale, string>> = {
   'gridTabBar.closeGrid': { ru: 'Закрыть сетку', en: 'Close grid' },
   'gridTabBar.addNewGrid': { ru: 'Добавить новую сетку', en: 'Add new grid' },
   'gridTabBar.validateMap': { ru: 'Проверить карту', en: 'Validate Map' },
+  'gridTabBar.aiAssistant': { ru: 'ИИ-ассистент', en: 'AI Assistant' },
+
+  // AiChatPanel
+  'aiChatPanel.title': { ru: 'ИИ-ассистент', en: 'AI Assistant' },
+  'aiChatPanel.provider': { ru: 'Провайдер', en: 'Provider' },
+  'aiChatPanel.model': { ru: 'Модель', en: 'Model' },
+  'aiChatPanel.fallbackHint': { ru: 'При лимите запросов автоматически переключится: {chain}', en: 'Automatically falls back on rate limits: {chain}' },
+  'aiChatPanel.fallbackUsed': { ru: 'Ответ получен от резервной модели: {model}', en: 'Answered by fallback model: {model}' },
+  'aiChatPanel.apiKey': { ru: 'API-ключ', en: 'API key' },
+  'aiChatPanel.apiKeyPlaceholder': { ru: 'Вставьте API-ключ...', en: 'Paste your API key...' },
+  'aiChatPanel.apiKeyHint': { ru: 'Ключ хранится только в памяти вкладки и сбрасывается при перезагрузке страницы. Запросы идут напрямую из браузера к провайдеру.', en: 'The key is kept in this tab\'s memory only and is cleared on page reload. Requests go directly from your browser to the provider.' },
+  'aiChatPanel.promptPlaceholder': { ru: 'Опишите, что нужно сделать на карте...', en: 'Describe what to do on the map...' },
+  'aiChatPanel.send': { ru: 'Отправить', en: 'Send' },
+  'aiChatPanel.thinking': { ru: 'Думает...', en: 'Thinking...' },
+  'aiChatPanel.emptyState': { ru: 'Задайте вопрос или попросите изменить карту, расставить сущности, провести трубы и т.д.', en: 'Ask a question or ask it to modify the map, place entities, run pipes, etc.' },
+  'aiChatPanel.missingKey': { ru: 'Сначала введите API-ключ.', en: 'Enter an API key first.' },
+  'aiChatPanel.toolCall': { ru: 'Вызов инструмента', en: 'Tool call' },
+  'aiChatPanel.clearChat': { ru: 'Очистить чат', en: 'Clear chat' },
+  'aiChatPanel.error': { ru: 'Ошибка', en: 'Error' },
+  'aiChatPanel.rateLimited': { ru: 'Превышен лимит запросов к API. Подождите немного и попробуйте снова.', en: 'API rate limit exceeded. Wait a bit and try again.' },
+  'aiChatPanel.retryIn': { ru: 'повтор через {seconds} с', en: 'retry in {seconds}s' },
+  'aiChatPanel.close': { ru: 'Закрыть', en: 'Close' },
 
   // InfrastructurePanel
   'infrastructurePanel.cables': { ru: 'Кабели', en: 'Cables' },
