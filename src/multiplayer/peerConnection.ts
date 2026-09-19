@@ -3,6 +3,21 @@ import type { NetworkMessage } from './messages';
 
 export type ConnectionRole = 'host' | 'guest';
 
+/**
+ * STUN alone (PeerJS's own default) is enough for most home/office networks, but two
+ * players behind strict/symmetric NATs (common on corporate networks or some mobile
+ * carriers) can't establish a direct WebRTC path with STUN and need a TURN relay to
+ * fall back to. Open Relay Project is a free public TURN service — traffic that falls
+ * back to it is relayed through their server rather than being fully P2P, but it's
+ * still not infrastructure we host ourselves.
+ */
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: 'turn:global.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:global.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:global.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+];
+
 export interface PeerConnectionCallbacks {
   /** A peer's DataChannel finished connecting (host: a guest joined; guest: connected to host). */
   onPeerConnected: (peerId: string) => void;
@@ -37,7 +52,8 @@ export class PeerConnectionManager {
   /** Start as host: register with the broker under a fresh/given room ID and await guests. */
   hostRoom(roomId?: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      this.peer = roomId ? new Peer(roomId) : new Peer();
+      const options = { config: { iceServers: ICE_SERVERS } };
+      this.peer = roomId ? new Peer(roomId, options) : new Peer(options);
       this.peer.on('open', (id) => resolve(id));
       this.peer.on('error', (err) => {
         this.callbacks.onError(err);
@@ -50,7 +66,7 @@ export class PeerConnectionManager {
   /** Start as guest: register with the broker, then connect to the given host room ID. */
   joinRoom(hostRoomId: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.peer = new Peer();
+      this.peer = new Peer({ config: { iceServers: ICE_SERVERS } });
       this.peer.on('error', (err) => {
         this.callbacks.onError(err);
         reject(err);
