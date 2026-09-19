@@ -6,6 +6,7 @@ import type { ContextMenuItem } from '../components/ContextMenu';
 import type { DecalPlacementOptions } from './decalBrushHelper';
 import type { LayerVisibility } from '../rendering/entityRenderer';
 import type { EraseSettings } from './eraseTool';
+import type { SymmetrySettings } from './symmetrySettings';
 
 export interface ToolContext {
   state: EditorState;
@@ -23,6 +24,8 @@ export interface ToolContext {
   layerVisibility?: LayerVisibility;
   /** Erase tool mode/toggles (palette-driven vs. selective tiles/entities). */
   eraseSettings?: EraseSettings;
+  /** Mirror/symmetry painting mode (currently supported by PaintTool). */
+  symmetrySettings?: SymmetrySettings;
   /** Tool that was active before switching to the eyedropper; picking an item restores it. */
   previousTool?: ToolType;
 }

@@ -6,7 +6,8 @@ import type { ImportedEntity } from '../../import/mapImporter';
 
 function makeToolContext(entities: ImportedEntity[] = [], paletteItem: ToolContext['paletteItem'] = { type: 'tile', id: 'Plating' }): { ctx: ToolContext; dispatched: any[] } {
   const state = createInitialState();
-  state.grid = ensureGridContainsBounds(state.grid, 0, 0, 15, 15);
+  // Includes negative coordinates so symmetric (mirrored-through-0) positions are covered.
+  state.grid = ensureGridContainsBounds(state.grid, -16, -16, 15, 15);
   state.grids[0].grid = state.grid;
   state.entities = [...entities];
   state.grids[0].entities = state.entities;
@@ -198,5 +199,103 @@ describe('PaintTool deferred tile painting (ghost preview)', () => {
     const pending = (tool as unknown as { tileChanges: { x: number; y: number; after: { tileId: string } }[] }).tileChanges;
     expect(pending.map(c => `${c.x},${c.y}`)).toEqual(['5,5', '6,5', '7,5']);
     expect(pending.every(c => c.after.tileId === 'FloorSteel')).toBe(true);
+  });
+});
+
+describe('PaintTool symmetry', () => {
+  it('paints the mirrored tile too when vertical mirror mode is on', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.symmetrySettings = { mode: 'mirror', axis: 'vertical' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+    tool.onMouseUp(ctx);
+
+    expect(getCell(ctx.state.grid, 5, 3)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, -6, 3)?.tileId).toBe('FloorSteel'); // mirrored: -1-5 = -6
+  });
+
+  it('paints the mirrored tile too when horizontal mirror mode is on', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.symmetrySettings = { mode: 'mirror', axis: 'horizontal' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+    tool.onMouseUp(ctx);
+
+    expect(getCell(ctx.state.grid, 5, 3)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 5, -4)?.tileId).toBe('FloorSteel'); // mirrored: -1-3 = -4
+  });
+
+  it('paints all 4 quadrants when fourWay mode is on', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.symmetrySettings = { mode: 'fourWay', axis: 'vertical' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+    tool.onMouseUp(ctx);
+
+    expect(getCell(ctx.state.grid, 5, 3)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, -6, 3)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 5, -4)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, -6, -4)?.tileId).toBe('FloorSteel');
+  });
+
+  it('erases both mirrored tiles together', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.symmetrySettings = { mode: 'mirror', axis: 'vertical' };
+    const paintTool = new PaintTool();
+    paintTool.onMouseDown(ctx, 5, 3, 0);
+    paintTool.onMouseUp(ctx);
+    expect(getCell(ctx.state.grid, -6, 3)?.tileId).toBe('FloorSteel');
+
+    const eraseTool = new PaintTool();
+    eraseTool.onMouseDown(ctx, 5, 3, 2);
+    eraseTool.onMouseUp(ctx);
+
+    expect(getCell(ctx.state.grid, 5, 3)?.tileId).toBe('Space');
+    expect(getCell(ctx.state.grid, -6, 3)?.tileId).toBe('Space');
+  });
+
+  it('does not paint mirrored tiles when symmetry mode is none', () => {
+    const { ctx } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.symmetrySettings = { mode: 'none', axis: 'vertical' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+    tool.onMouseUp(ctx);
+
+    expect(getCell(ctx.state.grid, 5, 3)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, -6, 3)?.tileId).not.toBe('FloorSteel');
+  });
+
+  it('places a mirrored entity copy sharing the same rotation (not reflected)', () => {
+    const { ctx, dispatched } = makeToolContext([], { type: 'entity', id: 'AirlockGlass' });
+    ctx.symmetrySettings = { mode: 'mirror', axis: 'vertical' };
+    const tool = new PaintTool();
+    tool.entityPlaceTool.cycleRotation('cw'); // rotate to 3pi/2 per the existing rotation test
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+
+    const added = dispatched[0].command.entityChanges;
+    expect(added).toHaveLength(2);
+    expect(added[0].entity.position).toEqual({ x: 5.5, y: 3.5 });
+    expect(added[1].entity.position).toEqual({ x: -5.5, y: 3.5 }); // mirror(5.5) = -5.5
+    // Both copies keep the same rotation — mirroring rotation would misrepresent
+    // directional entities like doors (confirmed behavior, not a placeholder).
+    expect(added[0].entity.rotation).toBeCloseTo(added[1].entity.rotation);
+  });
+
+  it('places entities in all 4 quadrants with fourWay symmetry', () => {
+    const { ctx, dispatched } = makeToolContext([], { type: 'entity', id: 'TableSteel' });
+    ctx.symmetrySettings = { mode: 'fourWay', axis: 'vertical' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 3, 0);
+
+    const added = dispatched[0].command.entityChanges;
+    expect(added).toHaveLength(4);
+    const positions = added.map((a: any) => `${a.entity.position.x},${a.entity.position.y}`);
+    expect(new Set(positions).size).toBe(4);
   });
 });

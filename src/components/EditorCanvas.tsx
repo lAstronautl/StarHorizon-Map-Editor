@@ -5,7 +5,8 @@ import type { ITool, ToolContext } from '../tools/toolTypes';
 import { Camera } from '../rendering/camera';
 import { ContextMenu } from './ContextMenu';
 import type { ContextMenuItem } from './ContextMenu';
-import { renderGrid, getSpaceBgCache, STAR_DEPTH_LAYERS } from '../rendering/gridRenderer';
+import { renderGrid } from '../rendering/gridRenderer';
+import { renderParallaxBackground } from '../rendering/parallaxBackground';
 import { renderSpaceClown, isClownActive } from '../rendering/spaceClown';
 import { renderEntities, getEntitiesAtTile, isLayerVisible, getCachedDrawDepth } from '../rendering/entityRenderer';
 import { EntitySelectTool } from '../tools/entitySelectTool';
@@ -29,6 +30,7 @@ import { benchmarkSample } from '../rendering/benchmarkCapture';
 import type { DecalInstance } from '../import/decalParser';
 import type { DecalPlacementSettings } from './DecalPalette';
 import type { EraseSettings } from '../tools/eraseTool';
+import type { SymmetrySettings } from '../tools/symmetrySettings';
 import type { ToolType } from '../types';
 import { useT } from '../i18n';
 
@@ -48,6 +50,7 @@ interface Props {
   lightingEnabled: boolean;
   decalPlacementSettingsRef: React.MutableRefObject<DecalPlacementSettings>;
   eraseSettingsRef: React.MutableRefObject<EraseSettings>;
+  symmetrySettingsRef: React.MutableRefObject<SymmetrySettings>;
   previousToolRef: React.MutableRefObject<ToolType>;
   highlightTile?: { x: number; y: number; startTime: number } | null;
 }
@@ -61,7 +64,7 @@ const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, eraseSettingsRef,
-  previousToolRef, highlightTile,
+  symmetrySettingsRef, previousToolRef, highlightTile,
 }) => {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -175,9 +178,10 @@ export const EditorCanvas: React.FC<Props> = ({
       },
       layerVisibility: layerVisibilityRef.current,
       eraseSettings: eraseSettingsRef.current,
+      symmetrySettings: symmetrySettingsRef.current,
       previousTool: previousToolRef.current,
     };
-  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, previousToolRef]);
+  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, symmetrySettingsRef, previousToolRef]);
 
   // Check if we should pan (middle button, space held, or pan tool active)
   const shouldPan = useCallback((button: number) => {
@@ -655,30 +659,12 @@ export const EditorCanvas: React.FC<Props> = ({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
 
-    // Space background, pre-baked dust + parallax star layers (zero filters per frame)
+    // Space background: the same "Default" parallax the game uses (layer1.png base
+    // + 4 procedural star layers), each independently tiled/scrolled by its own
+    // slowness factor — see rendering/parallaxBackground.ts.
     if (showSpaceBackground) {
-      const bgCache = getSpaceBgCache(w, h);
-      if (bgCache?.dustCanvas) {
-        ctx.drawImage(bgCache.dustCanvas, 0, 0);
-        if (bgCache.starCanvases.length > 0) {
-          const tss = camera.tileScreenSize;
-          const margin = 200;
-          ctx.globalCompositeOperation = 'screen';
-          for (let i = 0; i < bgCache.starCanvases.length; i++) {
-            const layer = STAR_DEPTH_LAYERS[i];
-            const ox = (w / 2 - camera.x * tss) * layer.parallax;
-            const oy = (h / 2 + camera.y * tss) * layer.parallax;
-            const tileW = bgCache.starCanvases[i].width;
-            const tileH = bgCache.starCanvases[i].height;
-            const drawX = ((ox % tileW) + tileW) % tileW - margin;
-            const drawY = ((oy % tileH) + tileH) % tileH - margin;
-            ctx.globalAlpha = layer.opacity;
-            ctx.drawImage(bgCache.starCanvases[i], drawX, drawY);
-          }
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = 'source-over';
-        }
-      } else {
+      const drew = renderParallaxBackground(ctx, camera, w, h);
+      if (!drew) {
         ctx.fillStyle = '#111122';
         ctx.fillRect(0, 0, w, h);
       }
@@ -760,6 +746,7 @@ export const EditorCanvas: React.FC<Props> = ({
           shiftHeld: isShiftHeldRef.current,
           ctrlHeld: isCtrlHeldRef.current,
           decalSettings: decalPlacementSettingsRef.current,
+          symmetrySettings: symmetrySettingsRef.current,
         };
         const usePreciseCursor = isShiftHeldRef.current && usesPreciseCoords(tool);
         const cx = usePreciseCursor ? cursorWorld.current.x : cursorTile.current.x;

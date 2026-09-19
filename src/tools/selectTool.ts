@@ -464,6 +464,155 @@ export class SelectTool implements ITool {
     markOverlayDirty();
   }
 
+  /** Mirror the selection in place (tiles + entities + decals), horizontally or vertically.
+   *  Unlike rotateSelection, this never changes the selection's width/height or bounds. */
+  mirrorSelection(ctx: ToolContext, axis: 'horizontal' | 'vertical') {
+    if (this.phase === 'pasting' && this.pasteData) {
+      const mirrored = this.mirrorRegion(this.pasteData, axis);
+      this.pasteData = { ...this.pasteData, ...mirrored };
+      markOverlayDirty();
+      return;
+    }
+
+    if (this.phase !== 'selected') return;
+
+    const W = this.selMaxX - this.selMinX + 1;
+    const H = this.selMaxY - this.selMinY + 1;
+
+    const tiles: (import('../types').TileCell | null)[] = [];
+    for (let y = this.selMinY; y <= this.selMaxY; y++) {
+      for (let x = this.selMinX; x <= this.selMaxX; x++) {
+        const cell = getCell(ctx.state.grid, x, y);
+        tiles.push(cell ? { ...cell } : null);
+      }
+    }
+
+    const selEntities = this.getEntitiesInSelection(ctx.state.entities);
+    const clipEntities: ClipboardEntity[] = selEntities.map(e => ({
+      dx: e.position.x - this.selMinX,
+      dy: e.position.y - this.selMinY,
+      prototype: e.prototype,
+      rotation: e.rotation,
+      components: e.components.map(c => ({ ...c })),
+      ...(e.spriteStateOverride ? { spriteStateOverride: e.spriteStateOverride } : {}),
+    }));
+
+    const selDecals = this.getDecalsInSelection(ctx);
+    const clipDecals: ClipboardDecal[] = selDecals.map(d => ({
+      dx: d.position.x - this.selMinX,
+      dy: d.position.y - this.selMinY,
+      prototypeId: d.prototypeId,
+      color: d.color,
+      angle: d.angle,
+      zIndex: d.zIndex,
+      cleanable: d.cleanable,
+    }));
+
+    const mirrored = this.mirrorRegion({ width: W, height: H, tiles, entities: clipEntities, decals: clipDecals }, axis);
+
+    const tileChanges: TileChange[] = [];
+    for (let dy = 0; dy < H; dy++) {
+      for (let dx = 0; dx < W; dx++) {
+        const wx = this.selMinX + dx;
+        const wy = this.selMinY + dy;
+        const oldCell = tiles[dy * W + dx];
+        const newTile = mirrored.tiles[dy * W + dx];
+        const oldId = oldCell?.tileId ?? 'Space';
+        const newId = newTile?.tileId ?? 'Space';
+        if (oldId === newId && JSON.stringify(oldCell) === JSON.stringify(newTile)) continue;
+        const cell = getCell(ctx.state.grid, wx, wy);
+        if (!cell) continue;
+        const before = { ...cell };
+        const after = newTile ? { ...newTile } : { tileId: 'Space' };
+        setCell(ctx.state.grid, wx, wy, after);
+        tileChanges.push({ x: wx, y: wy, before, after });
+      }
+    }
+
+    const entityChanges: EntityChange[] = [];
+    for (const e of selEntities) {
+      entityChanges.push({ action: 'remove', entity: e });
+    }
+    let nextUid = ctx.state.nextEntityId;
+    for (const ce of mirrored.entities) {
+      const newPos = { x: this.selMinX + ce.dx, y: this.selMinY + ce.dy };
+      const entity: ImportedEntity = {
+        uid: nextUid++,
+        prototype: ce.prototype,
+        position: newPos,
+        rotation: ce.rotation,
+        components: cloneComponentsWithPosRot(ce.components, newPos, ce.rotation),
+        ...(ce.spriteStateOverride ? { spriteStateOverride: ce.spriteStateOverride } : {}),
+      };
+      entityChanges.push({ action: 'add', entity });
+    }
+
+    const decalChanges: DecalChange[] = [];
+    for (let i = 0; i < selDecals.length; i++) {
+      const d = selDecals[i];
+      const md = mirrored.decals![i];
+      const newPos = { x: this.selMinX + md.dx, y: this.selMinY + md.dy };
+      const rotatedDecal: DecalInstance = { ...d, position: newPos, angle: md.angle };
+      decalChanges.push({ action: 'update', decal: rotatedDecal, previousDecal: d });
+    }
+
+    if (tileChanges.length > 0 || entityChanges.length > 0 || decalChanges.length > 0) {
+      const label = axis === 'horizontal' ? t('selectTool.command.mirrorHorizontal') : t('selectTool.command.mirrorVertical');
+      ctx.dispatch({
+        type: 'APPLY_COMMAND',
+        command: {
+          label,
+          tileChanges,
+          entityChanges,
+          decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
+        },
+      });
+    }
+    markOverlayDirty();
+  }
+
+  /** Mirror a region of tiles + entities + decals, horizontally (left-right) or
+   *  vertically (top-bottom). Width/height are unchanged — unlike rotateRegion, this
+   *  is a reflection, not a 90-degree transform. */
+  private mirrorRegion(
+    data: { width: number; height: number; tiles: (import('../types').TileCell | null)[]; entities: ClipboardEntity[]; decals?: ClipboardDecal[] },
+    axis: 'horizontal' | 'vertical',
+  ): { width: number; height: number; tiles: (import('../types').TileCell | null)[]; entities: ClipboardEntity[]; decals?: ClipboardDecal[] } {
+    const { width: W, height: H, tiles, entities, decals } = data;
+    const newTiles: (import('../types').TileCell | null)[] = new Array(W * H).fill(null);
+
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const nx = axis === 'horizontal' ? W - 1 - x : x;
+        const ny = axis === 'vertical' ? H - 1 - y : y;
+        newTiles[ny * W + nx] = tiles[y * W + x];
+      }
+    }
+
+    // Entity rotation reflection, matching RobustToolbox's South=0/East=pi/2/North=pi/West=3pi/2
+    // convention: a horizontal (left-right) flip swaps East<->West via rotation -> -rotation;
+    // a vertical (top-bottom) flip swaps North<->South via rotation -> pi - rotation.
+    const reflectRotation = (r: number) => normalizeRotation(axis === 'horizontal' ? -r : Math.PI - r);
+
+    const newEntities: ClipboardEntity[] = entities.map(e => ({
+      ...e,
+      dx: axis === 'horizontal' ? W - e.dx : e.dx,
+      dy: axis === 'vertical' ? H - e.dy : e.dy,
+      rotation: reflectRotation(e.rotation),
+    }));
+
+    // Decal positions are integer tile-origin (not tile-center like entities), so the
+    // index mapping uses W-1/H-1 same as rotateRegion's decal handling.
+    const newDecals: ClipboardDecal[] | undefined = decals?.map(d => ({
+      ...d,
+      dx: axis === 'horizontal' ? W - 1 - d.dx : d.dx,
+      dy: axis === 'vertical' ? H - 1 - d.dy : d.dy,
+      angle: reflectRotation(d.angle),
+    }));
+
+    return { width: W, height: H, tiles: newTiles, entities: newEntities, decals: newDecals };
+  }
+
   /** Rotate a region of tiles + entities + decals 90 degrees. */
   private rotateRegion(
     data: { width: number; height: number; tiles: (import('../types').TileCell | null)[]; entities: ClipboardEntity[]; decals?: ClipboardDecal[] },
@@ -1096,6 +1245,21 @@ export class SelectTool implements ITool {
   /** Expose selected tile count for testing. */
   getSelectedTileCount(): number {
     return this.selectedTiles.size;
+  }
+
+  /** Whether there's a committed (non-empty, non-transient) selection right now. */
+  hasSelection(): boolean {
+    return this.phase === 'selected' && this.selectedTiles.size > 0;
+  }
+
+  /** Summary of the current selection for the properties panel: tile/entity/decal counts. */
+  getSelectionSummary(ctx: ToolContext): { tileCount: number; entityCount: number; decalCount: number } {
+    if (!this.hasSelection()) return { tileCount: 0, entityCount: 0, decalCount: 0 };
+    return {
+      tileCount: this.selectedTiles.size,
+      entityCount: this.getEntitiesInSelection(ctx.state.entities).length,
+      decalCount: this.getDecalsInSelection(ctx).length,
+    };
   }
 
   deactivate() {

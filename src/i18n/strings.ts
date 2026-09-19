@@ -149,6 +149,8 @@ export const strings: Record<string, Record<Locale, string>> = {
   'selectTool.command.deleteSelection': { ru: 'Удаление выделения', en: 'Delete selection' },
   'selectTool.command.paste': { ru: 'Вставка', en: 'Paste' },
   'selectTool.command.moveSelection': { ru: 'Перемещение выделения', en: 'Move selection' },
+  'selectTool.command.mirrorHorizontal': { ru: 'Отзеркалить по горизонтали', en: 'Mirror horizontally' },
+  'selectTool.command.mirrorVertical': { ru: 'Отзеркалить по вертикали', en: 'Mirror vertically' },
   'selectTool.contextMenu.copy': { ru: 'Копировать', en: 'Copy' },
   'selectTool.contextMenu.cut': { ru: 'Вырезать', en: 'Cut' },
   'selectTool.contextMenu.delete': { ru: 'Удалить', en: 'Delete' },
@@ -221,6 +223,25 @@ export const strings: Record<string, Record<Locale, string>> = {
   'eraseSettings.mode.selective': { ru: 'Выборочно', en: 'Selective' },
   'eraseSettings.eraseTiles': { ru: 'Стирать тайлы', en: 'Erase tiles' },
   'eraseSettings.eraseEntities': { ru: 'Стирать сущности', en: 'Erase entities' },
+
+  // SymmetrySettingsPanel
+  'app.panel.symmetry': { ru: 'Симметрия', en: 'Symmetry' },
+  'symmetrySettings.mode.none': { ru: 'Выкл.', en: 'Off' },
+  'symmetrySettings.mode.mirror': { ru: 'Зеркало', en: 'Mirror' },
+  'symmetrySettings.mode.fourWay': { ru: '4 стороны', en: '4-way' },
+  'symmetrySettings.axis.vertical': { ru: 'По вертикали (X=0)', en: 'Vertical (X=0)' },
+  'symmetrySettings.axis.horizontal': { ru: 'По горизонтали (Y=0)', en: 'Horizontal (Y=0)' },
+
+  // SelectionInfoPanel
+  'app.panel.selectionInfo': { ru: 'Информация о выделении', en: 'Selection Info' },
+  'selectionInfo.tiles': { ru: 'Тайлов: {count}', en: 'Tiles: {count}' },
+  'selectionInfo.entities': { ru: 'Сущностей: {count}', en: 'Entities: {count}' },
+  'selectionInfo.decals': { ru: 'Декалей: {count}', en: 'Decals: {count}' },
+  'selectionInfo.rotateCw': { ru: 'Повернуть по часовой', en: 'Rotate clockwise' },
+  'selectionInfo.rotateCcw': { ru: 'Повернуть против часовой', en: 'Rotate counter-clockwise' },
+  'selectionInfo.mirrorHorizontal': { ru: 'Отзеркалить ↔', en: 'Mirror ↔' },
+  'selectionInfo.mirrorVertical': { ru: 'Отзеркалить ↕', en: 'Mirror ↕' },
+  'selectionInfo.delete': { ru: 'Удалить', en: 'Delete' },
 
   // PerformanceHUD
   'perfHud.performance': { ru: 'Производительность', en: 'Performance' },

@@ -1,9 +1,11 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { CardinalDirection } from '../types';
+import type { EntityChange } from '../types';
 import { buildTransformComponent, normalizeRotation } from './entityHelpers';
 import { getEntitySprite } from '../rendering/entityRenderer';
 import { drawImageGhost, drawOutlineGhost } from './ghostPreviewHelper';
+import { getSymmetricWorldPositions } from './symmetrySettings';
 
 function rotToDir(rotation: number): CardinalDirection {
   const TWO_PI = 2 * Math.PI;
@@ -31,27 +33,37 @@ export class EntityPlaceTool implements ITool {
     if (!state.selectedPaletteItem || state.selectedPaletteItem.type !== 'entity') return;
 
     const protoId = state.selectedPaletteItem.id;
-    const uid = state.nextEntityId;
 
     // Free placement: use exact fractional coords; grid-snap: center of tile
     const pos = shiftHeld
       ? { x: tileX, y: tileY }
       : { x: Math.floor(tileX) + 0.5, y: Math.floor(tileY) + 0.5 };
     const rot = this.currentRotation;
-    const entity: ImportedEntity = {
-      uid,
-      prototype: protoId,
-      position: pos,
-      rotation: rot,
-      components: buildTransformComponent(pos, rot, state.gridUid),
-    };
+
+    // Symmetry places one entity per mirrored position, all sharing the same rotation
+    // (mirroring the rotation too would misrepresent directional entities like doors —
+    // see symmetrySettings.ts for the reflection convention).
+    const symmetry = ctx.symmetrySettings;
+    const positions = symmetry ? getSymmetricWorldPositions(pos.x, pos.y, symmetry) : [pos];
+
+    let uid = state.nextEntityId;
+    const entityChanges: EntityChange[] = positions.map((p) => ({
+      action: 'add',
+      entity: {
+        uid: uid++,
+        prototype: protoId,
+        position: p,
+        rotation: rot,
+        components: buildTransformComponent(p, rot, state.gridUid),
+      },
+    }));
 
     dispatch({
       type: 'APPLY_COMMAND',
       command: {
         label: `Place ${protoId}`,
         tileChanges: [],
-        entityChanges: [{ action: 'add', entity }],
+        entityChanges,
       },
     });
   }
@@ -70,63 +82,66 @@ export class EntityPlaceTool implements ITool {
     if (!state.selectedPaletteItem || state.selectedPaletteItem.type !== 'entity') return;
 
     const tileScreenSize = camera.tileScreenSize;
-    // In free mode, center sprite on cursor (position is entity center, draw from top-left)
-    // In grid mode, draw at tile top-left (entity will be placed at tile center)
-    const drawOriginX = shiftHeld ? cursorTileX - 0.5 : Math.floor(cursorTileX);
-    const drawOriginY = shiftHeld ? cursorTileY - 0.5 : Math.floor(cursorTileY);
-    const drawX = camera.worldToScreenX(drawOriginX, canvasW);
-    const drawY = camera.worldToScreenY(drawOriginY, canvasH);
-
     const protoId = state.selectedPaletteItem.id;
     const direction = rotToDir(this.currentRotation);
 
-    // Try to draw entity sprite as ghost preview
-    let drewSprite = false;
-    if (state.registry) {
-      const sprite = getEntitySprite(protoId, direction, state.registry);
+    // Center position under the cursor, same convention as onMouseDown, so mirrored
+    // ghost positions line up exactly with where mirrored copies will actually land.
+    const centerPos = shiftHeld
+      ? { x: cursorTileX, y: cursorTileY }
+      : { x: Math.floor(cursorTileX) + 0.5, y: Math.floor(cursorTileY) + 0.5 };
+    const symmetry = toolCtx.symmetrySettings;
+    const centers = symmetry ? getSymmetricWorldPositions(centerPos.x, centerPos.y, symmetry) : [centerPos];
+
+    const sprite = state.registry ? getEntitySprite(protoId, direction, state.registry) : null;
+    const needsRotation = this.currentRotation !== 0 && !!sprite && sprite.sh === sprite.image.height;
+
+    for (const center of centers) {
+      // In free mode, center sprite on cursor (position is entity center, draw from top-left)
+      // In grid mode, draw at tile top-left (entity will be placed at tile center)
+      const drawOriginX = shiftHeld ? center.x - 0.5 : Math.floor(center.x);
+      const drawOriginY = shiftHeld ? center.y - 0.5 : Math.floor(center.y);
+      const drawX = camera.worldToScreenX(drawOriginX, canvasW);
+      const drawY = camera.worldToScreenY(drawOriginY, canvasH);
+
       if (sprite) {
-        const needsRotation = this.currentRotation !== 0 && sprite.sh === sprite.image.height;
         drawImageGhost(canvasCtx, sprite, drawX, drawY, tileScreenSize, 0.5, needsRotation ? this.currentRotation : 0);
-        drewSprite = true;
+      } else {
+        drawOutlineGhost(canvasCtx, shiftHeld ? 'rgba(100, 200, 255, 0.6)' : 'rgba(0, 255, 100, 0.6)', drawX, drawY, tileScreenSize);
       }
-    }
 
-    // Fallback: dashed rectangle when sprite not available
-    if (!drewSprite) {
-      drawOutlineGhost(canvasCtx, shiftHeld ? 'rgba(100, 200, 255, 0.6)' : 'rgba(0, 255, 100, 0.6)', drawX, drawY, tileScreenSize);
-    }
+      // Rotation indicator arrow
+      if (this.currentRotation !== 0) {
+        const cx = drawX + tileScreenSize / 2;
+        const cy = drawY + tileScreenSize / 2;
+        const arrowLen = tileScreenSize * 0.3;
 
-    // Rotation indicator arrow
-    if (this.currentRotation !== 0) {
-      const cx = drawX + tileScreenSize / 2;
-      const cy = drawY + tileScreenSize / 2;
-      const arrowLen = tileScreenSize * 0.3;
+        canvasCtx.save();
+        canvasCtx.translate(cx, cy);
+        canvasCtx.rotate(-this.currentRotation + Math.PI / 2);
 
-      canvasCtx.save();
-      canvasCtx.translate(cx, cy);
-      canvasCtx.rotate(-this.currentRotation + Math.PI / 2);
+        canvasCtx.strokeStyle = shiftHeld ? 'rgba(100, 200, 255, 0.8)' : 'rgba(0, 255, 100, 0.8)';
+        canvasCtx.lineWidth = 2;
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(0, -arrowLen);
+        canvasCtx.lineTo(0, arrowLen);
+        canvasCtx.moveTo(-arrowLen * 0.4, arrowLen * 0.5);
+        canvasCtx.lineTo(0, arrowLen);
+        canvasCtx.lineTo(arrowLen * 0.4, arrowLen * 0.5);
+        canvasCtx.stroke();
 
-      canvasCtx.strokeStyle = shiftHeld ? 'rgba(100, 200, 255, 0.8)' : 'rgba(0, 255, 100, 0.8)';
-      canvasCtx.lineWidth = 2;
-      canvasCtx.beginPath();
-      canvasCtx.moveTo(0, -arrowLen);
-      canvasCtx.lineTo(0, arrowLen);
-      canvasCtx.moveTo(-arrowLen * 0.4, arrowLen * 0.5);
-      canvasCtx.lineTo(0, arrowLen);
-      canvasCtx.lineTo(arrowLen * 0.4, arrowLen * 0.5);
-      canvasCtx.stroke();
+        canvasCtx.restore();
+      }
 
-      canvasCtx.restore();
-    }
-
-    // Label
-    if (tileScreenSize > 16) {
-      canvasCtx.font = '10px sans-serif';
-      canvasCtx.fillStyle = shiftHeld ? 'rgba(100, 200, 255, 0.8)' : 'rgba(0, 255, 100, 0.8)';
-      canvasCtx.textAlign = 'center';
-      canvasCtx.textBaseline = 'top';
-      const label = shiftHeld ? `${protoId} (free)` : protoId;
-      canvasCtx.fillText(label, drawX + tileScreenSize / 2, drawY + tileScreenSize + 2);
+      // Label
+      if (tileScreenSize > 16) {
+        canvasCtx.font = '10px sans-serif';
+        canvasCtx.fillStyle = shiftHeld ? 'rgba(100, 200, 255, 0.8)' : 'rgba(0, 255, 100, 0.8)';
+        canvasCtx.textAlign = 'center';
+        canvasCtx.textBaseline = 'top';
+        const label = shiftHeld ? `${protoId} (free)` : protoId;
+        canvasCtx.fillText(label, drawX + tileScreenSize / 2, drawY + tileScreenSize + 2);
+      }
     }
   }
 

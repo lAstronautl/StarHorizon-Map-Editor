@@ -7,6 +7,8 @@ import type { ITool } from './tools/toolTypes';
 import { PaintTool } from './tools/paintTool';
 import { EraseTool, DEFAULT_ERASE_SETTINGS } from './tools/eraseTool';
 import type { EraseSettings } from './tools/eraseTool';
+import { DEFAULT_SYMMETRY_SETTINGS } from './tools/symmetrySettings';
+import type { SymmetrySettings } from './tools/symmetrySettings';
 import { EyedropperTool } from './tools/eyedropperTool';
 import { PanTool } from './tools/panTool';
 import { FillTool } from './tools/fillTool';
@@ -31,11 +33,14 @@ import type { DecalPlacementSettings } from './components/DecalPalette';
 import { EntityInfoPanel } from './components/EntityInfoPanel';
 import { DecalInfoPanel } from './components/DecalInfoPanel';
 import { EraseSettingsPanel } from './components/EraseSettingsPanel';
+import { SymmetrySettingsPanel } from './components/SymmetrySettingsPanel';
+import { SelectionInfoPanel } from './components/SelectionInfoPanel';
 import { MenuBar } from './components/MenuBar';
 import { StatusBar } from './components/StatusBar';
 import { LoadingScreen } from './components/LoadingScreen';
 import { LayerPanel } from './components/LayerPanel';
 import { useKeyboard } from './hooks/useKeyboard';
+import { useAnimationFrame } from './hooks/useAnimationFrame';
 import { initRegistry } from './loaders/initRegistry';
 import { setActiveProvider, HttpResourceProvider } from './loaders/resourceProvider';
 import type { ResourceProvider } from './loaders/resourceProvider';
@@ -121,10 +126,12 @@ export const App: React.FC = () => {
   const [infraSelection, setInfraSelection] = useState<InfrastructureSelection>({
     mode: 'cable', cableType: 'CableHV', pipeType: 'supply', pipeLayer: 'Primary',
   });
+  const [selectionSummary, setSelectionSummary] = useState<{ tileCount: number; entityCount: number; decalCount: number } | null>(null);
   const cameraRef = useRef(new Camera());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const decalPlacementSettingsRef = useRef<DecalPlacementSettings>({ ...DEFAULT_DECAL_PLACEMENT_SETTINGS });
   const eraseSettingsRef = useRef<EraseSettings>({ ...DEFAULT_ERASE_SETTINGS });
+  const symmetrySettingsRef = useRef<SymmetrySettings>({ ...DEFAULT_SYMMETRY_SETTINGS });
   const palettePanelRef = useRef<PalettePanelHandle>(null);
   const preEyedropperToolRef = useRef<ToolType>('paint');
 
@@ -500,6 +507,29 @@ export const App: React.FC = () => {
     }
   }, [state.activeTool, state.selectedEntityUids, state.selectedDecalIds, makeToolContext, getSelectTool, rotateSelectedDecals]);
 
+  const handleMirrorSelection = useCallback((axis: 'horizontal' | 'vertical') => {
+    getSelectTool()?.mirrorSelection(makeToolContext(), axis);
+  }, [getSelectTool, makeToolContext]);
+
+  // Poll the select tool's (non-React) selection state each frame while it's active,
+  // so the selection info panel stays in sync with marquee drags/moves/undo without
+  // the tool needing to know about React at all.
+  useAnimationFrame(() => {
+    if (state.activeTool !== 'select') {
+      if (selectionSummary !== null) setSelectionSummary(null);
+      return;
+    }
+    const tool = getSelectTool();
+    const summary = tool?.hasSelection() ? tool.getSelectionSummary(makeToolContext()) : null;
+    setSelectionSummary(prev => {
+      if (!summary && !prev) return prev;
+      if (summary && prev && summary.tileCount === prev.tileCount && summary.entityCount === prev.entityCount && summary.decalCount === prev.decalCount) {
+        return prev;
+      }
+      return summary;
+    });
+  });
+
   const handleUpdateEntity = useCallback((updated: import('./import/mapImporter').ImportedEntity) => {
     const original = state.entities.find(e => e.uid === updated.uid);
     if (!original) return;
@@ -770,6 +800,7 @@ export const App: React.FC = () => {
               lightingEnabled={state.lightingEnabled}
               decalPlacementSettingsRef={decalPlacementSettingsRef}
               eraseSettingsRef={eraseSettingsRef}
+              symmetrySettingsRef={symmetrySettingsRef}
               previousToolRef={preEyedropperToolRef}
               highlightTile={highlightTile}
             />
@@ -833,6 +864,25 @@ export const App: React.FC = () => {
           {state.activeTool === 'erase' && (
             <CollapsiblePanel title={t('app.panel.eraseSettings')} defaultOpen={true}>
               <EraseSettingsPanel settingsRef={eraseSettingsRef} />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'paint' && (
+            <CollapsiblePanel title={t('app.panel.symmetry')} defaultOpen={false}>
+              <SymmetrySettingsPanel settingsRef={symmetrySettingsRef} />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'select' && selectionSummary && (
+            <CollapsiblePanel title={t('app.panel.selectionInfo')} forceOpen={true}>
+              <SelectionInfoPanel
+                tileCount={selectionSummary.tileCount}
+                entityCount={selectionSummary.entityCount}
+                decalCount={selectionSummary.decalCount}
+                onRotateCW={handleRotateEntityCW}
+                onRotateCCW={handleRotateEntityCCW}
+                onMirrorHorizontal={() => handleMirrorSelection('horizontal')}
+                onMirrorVertical={() => handleMirrorSelection('vertical')}
+                onDelete={handleDelete}
+              />
             </CollapsiblePanel>
           )}
           {/* Palette, always visible, takes remaining space */}

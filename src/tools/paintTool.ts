@@ -7,6 +7,7 @@ import { markSceneDirty, markOverlayDirty } from '../rendering/dirtyFlags';
 import { EntityPlaceTool } from './entityPlaceTool';
 import { getTileImage, getFallbackColor } from '../rendering/gridRenderer';
 import { drawImageGhost, drawFillGhost } from './ghostPreviewHelper';
+import { getSymmetricPositions } from './symmetrySettings';
 
 export class PaintTool implements ITool {
   name = 'paint';
@@ -141,14 +142,26 @@ export class PaintTool implements ITool {
     const drawX = camera.worldToScreenX(cursorTileX, canvasW);
     const drawY = camera.worldToScreenY(cursorTileY, canvasH);
 
-    // Cursor ghost: the tile that would be painted/erased right here, same reduced opacity.
+    // Cursor ghost(s): the tile(s) that would be painted/erased right here, including
+    // mirrored positions when symmetry is on, same reduced opacity.
+    const cursorPositions = toolCtx.symmetrySettings
+      ? getSymmetricPositions(cursorTileX, cursorTileY, toolCtx.symmetrySettings)
+      : [{ x: cursorTileX, y: cursorTileY }];
     if (toolCtx.paletteItem.type === 'tile') {
-      this.drawTileGhost(canvasCtx, toolCtx, this.erasing ? 'Space' : toolCtx.paletteItem.id, drawX, drawY, tileScreenSize, GHOST_OPACITY);
+      for (const p of cursorPositions) {
+        const sx = camera.worldToScreenX(p.x, canvasW);
+        const sy = camera.worldToScreenY(p.y, canvasH);
+        this.drawTileGhost(canvasCtx, toolCtx, this.erasing ? 'Space' : toolCtx.paletteItem.id, sx, sy, tileScreenSize, GHOST_OPACITY);
+      }
     }
 
     canvasCtx.strokeStyle = this.erasing ? '#ff4444' : '#00ff00';
     canvasCtx.lineWidth = 2;
-    canvasCtx.strokeRect(drawX, drawY, tileScreenSize, tileScreenSize);
+    for (const p of cursorPositions) {
+      const sx = camera.worldToScreenX(p.x, canvasW);
+      const sy = camera.worldToScreenY(p.y, canvasH);
+      canvasCtx.strokeRect(sx, sy, tileScreenSize, tileScreenSize);
+    }
   }
 
   /** Draw a single tile's real texture (or a fallback fill) as a ghost at reduced opacity.
@@ -180,6 +193,16 @@ export class PaintTool implements ITool {
   }
 
   private paintAt(ctx: ToolContext, worldX: number, worldY: number) {
+    const { paletteItem } = ctx;
+    if (!paletteItem) return;
+
+    const positions = ctx.symmetrySettings
+      ? getSymmetricPositions(worldX, worldY, ctx.symmetrySettings)
+      : [{ x: worldX, y: worldY }];
+    for (const p of positions) this.paintOneTile(ctx, p.x, p.y);
+  }
+
+  private paintOneTile(ctx: ToolContext, worldX: number, worldY: number) {
     const { state, paletteItem } = ctx;
     if (!paletteItem) return;
 
@@ -223,6 +246,13 @@ export class PaintTool implements ITool {
   }
 
   private eraseAt(ctx: ToolContext, worldX: number, worldY: number) {
+    const positions = ctx.symmetrySettings
+      ? getSymmetricPositions(worldX, worldY, ctx.symmetrySettings)
+      : [{ x: worldX, y: worldY }];
+    for (const p of positions) this.eraseOneTile(ctx, p.x, p.y);
+  }
+
+  private eraseOneTile(ctx: ToolContext, worldX: number, worldY: number) {
     const { state, paletteItem } = ctx;
 
     const key = `${worldX},${worldY}`;
