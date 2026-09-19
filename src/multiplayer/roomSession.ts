@@ -185,6 +185,12 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, [cleanupPresence]);
 
   const hostRoom = useCallback(async (nickname: string): Promise<string> => {
+    // Dispose any manager left over from a previous attempt (e.g. a failed connect the
+    // user is retrying) — otherwise its Peer keeps polling the signaling broker in the
+    // background, and repeated retries can pile up enough requests to trip rate limiting.
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
     setStatus('connecting');
     setErrorMessage(null);
     myNameRef.current = nickname || 'Player';
@@ -197,7 +203,12 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
       onPeerConnected: () => {},
       onPeerDisconnected: handlePeerDisconnected,
       onMessage: handleMessage,
-      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+      onError: (err) => {
+        setStatus('error');
+        setErrorMessage(err.message);
+        manager.disconnect();
+        if (managerRef.current === manager) managerRef.current = null;
+      },
     });
     managerRef.current = manager;
     const id = await manager.hostRoom();
@@ -209,6 +220,9 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, [handleMessage, handlePeerDisconnected]);
 
   const joinRoom = useCallback(async (nickname: string, hostRoomId: string): Promise<void> => {
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
     setStatus('connecting');
     setErrorMessage(null);
     myNameRef.current = nickname || 'Player';
@@ -220,7 +234,12 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
       },
       onPeerDisconnected: handlePeerDisconnected,
       onMessage: handleMessage,
-      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+      onError: (err) => {
+        setStatus('error');
+        setErrorMessage(err.message);
+        manager.disconnect();
+        if (managerRef.current === manager) managerRef.current = null;
+      },
     });
     managerRef.current = manager;
     await manager.joinRoom(hostRoomId);
