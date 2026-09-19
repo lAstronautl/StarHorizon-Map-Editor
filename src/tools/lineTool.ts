@@ -4,6 +4,7 @@ import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
 import { t } from '../i18n';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 /** Bresenham's line algorithm, returns all tiles along the line. */
 function bresenham(x0: number, y0: number, x1: number, y1: number): [number, number][] {
@@ -63,7 +64,7 @@ export class LineTool implements ITool {
 
     if (paletteItem.type === 'entity') {
       const { entityChanges } = createEntitiesAtPositions(
-        points, paletteItem.id, state.entities, state.nextEntityId, state.gridUid,
+        points, paletteItem.id, state.entities, peerUid(state.localPeerIndex, state.localEntityCounter), state.gridUid,
       );
       if (entityChanges.length > 0) {
         ctx.dispatch({

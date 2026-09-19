@@ -4,6 +4,7 @@ import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
 import { t } from '../i18n';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 /** Compute all tiles inside a filled circle using midpoint algorithm. */
 function filledCircleTiles(cx: number, cy: number, radius: number): [number, number][] {
@@ -61,7 +62,7 @@ export class CircleTool implements ITool {
 
     if (paletteItem.type === 'entity') {
       const { entityChanges } = createEntitiesAtPositions(
-        tiles, paletteItem.id, state.entities, state.nextEntityId, state.gridUid,
+        tiles, paletteItem.id, state.entities, peerUid(state.localPeerIndex, state.localEntityCounter), state.gridUid,
       );
       if (entityChanges.length > 0) {
         ctx.dispatch({

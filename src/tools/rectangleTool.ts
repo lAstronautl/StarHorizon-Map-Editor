@@ -4,6 +4,7 @@ import { ensureGridContainsBounds, getCell, setCell } from '../state/editorState
 import { createEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions } from './decalBrushHelper';
 import { t } from '../i18n';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 export class RectangleTool implements ITool {
   name = 'rectangle';
@@ -51,7 +52,7 @@ export class RectangleTool implements ITool {
 
     if (paletteItem.type === 'entity') {
       const { entityChanges } = createEntitiesAtPositions(
-        positions, paletteItem.id, state.entities, state.nextEntityId, state.gridUid,
+        positions, paletteItem.id, state.entities, peerUid(state.localPeerIndex, state.localEntityCounter), state.gridUid,
       );
       if (entityChanges.length > 0) {
         ctx.dispatch({

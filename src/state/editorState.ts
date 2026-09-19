@@ -24,6 +24,11 @@ export interface EditorState {
   selectedPaletteItem: PaletteItem | null;
   nextEntityId: number;
 
+  // Multiplayer UID namespacing (peerIndex 0 = single-player default, identity mapping)
+  localPeerIndex: number;
+  localEntityCounter: number;
+  localGridCounter: number;
+
   // History
   undoStack: UndoableCommand[];
   redoStack: UndoableCommand[];
@@ -145,6 +150,9 @@ export function createInitialState(): EditorState {
     activeTool: 'pan',
     selectedPaletteItem: { type: 'tile', id: 'Plating' },
     nextEntityId: 2,  // UIDs 0 (map) and 1 (grid) are reserved for structural entities
+    localPeerIndex: 0,
+    localEntityCounter: 2,
+    localGridCounter: 2,
     selectedEntityUids: [],
     selectedDecalIds: [],
     decalsDirty: new Set(),

@@ -7,6 +7,7 @@ import type { DecalPlacementOptions } from './decalBrushHelper';
 import type { LayerVisibility } from '../rendering/entityRenderer';
 import type { EraseSettings } from './eraseTool';
 import type { SymmetrySettings } from './symmetrySettings';
+import type { ToolPreviewSnapshot } from '../multiplayer/messages';
 
 export interface ToolContext {
   state: EditorState;
@@ -46,4 +47,7 @@ export interface ITool {
   onWheel?(ctx: ToolContext, tileX: number, tileY: number, deltaY: number): boolean;
   deactivate?(): void;
   getContextMenuItems?(ctx: ToolContext, tileX: number, tileY: number): ContextMenuItem[];
+  /** Snapshot of this tool's uncommitted/in-progress edit, for broadcasting as a "ghost"
+   *  preview to other players in a multiplayer session. Null when there's nothing to show. */
+  getRemotePreviewSnapshot?(): ToolPreviewSnapshot | null;
 }

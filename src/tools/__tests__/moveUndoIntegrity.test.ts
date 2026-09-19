@@ -120,6 +120,7 @@ describe('Move + Undo Integrity', () => {
         entities: [e1, e2, e3],
         selectedEntityUids: [1, 2],
         nextEntityId: 4,
+        localEntityCounter: 4,
         registry: makeMockRegistry(),
       });
 
@@ -199,6 +200,7 @@ describe('Move + Undo Integrity', () => {
         entities: [e1, e2],
         selectedEntityUids: [1, 2],
         nextEntityId: 3,
+        localEntityCounter: 3,
         registry: makeMockRegistry(),
       });
 
@@ -320,6 +322,7 @@ describe('Move + Undo Integrity', () => {
         grid: makeGrid(20, 20, 0, 0),
         entities: [e1, e2, e3],
         nextEntityId: 13,
+        localEntityCounter: 13,
         registry: makeMockRegistry(),
       });
 
@@ -423,6 +426,7 @@ describe('Move + Undo Integrity', () => {
         entities: [e1, e2],
         selectedEntityUids: [1, 2],
         nextEntityId: 3,
+        localEntityCounter: 3,
         registry: makeMockRegistry(),
       });
 
@@ -488,6 +492,7 @@ describe('Move + Undo Integrity', () => {
         ...createInitialState(),
         entities: [e3, e4],
         nextEntityId: 5,
+        localEntityCounter: 5,
         undoStack: [moveCommand],
         registry: makeMockRegistry(),
       });
@@ -541,6 +546,7 @@ describe('Move + Undo Integrity', () => {
         ...createInitialState(),
         entities: [e1, e2],
         nextEntityId: 5,
+        localEntityCounter: 5,
         redoStack: [moveCommand],
         registry: makeMockRegistry(),
       });
@@ -577,6 +583,7 @@ describe('Move + Undo Integrity', () => {
         entities: [e1],
         selectedEntityUids: [1],
         nextEntityId: 2,
+        localEntityCounter: 2,
         registry: makeMockRegistry(),
       });
 
@@ -646,6 +653,7 @@ describe('Move + Undo Integrity', () => {
         entities: [...entities],
         selectedEntityUids: [1, 2, 3],
         nextEntityId: 4,
+        localEntityCounter: 4,
         registry: makeMockRegistry(),
       });
 

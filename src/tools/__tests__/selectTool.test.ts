@@ -27,6 +27,7 @@ function makeToolContext(
   const state: EditorState = {
     ...createInitialState(),
     grid: makeGrid(20, 20, 0, 0),
+    ...(overrides.nextEntityId !== undefined ? { localEntityCounter: overrides.nextEntityId } : {}),
     ...overrides,
   };
   const ctx: ToolContext = {

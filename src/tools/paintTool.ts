@@ -1,5 +1,6 @@
 import type { ITool, ToolContext } from './toolTypes';
 import type { TileChange, EntityChange, DecalChange } from '../types';
+import type { PaintPreviewSnapshot } from '../multiplayer/messages';
 import { getCell } from '../state/editorState';
 import { removeEntitiesAtPositions } from './entityBrushHelper';
 import { createDecalsAtPositions, removeDecalsAtPositions } from './decalBrushHelper';
@@ -289,5 +290,10 @@ export class PaintTool implements ITool {
     this.entityChanges = [];
     this.decalChanges = [];
     this.visited.clear();
+  }
+
+  getRemotePreviewSnapshot(): PaintPreviewSnapshot | null {
+    if (this.tileChanges.length === 0) return null;
+    return { tool: 'paint', tileChanges: this.tileChanges };
   }
 }

@@ -6,6 +6,7 @@ import { buildTransformComponent, normalizeRotation } from './entityHelpers';
 import { getEntitySprite } from '../rendering/entityRenderer';
 import { drawImageGhost, drawOutlineGhost } from './ghostPreviewHelper';
 import { getSymmetricWorldPositions } from './symmetrySettings';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 function rotToDir(rotation: number): CardinalDirection {
   const TWO_PI = 2 * Math.PI;
@@ -46,7 +47,7 @@ export class EntityPlaceTool implements ITool {
     const symmetry = ctx.symmetrySettings;
     const positions = symmetry ? getSymmetricWorldPositions(pos.x, pos.y, symmetry) : [pos];
 
-    let uid = state.nextEntityId;
+    let uid = peerUid(state.localPeerIndex, state.localEntityCounter);
     const entityChanges: EntityChange[] = positions.map((p) => ({
       action: 'add',
       entity: {
