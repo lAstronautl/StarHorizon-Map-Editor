@@ -36,6 +36,19 @@ export interface UseMultiplayerResult {
 }
 
 const PRESENCE_STALE_MS = 5000;
+const CONNECT_TIMEOUT_MS = 15000;
+
+/** Rejects if `promise` doesn't settle within `ms` — prevents the UI from being stuck on
+ *  "Подключение..." forever if the signaling broker never responds and never errors. */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 /**
  * Owns the PeerJS connection, room membership, and the star-relay logic for the host.
@@ -51,6 +64,8 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const managerRef = useRef<PeerConnectionManager | null>(null);
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const rawDispatchRef = useRef(rawDispatch);
   rawDispatchRef.current = rawDispatch;
   const getStateRef = useRef(getState);
@@ -62,6 +77,11 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   const roleRef = useRef<'host' | 'guest' | null>(null);
   const peersRef = useRef<PeerInfo[]>([]);
   peersRef.current = peers;
+  // Guards against overlapping hostRoom()/joinRoom() calls (e.g. a double-click that
+  // slips past the UI's disabled-button check, or a caller retrying before the previous
+  // attempt settled) — each duplicate call would otherwise construct its own `Peer`,
+  // hammering the signaling broker with parallel /id requests.
+  const connectingRef = useRef(false);
   const myNameRef = useRef('Player');
   const myColorRef = useRef(getPeerColor(0));
   const nextPeerIndexRef = useRef(1); // host reserves 0 for itself
@@ -185,67 +205,107 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, [cleanupPresence]);
 
   const hostRoom = useCallback(async (nickname: string): Promise<string> => {
-    // Dispose any manager left over from a previous attempt (e.g. a failed connect the
-    // user is retrying) — otherwise its Peer keeps polling the signaling broker in the
-    // background, and repeated retries can pile up enough requests to trip rate limiting.
-    managerRef.current?.disconnect();
-    managerRef.current = null;
+    if (connectingRef.current) throw new Error('A connection attempt is already in progress.');
+    connectingRef.current = true;
+    try {
+      // Dispose any manager left over from a previous attempt (e.g. a failed connect the
+      // user is retrying) — otherwise its Peer keeps polling the signaling broker in the
+      // background, and repeated retries can pile up enough requests to trip rate limiting.
+      managerRef.current?.disconnect();
+      managerRef.current = null;
 
-    setStatus('connecting');
-    setErrorMessage(null);
-    myNameRef.current = nickname || 'Player';
-    myColorRef.current = getPeerColor(0);
-    nextPeerIndexRef.current = 1;
-    peerIndexByIdRef.current.clear();
+      setStatus('connecting');
+      setErrorMessage(null);
+      myNameRef.current = nickname || 'Player';
+      myColorRef.current = getPeerColor(0);
+      nextPeerIndexRef.current = 1;
+      peerIndexByIdRef.current.clear();
 
-    roleRef.current = 'host';
-    const manager = new PeerConnectionManager('host', {
-      onPeerConnected: () => {},
-      onPeerDisconnected: handlePeerDisconnected,
-      onMessage: handleMessage,
-      onError: (err) => {
+      roleRef.current = 'host';
+      const manager = new PeerConnectionManager('host', {
+        onPeerConnected: () => {},
+        onPeerDisconnected: handlePeerDisconnected,
+        onMessage: handleMessage,
+        onError: (err) => {
+          setStatus('error');
+          setErrorMessage(err.message);
+          manager.disconnect();
+          if (managerRef.current === manager) managerRef.current = null;
+        },
+      });
+      managerRef.current = manager;
+      let id: string;
+      try {
+        id = await withTimeout(manager.hostRoom(), CONNECT_TIMEOUT_MS, 'Не удалось создать комнату: сервер сигнализации не отвечает.');
+      } catch (err) {
         setStatus('error');
-        setErrorMessage(err.message);
+        setErrorMessage(err instanceof Error ? err.message : String(err));
         manager.disconnect();
         if (managerRef.current === manager) managerRef.current = null;
-      },
-    });
-    managerRef.current = manager;
-    const id = await manager.hostRoom();
-    setRole('host');
-    setRoomId(id);
-    setStatus('connected');
-    setPeers([{ peerId: id, peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
-    return id;
+        throw err;
+      }
+      setRole('host');
+      setRoomId(id);
+      setStatus('connected');
+      setPeers([{ peerId: id, peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
+      return id;
+    } finally {
+      connectingRef.current = false;
+    }
   }, [handleMessage, handlePeerDisconnected]);
 
   const joinRoom = useCallback(async (nickname: string, hostRoomId: string): Promise<void> => {
-    managerRef.current?.disconnect();
-    managerRef.current = null;
+    if (connectingRef.current) throw new Error('A connection attempt is already in progress.');
+    connectingRef.current = true;
+    try {
+      managerRef.current?.disconnect();
+      managerRef.current = null;
 
-    setStatus('connecting');
-    setErrorMessage(null);
-    myNameRef.current = nickname || 'Player';
-    roleRef.current = 'guest';
+      setStatus('connecting');
+      setErrorMessage(null);
+      myNameRef.current = nickname || 'Player';
+      roleRef.current = 'guest';
 
-    const manager = new PeerConnectionManager('guest', {
-      onPeerConnected: () => {
-        manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
-      },
-      onPeerDisconnected: handlePeerDisconnected,
-      onMessage: handleMessage,
-      onError: (err) => {
+      const manager = new PeerConnectionManager('guest', {
+        onPeerConnected: () => {
+          manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
+        },
+        onPeerDisconnected: handlePeerDisconnected,
+        onMessage: handleMessage,
+        onError: (err) => {
+          setStatus('error');
+          setErrorMessage(err.message);
+          manager.disconnect();
+          if (managerRef.current === manager) managerRef.current = null;
+        },
+      });
+      managerRef.current = manager;
+      try {
+        await withTimeout(manager.joinRoom(hostRoomId), CONNECT_TIMEOUT_MS, 'Не удалось подключиться: хост не отвечает.');
+      } catch (err) {
         setStatus('error');
-        setErrorMessage(err.message);
+        setErrorMessage(err instanceof Error ? err.message : String(err));
         manager.disconnect();
         if (managerRef.current === manager) managerRef.current = null;
-      },
-    });
-    managerRef.current = manager;
-    await manager.joinRoom(hostRoomId);
-    setRole('guest');
-    setRoomId(hostRoomId);
-    // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
+        throw err;
+      }
+      setRole('guest');
+      setRoomId(hostRoomId);
+      // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case).
+      // Guard against the DataChannel opening but the host never replying with a snapshot
+      // (e.g. the host's own state got into a bad spot) — without this, status would be
+      // stuck on 'connecting' forever with no way for the user to tell or retry.
+      setTimeout(() => {
+        if (managerRef.current === manager && statusRef.current === 'connecting') {
+          setStatus('error');
+          setErrorMessage('Хост не прислал карту. Попробуйте подключиться снова.');
+          manager.disconnect();
+          if (managerRef.current === manager) managerRef.current = null;
+        }
+      }, CONNECT_TIMEOUT_MS);
+    } finally {
+      connectingRef.current = false;
+    }
   }, [handleMessage, handlePeerDisconnected]);
 
   const leaveRoom = useCallback(() => {
