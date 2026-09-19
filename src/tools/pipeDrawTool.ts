@@ -6,6 +6,7 @@ import { computePipeChanges, fitPipes, type PipeFamily, type PipeLayer } from '.
 import { getEntityPipeDirections } from '../algorithms/pipeDirections';
 import { buildTransformComponent } from './entityHelpers';
 import { getEntitySprite, rotationToDirection } from '../rendering/entityRenderer';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 /** Pipe prototypes that belong to gas pipe network */
 const GAS_PIPE_PROTOTYPES = new Set([
@@ -143,7 +144,7 @@ export class PipeDrawTool implements ITool {
     }
 
     // Add new fitted entities
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     const gridUid = ctx.state.gridUid;
     for (const pipe of fittedPipes) {
       const pos = { x: pipe.x + 0.5, y: pipe.y + 0.5 };
@@ -407,7 +408,7 @@ export class PipeDrawTool implements ITool {
       const allFitted = fitPipes(allRemainingTiles, this.family, this.color, this.effectiveLayer, this.getMatchingDevicePorts(ctx));
 
       // Only refit tiles that are neighbors of removed tiles
-      let nextUid = ctx.state.nextEntityId;
+      let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
       for (const pipe of allFitted) {
         const key = `${pipe.x},${pipe.y}`;
         if (!neighbors.has(key)) continue;

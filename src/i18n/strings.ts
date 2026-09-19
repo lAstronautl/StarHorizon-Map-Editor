@@ -232,6 +232,21 @@ export const strings: Record<string, Record<Locale, string>> = {
   'symmetrySettings.axis.vertical': { ru: 'По вертикали (X=0)', en: 'Vertical (X=0)' },
   'symmetrySettings.axis.horizontal': { ru: 'По горизонтали (Y=0)', en: 'Horizontal (Y=0)' },
 
+  // MultiplayerPanel
+  'app.panel.multiplayer': { ru: 'Мультиплеер', en: 'Multiplayer' },
+  'multiplayer.nickname': { ru: 'Ваш ник', en: 'Your nickname' },
+  'multiplayer.nicknamePlaceholder': { ru: 'Player', en: 'Player' },
+  'multiplayer.hostRoom': { ru: 'Создать комнату', en: 'Create room' },
+  'multiplayer.joinRoom': { ru: 'Подключиться', en: 'Join' },
+  'multiplayer.roomIdPlaceholder': { ru: 'ID комнаты или ссылка', en: 'Room ID or link' },
+  'multiplayer.copyLink': { ru: 'Скопировать ссылку', en: 'Copy invite link' },
+  'multiplayer.linkCopied': { ru: 'Ссылка скопирована!', en: 'Link copied!' },
+  'multiplayer.connecting': { ru: 'Подключение...', en: 'Connecting...' },
+  'multiplayer.leaveRoom': { ru: 'Покинуть комнату', en: 'Leave room' },
+  'multiplayer.peers': { ru: 'Участники', en: 'Participants' },
+  'multiplayer.you': { ru: '(вы)', en: '(you)' },
+  'multiplayer.host': { ru: 'хост', en: 'host' },
+
   // SelectionInfoPanel
   'app.panel.selectionInfo': { ru: 'Информация о выделении', en: 'Selection Info' },
   'selectionInfo.tiles': { ru: 'Тайлов: {count}', en: 'Tiles: {count}' },

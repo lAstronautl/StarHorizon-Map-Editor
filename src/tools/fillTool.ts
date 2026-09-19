@@ -5,6 +5,7 @@ import { getCell, ensureGridContains, setCell } from '../state/editorState';
 import { buildTransformComponent } from './entityHelpers';
 import { spatialGetAt } from '../rendering/spatialIndex';
 import { t } from '../i18n';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 export class FillTool implements ITool {
   name = 'fill';
@@ -81,7 +82,7 @@ export class FillTool implements ITool {
     const visited = new Set<string>();
     const queue: [number, number][] = [[startX, startY]];
     const MAX_FILL = 50_000; // Safety limit
-    let uid = state.nextEntityId;
+    let uid = peerUid(state.localPeerIndex, state.localEntityCounter);
 
     while (queue.length > 0 && entityChanges.length < MAX_FILL) {
       const [x, y] = queue.shift()!;

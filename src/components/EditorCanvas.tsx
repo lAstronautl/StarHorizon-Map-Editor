@@ -33,6 +33,8 @@ import type { EraseSettings } from '../tools/eraseTool';
 import type { SymmetrySettings } from '../tools/symmetrySettings';
 import type { ToolType } from '../types';
 import { useT } from '../i18n';
+import { renderRemotePresence } from '../rendering/remotePresenceRenderer';
+import type { RemotePresence } from '../multiplayer/roomSession';
 
 interface Props {
   state: EditorState;
@@ -53,6 +55,7 @@ interface Props {
   symmetrySettingsRef: React.MutableRefObject<SymmetrySettings>;
   previousToolRef: React.MutableRefObject<ToolType>;
   highlightTile?: { x: number; y: number; startTime: number } | null;
+  presenceByPeerId?: Record<string, RemotePresence>;
 }
 
 const TILE_SIZE = 32;
@@ -64,7 +67,7 @@ const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, eraseSettingsRef,
-  symmetrySettingsRef, previousToolRef, highlightTile,
+  symmetrySettingsRef, previousToolRef, highlightTile, presenceByPeerId,
 }) => {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,6 +110,8 @@ export const EditorCanvas: React.FC<Props> = ({
   isSpaceHeldRef.current = isSpaceHeld;
   const isRHeldRef = useRef(isRHeld);
   isRHeldRef.current = isRHeld;
+  const presenceByPeerIdRef = useRef(presenceByPeerId);
+  presenceByPeerIdRef.current = presenceByPeerId;
   const isShiftHeldRef = useRef(false);
   const isCtrlHeldRef = useRef(false);
   const showSubFloorRef = useRef(showSubFloor);
@@ -868,6 +873,11 @@ export const EditorCanvas: React.FC<Props> = ({
         ctx.globalAlpha = 1;
         markOverlayDirty(); // keep animating
       }
+    }
+
+    // Other players' cursors/ghosts, drawn every frame regardless of local pan/space-hold.
+    if (presenceByPeerIdRef.current) {
+      renderRemotePresence(ctx, camera, w, h, presenceByPeerIdRef.current);
     }
 
     ctx.restore();

@@ -57,6 +57,8 @@ import { CollapsiblePanel } from './components/CollapsiblePanel';
 import { GridTabBar } from './components/GridTabBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { BenchmarkOverlay } from './components/BenchmarkOverlay';
+import { MultiplayerPanel } from './components/MultiplayerPanel';
+import { useMultiplayer } from './multiplayer/roomSession';
 import { markSceneDirty, markOverlayDirty, markAllDirty } from './rendering/dirtyFlags';
 import { buildTransformComponent } from './tools/entityHelpers';
 import { resetAllCaches } from './loaders/resetAllCaches';
@@ -95,7 +97,12 @@ const TOOL_MAP: Record<string, ITool> = {
 
 export const App: React.FC = () => {
   const { t } = useT();
-  const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const [state, rawDispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const getState = useCallback(() => stateRef.current, []);
+  const multiplayer = useMultiplayer(getState, rawDispatch);
+  const dispatch = multiplayer.networkDispatch;
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('space-station-14-map-editor-disclaimer-dismissed'));
   const [statusMessage, setStatusMessage] = useState(() => t('app.status.ready'));
   const [loadingMessage, setLoadingMessage] = useState(() => t('app.loading.discoveringPrototypes'));
@@ -530,6 +537,14 @@ export const App: React.FC = () => {
     });
   });
 
+  // Broadcast our own cursor position + any uncommitted tool preview (paint stroke,
+  // marquee) to the room each frame, so other players see it as a live ghost overlay.
+  useAnimationFrame(() => {
+    if (multiplayer.status !== 'connected') return;
+    const preview = activeTool?.getRemotePreviewSnapshot?.() ?? null;
+    multiplayer.sendPresence(cursorTile.x, cursorTile.y, preview);
+  });
+
   const handleUpdateEntity = useCallback((updated: import('./import/mapImporter').ImportedEntity) => {
     const original = state.entities.find(e => e.uid === updated.uid);
     if (!original) return;
@@ -803,6 +818,7 @@ export const App: React.FC = () => {
               symmetrySettingsRef={symmetrySettingsRef}
               previousToolRef={preEyedropperToolRef}
               highlightTile={highlightTile}
+              presenceByPeerId={multiplayer.presenceByPeerId}
             />
           </div>
         </div>
@@ -853,6 +869,9 @@ export const App: React.FC = () => {
               />
             </CollapsiblePanel>
           )}
+          <CollapsiblePanel title={t('app.panel.multiplayer')} defaultOpen={false}>
+            <MultiplayerPanel multiplayer={multiplayer} />
+          </CollapsiblePanel>
           {(state.activeTool === 'cableDraw' || state.activeTool === 'pipeDraw') && (
             <CollapsiblePanel title={t('app.panel.infrastructure')} defaultOpen={true}>
               <InfrastructurePanel

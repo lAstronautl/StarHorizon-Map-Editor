@@ -41,6 +41,7 @@ function makeStateWithContainer(): EditorState {
     entities: [locker],
     containedEntities: {},
     nextEntityId: 101,
+    localEntityCounter: 101,
     gridUid: 1,
   });
 }
@@ -237,6 +238,7 @@ describe('container reducer actions', () => {
       entities: [entity],
       containedEntities: {},
       nextEntityId: 101,
+      localEntityCounter: 101,
     });
     const result = editorReducer(withEntity, {
       type: 'ADD_CONTAINED_ENTITY',

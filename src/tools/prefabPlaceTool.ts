@@ -3,6 +3,7 @@ import type { PrefabData } from '../prefab/prefabTypes';
 import { placePrefab } from '../prefab/prefabPlacer';
 import { ensureGridContainsBounds } from '../state/editorState';
 import { markSceneDirty, markOverlayDirty } from '../rendering/dirtyFlags';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 export class PrefabPlaceTool implements ITool {
   name = 'prefabPlace';
@@ -62,7 +63,7 @@ export class PrefabPlaceTool implements ITool {
       placeY: tileY,
       grid: ctx.state.grid,
       entities: ctx.state.entities,
-      nextEntityId: ctx.state.nextEntityId,
+      nextEntityId: peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter),
       nextDecalId: activeGrid.decals.nextDecalId,
     });
 

@@ -12,6 +12,8 @@ import { updateTransformPos, updateTransformRot, normalizeRotation, cloneCompone
 import { markOverlayDirty } from '../rendering/dirtyFlags';
 import { spatialGetInRect, tileKey } from '../rendering/spatialIndex';
 import { t } from '../i18n';
+import { peerUid } from '../multiplayer/uidAllocation';
+import type { SelectPreviewSnapshot } from '../multiplayer/messages';
 
 type SelectPhase = 'idle' | 'selecting' | 'selected' | 'moving' | 'pasting';
 
@@ -396,7 +398,7 @@ export class SelectTool implements ITool {
     }
 
     // Add rotated entities with new UIDs
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     for (const ce of rotated.entities) {
       const newPos = { x: newMinX + ce.dx, y: newMinY + ce.dy };
       const comps = cloneComponentsWithPosRot(ce.components, newPos, ce.rotation);
@@ -533,7 +535,7 @@ export class SelectTool implements ITool {
     for (const e of selEntities) {
       entityChanges.push({ action: 'remove', entity: e });
     }
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     for (const ce of mirrored.entities) {
       const newPos = { x: this.selMinX + ce.dx, y: this.selMinY + ce.dy };
       const entity: ImportedEntity = {
@@ -723,7 +725,7 @@ export class SelectTool implements ITool {
 
     // Entity changes, assign new UIDs
     const entityChanges: EntityChange[] = [];
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     for (const ce of entities) {
       const newPos = { x: this.pasteX + ce.dx, y: this.pasteY + ce.dy };
       const entity: ImportedEntity = {
@@ -863,7 +865,7 @@ export class SelectTool implements ITool {
     }
 
     // 4. Add entities at new positions with new UIDs
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     for (const e of this.moveSnapshotEntities) {
       const newPos = { x: e.position.x + dx, y: e.position.y + dy };
       const moved: ImportedEntity = {
@@ -1250,6 +1252,23 @@ export class SelectTool implements ITool {
   /** Whether there's a committed (non-empty, non-transient) selection right now. */
   hasSelection(): boolean {
     return this.phase === 'selected' && this.selectedTiles.size > 0;
+  }
+
+  /** Uncommitted marquee-drag or move-drag, for broadcasting as a ghost to other players. */
+  getRemotePreviewSnapshot(): SelectPreviewSnapshot | null {
+    if (this.phase === 'selecting') {
+      return { tool: 'select', phase: 'selecting', minX: this.selMinX, minY: this.selMinY, maxX: this.selMaxX, maxY: this.selMaxY };
+    }
+    if (this.phase === 'moving') {
+      const bounds = this.computeBounds();
+      if (!bounds) return null;
+      return {
+        tool: 'select', phase: 'moving',
+        minX: bounds.minX, minY: bounds.minY, maxX: bounds.maxX, maxY: bounds.maxY,
+        offsetX: this.moveOffsetX, offsetY: this.moveOffsetY,
+      };
+    }
+    return null;
   }
 
   /** Summary of the current selection for the properties panel: tile/entity/decal counts. */

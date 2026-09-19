@@ -7,6 +7,7 @@ import type { GridData } from './gridData';
 import { createEmptyGridData, getActiveGrid } from './gridData';
 import { markSceneDirty, markAllDirty, markOverlayDirty, markConnectionsDirty } from '../rendering/dirtyFlags';
 import { rebuildSpatialIndex } from '../rendering/spatialIndex';
+import { mintEntityUid, mintGridUid } from '../multiplayer/uidAllocation';
 
 const MAX_UNDO = 200;
 
@@ -99,6 +100,12 @@ function applyCommand(state: EditorState, command: Command): EditorState {
 
   const grid = applyTileChanges(targetGrid.grid, command.tileChanges, 'after');
   let nextEntityId = state.nextEntityId;
+  // Track the highest UID seen within OUR OWN peer namespace so localEntityCounter never
+  // regresses below UIDs already minted locally (e.g. after an undo/redo round-trip).
+  // This must stay separate from nextEntityId, which tracks the highest UID from ANY peer.
+  let localEntityCounter = state.localEntityCounter;
+  const ownNamespaceFloor = state.localPeerIndex * (2 ** 24);
+  const ownNamespaceCeil = ownNamespaceFloor + (2 ** 24);
 
   // Track cascade-deleted contained entities so we can augment the command for undo
   const cascadeChanges: ContainedEntityChange[] = [];
@@ -112,6 +119,10 @@ function applyCommand(state: EditorState, command: Command): EditorState {
       addEntities.push(ec.entity);
       if (ec.entity.uid >= nextEntityId) {
         nextEntityId = ec.entity.uid + 1;
+      }
+      if (ec.entity.uid >= ownNamespaceFloor && ec.entity.uid < ownNamespaceCeil) {
+        const localCounterValue = ec.entity.uid - ownNamespaceFloor;
+        if (localCounterValue >= localEntityCounter) localEntityCounter = localCounterValue + 1;
       }
     } else {
       removeUids.add(ec.entity.uid);
@@ -231,6 +242,7 @@ function applyCommand(state: EditorState, command: Command): EditorState {
     grids: newGrids,
     entityRawComponents,
     nextEntityId,
+    localEntityCounter,
     undoStack,
     redoStack: [],
     decalsDirty,
@@ -548,6 +560,39 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         hasDocumentTerminator: map.hasDocumentTerminator,
         entityOrder: map.entityOrder,
         nextEntityId,
+        localPeerIndex: 0,
+        localEntityCounter: nextEntityId,
+        localGridCounter: grids.reduce((max, g) => Math.max(max, g.gridUid + 1), 2),
+        undoStack: [],
+        redoStack: [],
+        selectedEntityUids: [],
+        selectedDecalIds: [],
+        decalsDirty: new Set(),
+        dirty: false,
+      };
+
+      return result;
+    }
+
+    case 'LOAD_REMOTE_SNAPSHOT': {
+      markAllDirty();
+      const { snapshot } = action;
+      const grids = snapshot.grids;
+      const activeGridIndex = Math.max(0, Math.min(snapshot.activeGridIndex, grids.length - 1));
+      rebuildSpatialIndex(grids[activeGridIndex]?.entities ?? []);
+
+      const result: EditorState = {
+        ...state,
+        grids,
+        activeGridIndex,
+        grid: grids[activeGridIndex]?.grid ?? createEmptyGrid(),
+        entities: grids[activeGridIndex]?.entities ?? [],
+        containedEntities: grids[activeGridIndex]?.containedEntities ?? {},
+        gridUid: grids[activeGridIndex]?.gridUid ?? 1,
+        nextEntityId: snapshot.nextEntityId,
+        localPeerIndex: snapshot.assignedPeerIndex,
+        localEntityCounter: snapshot.localEntityCounter,
+        localGridCounter: snapshot.localGridCounter,
         undoStack: [],
         redoStack: [],
         selectedEntityUids: [],
@@ -585,6 +630,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         hasDocumentTerminator: undefined,
         entityOrder: undefined,
         nextEntityId: 2,  // UIDs 0 (map) and 1 (grid) reserved for structural entities
+        localPeerIndex: 0,
+        localEntityCounter: 2,
+        localGridCounter: 2,
         undoStack: [],
         redoStack: [],
         selectedDecalIds: [],
@@ -692,12 +740,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'ADD_GRID': {
       markAllDirty();
-      // Find next available grid UID
-      let maxUid = 0;
-      for (const g of state.grids) {
-        if (g.gridUid > maxUid) maxUid = g.gridUid;
-      }
-      const newGridUid = maxUid + 1;
+      const { uid: newGridUid, localGridCounter } = mintGridUid(state);
       const newGrid = createEmptyGridData(newGridUid, action.name);
       if (action.worldPosition) {
         newGrid.worldPosition = action.worldPosition;
@@ -708,6 +751,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...state,
         grids: [...state.grids, newGrid],
+        localGridCounter,
         undoStack: addUndoStack,
         redoStack: [],
         dirty: true,
@@ -764,7 +808,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       const parentIdx = activeGrid.entities.findIndex(e => e.uid === action.parentUid);
       if (parentIdx < 0) return state;
 
-      const childUid = state.nextEntityId;
+      const { uid: childUid, localEntityCounter } = mintEntityUid(state);
       const childEntity: ImportedEntity = {
         uid: childUid,
         prototype: action.prototypeId,
@@ -845,7 +889,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         ...state,
         grids: newGrids,
         entityRawComponents,
-        nextEntityId: childUid + 1,
+        nextEntityId: childUid >= state.nextEntityId ? childUid + 1 : state.nextEntityId,
+        localEntityCounter,
         undoStack,
         redoStack: [],
         dirty: true,

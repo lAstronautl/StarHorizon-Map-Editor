@@ -1,9 +1,11 @@
 import type { ToolType, PaletteItem, Command } from '../types';
 import type { ImportedMap } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
+import type { NetworkSnapshot } from '../multiplayer/messages';
 
 export type EditorAction =
   | { type: 'APPLY_COMMAND'; command: Command }
+  | { type: 'LOAD_REMOTE_SNAPSHOT'; snapshot: NetworkSnapshot }
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'SET_TOOL'; tool: ToolType }

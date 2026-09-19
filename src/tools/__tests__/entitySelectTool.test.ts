@@ -384,6 +384,7 @@ describe('EntitySelectTool', () => {
       entities: [e1, e2],
       selectedEntityUids: [1, 2],
       nextEntityId: 3,
+      localEntityCounter: 3,
       registry: makeMockRegistry(),
     };
 
@@ -602,6 +603,7 @@ describe('EntitySelectTool', () => {
       entities: [e1],
       selectedEntityUids: [1],
       nextEntityId: 2,
+      localEntityCounter: 2,
       registry: makeMockRegistry(),
     };
 
@@ -645,6 +647,7 @@ describe('EntitySelectTool', () => {
       entities: [e1],
       selectedEntityUids: [1],
       nextEntityId: 2,
+      localEntityCounter: 2,
       registry: makeMockRegistry(),
     };
 

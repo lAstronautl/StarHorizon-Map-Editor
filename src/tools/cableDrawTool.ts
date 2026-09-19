@@ -3,6 +3,7 @@ import type { ImportedEntity } from '../import/mapImporter';
 import type { CableType } from '../types';
 import { getCableDisplay } from '../types';
 import { buildTransformComponent } from './entityHelpers';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 /**
  * Cable draw tool, drag to lay cable entities one per tile.
@@ -57,7 +58,7 @@ export class CableDrawTool implements ITool {
     const newTiles = this.visitedTiles.filter(t => !existingPositions.has(`${t.x},${t.y}`));
     if (newTiles.length === 0) return;
 
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
     const gridUid = ctx.state.gridUid;
     const entities: ImportedEntity[] = newTiles.map(t => {
       const pos = { x: t.x + 0.5, y: t.y + 0.5 };
