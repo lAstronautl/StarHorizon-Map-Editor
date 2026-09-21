@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorState } from '../state/editorState';
 import type { EditorAction } from '../state/actions';
-import { PeerConnectionManager } from './peerConnection';
+import { PeerConnectionManager, type IConnectionManager } from './peerConnection';
+import { ManualPeerConnectionManager } from './manualPeerConnection';
 import type { NetworkMessage, NetworkSnapshot, PresencePayload, ToolPreviewSnapshot } from './messages';
 import { createNetworkDispatch, applyRemoteAction, applyRemoteCommand, type RawDispatch } from './networkDispatch';
 import { getPeerColor } from './peerColors';
-import { markOverlayDirty } from '../rendering/dirtyFlags';
+import { markOverlayDirty, markAllDirty } from '../rendering/dirtyFlags';
+import { handleResourceRequest } from './resourceHost';
+import { RemoteResourceProvider } from '../loaders/remoteResourceProvider';
 
 export interface PeerInfo {
   peerId: string;
@@ -20,6 +23,10 @@ export interface RemotePresence extends PresencePayload {
 
 export type RoomStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
+/** Whether the public PeerJS signaling broker looks reachable right now. Checked once on
+ *  mount so the UI can steer users toward the serverless manual-code flow when it's down. */
+export type BrokerStatus = 'checking' | 'available' | 'unavailable';
+
 export interface UseMultiplayerResult {
   status: RoomStatus;
   role: 'host' | 'guest' | null;
@@ -27,27 +34,36 @@ export interface UseMultiplayerResult {
   peers: PeerInfo[];
   presenceByPeerId: Record<string, RemotePresence>;
   errorMessage: string | null;
+  brokerStatus: BrokerStatus;
   /** Wraps the app's raw dispatch so local edits are relayed to the room. Identity dispatch when disconnected. */
   networkDispatch: RawDispatch;
   hostRoom: (nickname: string) => Promise<string>;
   joinRoom: (nickname: string, hostRoomId: string) => Promise<void>;
   leaveRoom: () => void;
   sendPresence: (cursorTileX: number | null, cursorTileY: number | null, preview: ToolPreviewSnapshot | null) => void;
+  /** Serverless fallback: exchange one-shot offer/answer codes directly, no broker involved. */
+  hostRoomManual: (nickname: string) => Promise<string>;
+  acceptManualAnswer: (answerCode: string) => Promise<void>;
+  joinRoomManual: (nickname: string, offerCode: string) => Promise<string>;
+  /** For a guest with no local resource fork: pull files from the host over P2P instead. */
+  createRemoteResourceProvider: (forkName: string, onResourceReady: (path: string) => void) => RemoteResourceProvider;
 }
 
 const PRESENCE_STALE_MS = 5000;
-const CONNECT_TIMEOUT_MS = 15000;
+const BROKER_CHECK_TIMEOUT_MS = 4000;
 
-/** Rejects if `promise` doesn't settle within `ms` — prevents the UI from being stuck on
- *  "Подключение..." forever if the signaling broker never responds and never errors. */
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), ms);
-    promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      (err) => { clearTimeout(timer); reject(err); },
-    );
-  });
+/** Quick reachability probe for the PeerJS cloud broker (same host PeerJS itself talks to). */
+async function checkBrokerReachable(): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BROKER_CHECK_TIMEOUT_MS);
+  try {
+    await fetch(`https://0.peerjs.com/peerjs/id?ts=${Date.now()}`, { signal: controller.signal, mode: 'cors' });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -62,10 +78,18 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [presenceByPeerId, setPresenceByPeerId] = useState<Record<string, RemotePresence>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [brokerStatus, setBrokerStatus] = useState<BrokerStatus>('checking');
 
-  const managerRef = useRef<PeerConnectionManager | null>(null);
-  const statusRef = useRef(status);
-  statusRef.current = status;
+  useEffect(() => {
+    let cancelled = false;
+    checkBrokerReachable().then((reachable) => {
+      if (!cancelled) setBrokerStatus(reachable ? 'available' : 'unavailable');
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const managerRef = useRef<IConnectionManager | null>(null);
+  const manualManagerRef = useRef<ManualPeerConnectionManager | null>(null);
   const rawDispatchRef = useRef(rawDispatch);
   rawDispatchRef.current = rawDispatch;
   const getStateRef = useRef(getState);
@@ -77,15 +101,13 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   const roleRef = useRef<'host' | 'guest' | null>(null);
   const peersRef = useRef<PeerInfo[]>([]);
   peersRef.current = peers;
-  // Guards against overlapping hostRoom()/joinRoom() calls (e.g. a double-click that
-  // slips past the UI's disabled-button check, or a caller retrying before the previous
-  // attempt settled) — each duplicate call would otherwise construct its own `Peer`,
-  // hammering the signaling broker with parallel /id requests.
-  const connectingRef = useRef(false);
   const myNameRef = useRef('Player');
   const myColorRef = useRef(getPeerColor(0));
   const nextPeerIndexRef = useRef(1); // host reserves 0 for itself
   const peerIndexByIdRef = useRef(new Map<string, number>());
+  // Set only on a guest that joined without a local resource fork — routes incoming
+  // resource-list-response/resource-file-response replies into the provider's cache.
+  const remoteResourceProviderRef = useRef<RemoteResourceProvider | null>(null);
 
   const cleanupPresence = useCallback((peerId: string) => {
     setPresenceByPeerId(prev => {
@@ -181,6 +203,19 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
         if (roleRef.current === 'host') manager.broadcast(message, fromPeerId);
         break;
       }
+      case 'resource-list-request':
+      case 'resource-file-request': {
+        // Host answers using its own active ResourceProvider (whatever fork it loaded).
+        if (roleRef.current === 'host') handleResourceRequest(manager, fromPeerId, message);
+        break;
+      }
+      case 'resource-list-response':
+      case 'resource-file-response': {
+        // Only relevant on a guest that's using RemoteResourceProvider (joined without
+        // a local fork) — feed the reply into its pending-request cache.
+        remoteResourceProviderRef.current?.handleResourceMessage(message);
+        break;
+      }
     }
   }, [cleanupPresence]);
 
@@ -205,112 +240,62 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, [cleanupPresence]);
 
   const hostRoom = useCallback(async (nickname: string): Promise<string> => {
-    if (connectingRef.current) throw new Error('A connection attempt is already in progress.');
-    connectingRef.current = true;
-    try {
-      // Dispose any manager left over from a previous attempt (e.g. a failed connect the
-      // user is retrying) — otherwise its Peer keeps polling the signaling broker in the
-      // background, and repeated retries can pile up enough requests to trip rate limiting.
-      managerRef.current?.disconnect();
-      managerRef.current = null;
+    // Dispose any manager left over from a previous attempt — otherwise its Peer keeps
+    // polling the signaling broker in the background.
+    managerRef.current?.disconnect();
+    managerRef.current = null;
 
-      setStatus('connecting');
-      setErrorMessage(null);
-      myNameRef.current = nickname || 'Player';
-      myColorRef.current = getPeerColor(0);
-      nextPeerIndexRef.current = 1;
-      peerIndexByIdRef.current.clear();
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    myColorRef.current = getPeerColor(0);
+    nextPeerIndexRef.current = 1;
+    peerIndexByIdRef.current.clear();
 
-      roleRef.current = 'host';
-      const manager = new PeerConnectionManager('host', {
-        onPeerConnected: () => {},
-        onPeerDisconnected: handlePeerDisconnected,
-        onMessage: handleMessage,
-        onError: (err) => {
-          setStatus('error');
-          setErrorMessage(err.message);
-          manager.disconnect();
-          if (managerRef.current === manager) managerRef.current = null;
-        },
-      });
-      managerRef.current = manager;
-      let id: string;
-      try {
-        id = await withTimeout(manager.hostRoom(), CONNECT_TIMEOUT_MS, 'Не удалось создать комнату: сервер сигнализации не отвечает.');
-      } catch (err) {
-        setStatus('error');
-        setErrorMessage(err instanceof Error ? err.message : String(err));
-        manager.disconnect();
-        if (managerRef.current === manager) managerRef.current = null;
-        throw err;
-      }
-      setRole('host');
-      setRoomId(id);
-      setStatus('connected');
-      setPeers([{ peerId: id, peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
-      return id;
-    } finally {
-      connectingRef.current = false;
-    }
+    roleRef.current = 'host';
+    const manager = new PeerConnectionManager('host', {
+      onPeerConnected: () => {},
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    managerRef.current = manager;
+    const id = await manager.hostRoom();
+    setRole('host');
+    setRoomId(id);
+    setStatus('connected');
+    setPeers([{ peerId: id, peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
+    return id;
   }, [handleMessage, handlePeerDisconnected]);
 
   const joinRoom = useCallback(async (nickname: string, hostRoomId: string): Promise<void> => {
-    if (connectingRef.current) throw new Error('A connection attempt is already in progress.');
-    connectingRef.current = true;
-    try {
-      managerRef.current?.disconnect();
-      managerRef.current = null;
+    managerRef.current?.disconnect();
+    managerRef.current = null;
 
-      setStatus('connecting');
-      setErrorMessage(null);
-      myNameRef.current = nickname || 'Player';
-      roleRef.current = 'guest';
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    roleRef.current = 'guest';
 
-      const manager = new PeerConnectionManager('guest', {
-        onPeerConnected: () => {
-          manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
-        },
-        onPeerDisconnected: handlePeerDisconnected,
-        onMessage: handleMessage,
-        onError: (err) => {
-          setStatus('error');
-          setErrorMessage(err.message);
-          manager.disconnect();
-          if (managerRef.current === manager) managerRef.current = null;
-        },
-      });
-      managerRef.current = manager;
-      try {
-        await withTimeout(manager.joinRoom(hostRoomId), CONNECT_TIMEOUT_MS, 'Не удалось подключиться: хост не отвечает.');
-      } catch (err) {
-        setStatus('error');
-        setErrorMessage(err instanceof Error ? err.message : String(err));
-        manager.disconnect();
-        if (managerRef.current === manager) managerRef.current = null;
-        throw err;
-      }
-      setRole('guest');
-      setRoomId(hostRoomId);
-      // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case).
-      // Guard against the DataChannel opening but the host never replying with a snapshot
-      // (e.g. the host's own state got into a bad spot) — without this, status would be
-      // stuck on 'connecting' forever with no way for the user to tell or retry.
-      setTimeout(() => {
-        if (managerRef.current === manager && statusRef.current === 'connecting') {
-          setStatus('error');
-          setErrorMessage('Хост не прислал карту. Попробуйте подключиться снова.');
-          manager.disconnect();
-          if (managerRef.current === manager) managerRef.current = null;
-        }
-      }, CONNECT_TIMEOUT_MS);
-    } finally {
-      connectingRef.current = false;
-    }
+    const manager = new PeerConnectionManager('guest', {
+      onPeerConnected: () => {
+        manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
+      },
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    managerRef.current = manager;
+    await manager.joinRoom(hostRoomId);
+    setRole('guest');
+    setRoomId(hostRoomId);
+    // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
   }, [handleMessage, handlePeerDisconnected]);
 
   const leaveRoom = useCallback(() => {
     managerRef.current?.disconnect();
     managerRef.current = null;
+    manualManagerRef.current = null;
     roleRef.current = null;
     setStatus('disconnected');
     setRole(null);
@@ -319,6 +304,67 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
     setPresenceByPeerId({});
     setErrorMessage(null);
   }, []);
+
+  // --- Serverless manual signaling (offer/answer code exchange, no broker at all) ---
+
+  /** Host step 1: produce the offer code. Connection isn't "live" yet — status stays
+   *  'connecting' until acceptManualAnswer() completes the handshake. */
+  const hostRoomManual = useCallback(async (nickname: string): Promise<string> => {
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    myColorRef.current = getPeerColor(0);
+    nextPeerIndexRef.current = 1;
+    peerIndexByIdRef.current.clear();
+    roleRef.current = 'host';
+
+    const manager = new ManualPeerConnectionManager({
+      onPeerConnected: () => {
+        setRole('host');
+        setStatus('connected');
+        setPeers([{ peerId: 'manual-self', peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
+      },
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    manualManagerRef.current = manager;
+    managerRef.current = manager;
+    return manager.createOffer();
+  }, [handleMessage, handlePeerDisconnected]);
+
+  /** Host step 2: apply the guest's answer code, completing the handshake. */
+  const acceptManualAnswer = useCallback(async (answerCode: string): Promise<void> => {
+    if (!manualManagerRef.current) throw new Error('No offer was created yet.');
+    await manualManagerRef.current.acceptAnswer(answerCode);
+  }, []);
+
+  /** Guest step 1: apply the host's offer code, producing the answer code to send back. */
+  const joinRoomManual = useCallback(async (nickname: string, offerCode: string): Promise<string> => {
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    roleRef.current = 'guest';
+
+    const manager = new ManualPeerConnectionManager({
+      onPeerConnected: () => {
+        manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
+      },
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    manualManagerRef.current = manager;
+    managerRef.current = manager;
+    return manager.acceptOffer(offerCode);
+    // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
+  }, [handleMessage, handlePeerDisconnected]);
 
   const sendPresence = useCallback((cursorTileX: number | null, cursorTileY: number | null, preview: ToolPreviewSnapshot | null) => {
     const manager = managerRef.current;
@@ -344,6 +390,17 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
     wrapped(action);
   }, [status]);
 
+  /** For a guest with no local fork: create a ResourceProvider that pulls files from
+   *  the host over the already-open P2P connection. Must be called after the DataChannel
+   *  is open (i.e. after joinRoom()/joinRoomManual() resolves) but works before the map
+   *  snapshot itself arrives — registry loading and snapshot loading are independent. */
+  const createRemoteResourceProvider = useCallback((forkName: string, onResourceReady: (path: string) => void): RemoteResourceProvider => {
+    if (!managerRef.current) throw new Error('Not connected to a room.');
+    const provider = new RemoteResourceProvider(managerRef.current, forkName, onResourceReady);
+    remoteResourceProviderRef.current = provider;
+    return provider;
+  }, []);
+
   // Periodically drop presence entries for peers that stopped sending updates without
   // a clean disconnect event (e.g. the tab was killed rather than closed normally).
   useEffect(() => {
@@ -358,8 +415,9 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, []);
 
   return {
-    status, role, roomId, peers, presenceByPeerId, errorMessage,
+    status, role, roomId, peers, presenceByPeerId, errorMessage, brokerStatus,
     networkDispatch, hostRoom, joinRoom, leaveRoom, sendPresence,
+    hostRoomManual, acceptManualAnswer, joinRoomManual, createRemoteResourceProvider,
   };
 }
 

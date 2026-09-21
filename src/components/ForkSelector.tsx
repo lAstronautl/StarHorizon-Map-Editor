@@ -14,6 +14,8 @@ import {
 import type { RepositorySummary } from '../loaders/directoryScanner';
 import { BASE_URL, withBase } from '../basePath';
 import { useT } from '../i18n';
+import type { UseMultiplayerResult } from '../multiplayer/roomSession';
+import { JoinRoomSection } from './JoinRoomSection';
 
 type SelectorState = 'idle' | 'scanning' | 'summary' | 'error';
 
@@ -21,6 +23,10 @@ interface ForkSelectorProps {
   onReady: (provider: ResourceProvider, forkName: string) => void;
   builtInAvailable: boolean;
   builtInForkName: string;
+  multiplayer: UseMultiplayerResult;
+  /** Called once the guest's P2P connection to the host is open — the app should switch
+   *  to a RemoteResourceProvider and skip fork selection entirely. */
+  onJoinedWithoutFork: () => void;
 }
 
 function formatNumber(n: number): string {
@@ -39,6 +45,8 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
   onReady,
   builtInAvailable,
   builtInForkName,
+  multiplayer,
+  onJoinedWithoutFork,
 }) => {
   const { t } = useT();
   const [phase, setPhase] = useState<SelectorState>('idle');
@@ -156,7 +164,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
-  // --- Space background with floating clown ---
+  // --- Space background with floating clown + tool icons ---
   const bgCanvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = bgCanvasRef.current;
@@ -168,6 +176,7 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
     let dustImg: HTMLImageElement | null = null;
     let starsImg: HTMLImageElement | null = null;
     let clownImg: HTMLImageElement | null = null;
+    let toolImages: HTMLImageElement[] = [];
 
     // Clown state
     let cx = 0, cy = 0, cvx = 0, cvy = 0, crot = 0, cspin = 0, cscale = 1, cage = 0;
@@ -192,6 +201,34 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
       clownSpawned = true;
     }
 
+    // Floating tool icons: same drift/tumble behavior as the clown, several at once,
+    // each respawning with a freshly-picked random icon once it drifts off-screen.
+    interface FloatingTool {
+      img: HTMLImageElement; x: number; y: number; vx: number; vy: number;
+      rot: number; spin: number; scale: number; age: number;
+    }
+    const floatingTools: FloatingTool[] = [];
+    const TOOL_ICON_COUNT = 6;
+
+    function spawnTool(tool: FloatingTool, w: number, h: number) {
+      tool.img = toolImages[Math.floor(Math.random() * toolImages.length)];
+      const size = 28 + Math.random() * 20;
+      const speed = 25 + Math.random() * 25;
+      const perim = 2 * (w + h);
+      const p = Math.random() * perim;
+      if (p < w) { tool.x = p; tool.y = -size; }
+      else if (p < w + h) { tool.x = w + size; tool.y = p - w; }
+      else if (p < 2 * w + h) { tool.x = p - w - h; tool.y = h + size; }
+      else { tool.x = -size; tool.y = p - 2 * w - h; }
+      const angle = Math.atan2(h / 2 - tool.y, w / 2 - tool.x) + (Math.random() - 0.5) * 1.2;
+      tool.vx = Math.cos(angle) * speed;
+      tool.vy = Math.sin(angle) * speed;
+      tool.rot = Math.random() * Math.PI * 2;
+      tool.spin = (Math.random() - 0.5) * 1.0;
+      tool.scale = size / 32; // tool icons are 32x32
+      tool.age = 0;
+    }
+
     // Load images
     const loadImg = (src: string): Promise<HTMLImageElement> =>
       new Promise((resolve) => {
@@ -204,14 +241,31 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
     let running = true;
     let lastT = 0;
 
+    const TOOL_ICON_NAMES = [
+      'access_breaker', 'access_configurator', 'blueprint', 'cable-coils', 'crowbar', 'drill', 'geiger',
+      'greenlight', 'jaws_of_life', 'lantern', 'multitool', 'network_configurator', 'rcd', 'screwdriver',
+      'spray_painter', 't-ray', 'welder', 'welder_experimental', 'wirecutters', 'wrench',
+    ];
+
     Promise.all([
       loadImg(withBase('/images/space-bg.png')).then(i => { dustImg = i; }),
       loadImg(withBase('/images/space-stars.png')).then(i => { starsImg = i; }),
       loadImg(withBase('/images/clown.png')).then(i => { clownImg = i; }),
+      Promise.all(TOOL_ICON_NAMES.map(name => loadImg(withBase(`/images/tool-icons/${name}.png`))))
+        .then(imgs => { toolImages = imgs.filter(i => i.naturalWidth > 0); }),
     ]).then(() => {
       if (!running) return;
       lastT = performance.now();
-      spawnClown(canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      spawnClown(w, h);
+      if (toolImages.length > 0) {
+        for (let i = 0; i < TOOL_ICON_COUNT; i++) {
+          const tool: FloatingTool = { img: toolImages[0], x: 0, y: 0, vx: 0, vy: 0, rot: 0, spin: 0, scale: 1, age: Math.random() * 2 };
+          spawnTool(tool, w, h);
+          floatingTools.push(tool);
+        }
+      }
       draw(lastT);
     });
 
@@ -278,6 +332,34 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
         ctx!.rotate(crot);
         ctx!.imageSmoothingEnabled = false;
         ctx!.drawImage(clownImg, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+        ctx!.restore();
+      }
+
+      // Floating tool icons
+      for (const tool of floatingTools) {
+        if (!tool.img || tool.img.naturalWidth === 0) continue;
+        tool.age += dt;
+        tool.x += tool.vx * dt;
+        tool.y += tool.vy * dt;
+        tool.rot += tool.spin * dt;
+
+        const drawSize = tool.img.width * tool.scale;
+        const margin = drawSize;
+
+        if (tool.age > 2 && (tool.x < -margin || tool.x > w + margin || tool.y < -margin || tool.y > h + margin)) {
+          spawnTool(tool, w, h);
+        }
+
+        const fadeIn = Math.min(tool.age / 1.5, 1);
+        const edgeDist = Math.min(tool.x + margin, w + margin - tool.x, tool.y + margin, h + margin - tool.y);
+        const fadeOut = Math.min(edgeDist / (margin * 2), 1);
+
+        ctx!.save();
+        ctx!.globalAlpha = fadeIn * fadeOut * 0.5;
+        ctx!.translate(tool.x, tool.y);
+        ctx!.rotate(tool.rot);
+        ctx!.imageSmoothingEnabled = false;
+        ctx!.drawImage(tool.img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx!.restore();
       }
 
@@ -362,6 +444,10 @@ export const ForkSelector: React.FC<ForkSelectorProps> = ({
                 {t('forkSelector.useBuiltIn', { forkName: builtInForkName })}
               </button>
             )}
+
+            <div className="h-px bg-subtle" />
+
+            <JoinRoomSection multiplayer={multiplayer} onJoined={onJoinedWithoutFork} />
           </div>
         )}
 

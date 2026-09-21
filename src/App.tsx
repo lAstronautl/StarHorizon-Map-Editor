@@ -57,7 +57,6 @@ import { CollapsiblePanel } from './components/CollapsiblePanel';
 import { GridTabBar } from './components/GridTabBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { BenchmarkOverlay } from './components/BenchmarkOverlay';
-import { MultiplayerPanel } from './components/MultiplayerPanel';
 import { useMultiplayer } from './multiplayer/roomSession';
 import { markSceneDirty, markOverlayDirty, markAllDirty } from './rendering/dirtyFlags';
 import { buildTransformComponent } from './tools/entityHelpers';
@@ -171,6 +170,16 @@ export const App: React.FC = () => {
       setLoadFailed(true);
     });
   }, []);
+
+  // Called once a guest's P2P connection to the host is open (before any map snapshot
+  // arrives) — the guest has no local fork on disk, so it pulls every texture/prototype
+  // from the host over the DataChannel instead, lazily and on demand.
+  const handleJoinedWithoutFork = useCallback(() => {
+    const provider = multiplayer.createRemoteResourceProvider(t('app.remoteForkName'), () => {
+      markAllDirty();
+    });
+    handleForkReady(provider, provider.forkName);
+  }, [multiplayer, handleForkReady]);
 
   const handleSwitchFork = useCallback(() => {
     if (forkProvider) {
@@ -647,7 +656,15 @@ export const App: React.FC = () => {
 
   // Show fork selector when no provider selected yet
   if (!forkProvider) {
-    return <ForkSelector onReady={handleForkReady} builtInAvailable={builtInAvailable} builtInForkName={builtInForkName} />;
+    return (
+      <ForkSelector
+        onReady={handleForkReady}
+        builtInAvailable={builtInAvailable}
+        builtInForkName={builtInForkName}
+        multiplayer={multiplayer}
+        onJoinedWithoutFork={handleJoinedWithoutFork}
+      />
+    );
   }
 
   // Show loading screen while registry loads
@@ -671,7 +688,7 @@ export const App: React.FC = () => {
             borderRadius: 8, padding: '32px 40px', maxWidth: 480,
             color: '#ccc', fontSize: 14, lineHeight: 1.7, textAlign: 'center',
           }}>
-            <img src={withBase('/images/clown.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
+            <img src={withBase('/images/chief_engineer.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
             <h2 style={{ color: '#fff', margin: '0 0 16px', fontSize: 20 }}>
               {t('app.disclaimer.title')}
             </h2>
@@ -774,6 +791,7 @@ export const App: React.FC = () => {
             onSearchNavigate={handleSearchNavigate}
             searchInputRef={searchInputRef}
             onValidate={handleValidate}
+            multiplayer={multiplayer}
           />
           <div
             className="flex-1 relative overflow-hidden"
@@ -869,9 +887,6 @@ export const App: React.FC = () => {
               />
             </CollapsiblePanel>
           )}
-          <CollapsiblePanel title={t('app.panel.multiplayer')} defaultOpen={false}>
-            <MultiplayerPanel multiplayer={multiplayer} />
-          </CollapsiblePanel>
           {(state.activeTool === 'cableDraw' || state.activeTool === 'pipeDraw') && (
             <CollapsiblePanel title={t('app.panel.infrastructure')} defaultOpen={true}>
               <InfrastructurePanel

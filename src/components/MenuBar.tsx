@@ -210,7 +210,6 @@ export const MenuBar: React.FC<Props> = ({
             className="flex items-center gap-1.5 text-[11px] text-muted hover:text-primary cursor-pointer bg-transparent border border-subtle rounded-sm px-2 py-0.5"
             title={t('menuBar.activeFork')}
           >
-            <span className="text-[10px]">{'📁'}</span>
             <span>{forkName}</span>
           </button>
           {showForkMenu && (

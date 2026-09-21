@@ -53,15 +53,16 @@ let layer1Loading = false;
 
 function loadLayer1(): void {
   if (layer1Loading || cachedLayer1) return;
-  layer1Loading = true;
-  const img = new Image();
-  img.onload = () => { cachedLayer1 = img; markSceneDirty(); };
-  img.onerror = () => { layer1Loading = false; };
   try {
-    img.src = getActiveProvider().getImageUrl('/Textures/Parallaxes/layer1.png');
+    const url = getActiveProvider().getImageUrl('/Textures/Parallaxes/layer1.png');
+    if (!url) return; // Not ready yet (e.g. RemoteResourceProvider fetching) — retry next call.
+    layer1Loading = true;
+    const img = new Image();
+    img.onload = () => { cachedLayer1 = img; markSceneDirty(); };
+    img.onerror = () => { layer1Loading = false; };
+    img.src = url;
   } catch {
     // No active provider yet (registry still loading) — retry on the next call.
-    layer1Loading = false;
   }
 }
 

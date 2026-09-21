@@ -42,14 +42,17 @@ export function getTileImage(
     return null;
   }
 
-  // Mark as loading (null placeholder) so we don't re-request
-  tileImageCache.set(tileId, null);
-
   const provider = getActiveProvider();
   const url = provider.getImageUrl(tile.sprite);
   if (!url) {
+    // No URL yet (e.g. RemoteResourceProvider still fetching bytes from the host) —
+    // deliberately NOT cached, so the next render frame calls getImageUrl() again and
+    // picks up the real URL once it's ready, instead of being stuck on the fallback color.
     return null;
   }
+
+  // Mark as loading (null placeholder) so we don't re-request while the image itself loads
+  tileImageCache.set(tileId, null);
   loadImage(url)
     .then((img) => {
       tileImageCache.set(tileId, img);

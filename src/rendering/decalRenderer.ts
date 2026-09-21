@@ -49,16 +49,17 @@ export function getDecalSprite(
     return null;
   }
 
-  loading.add(prototypeId);
   const provider = getActiveProvider();
   const rsi = proto.rsiPath;
   const path = rsi.startsWith('Textures/') ? `/${rsi}/${proto.state}.png` : `/Textures/${rsi}/${proto.state}.png`;
   const url = provider.getImageUrl(path);
   if (!url) {
-    cache.set(prototypeId, null);
-    loading.delete(prototypeId);
+    // No URL yet (e.g. RemoteResourceProvider still fetching from the host) — deliberately
+    // not cached, so the next call re-checks getImageUrl() instead of freezing forever.
     return null;
   }
+
+  loading.add(prototypeId);
   const img = new Image();
   img.onload = () => {
     cache.set(prototypeId, img);

@@ -45,10 +45,42 @@ export interface PresencePayload {
   preview: ToolPreviewSnapshot | null;
 }
 
+/** Guest → host: "list files in this directory matching this extension", mirroring
+ *  ResourceProvider.listFiles. requestId lets the guest match the (async) reply. */
+export interface ResourceListRequest {
+  requestId: number;
+  dir: string;
+  ext: string;
+}
+
+export interface ResourceListResponse {
+  requestId: number;
+  paths: string[];
+}
+
+/** Guest → host: "send me this file's contents", mirroring ResourceProvider.readText/
+ *  getImageUrl. `binary` distinguishes text (YAML/JSON) from images, so the guest knows
+ *  whether `data` is a UTF-8 string or a base64-encoded PNG. */
+export interface ResourceFileRequest {
+  requestId: number;
+  path: string;
+  binary: boolean;
+}
+
+export interface ResourceFileResponse {
+  requestId: number;
+  /** UTF-8 text for binary:false, base64 for binary:true. Null if the host doesn't have this file. */
+  data: string | null;
+}
+
 export type NetworkMessage =
   | { type: 'action'; action: NetworkedAction; seq: number }
   | { type: 'snapshot-request'; name: string }
   | { type: 'snapshot'; payload: NetworkSnapshot }
   | { type: 'presence'; payload: PresencePayload }
   | { type: 'peer-info'; peerId: string; peerIndex: number; name: string; color: string }
-  | { type: 'peer-left'; peerId: string };
+  | { type: 'peer-left'; peerId: string }
+  | { type: 'resource-list-request'; payload: ResourceListRequest }
+  | { type: 'resource-list-response'; payload: ResourceListResponse }
+  | { type: 'resource-file-request'; payload: ResourceFileRequest }
+  | { type: 'resource-file-response'; payload: ResourceFileResponse };

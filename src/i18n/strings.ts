@@ -175,6 +175,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   'app.status.ready': { ru: 'Готово', en: 'Ready' },
   'app.loading.discoveringPrototypes': { ru: 'Поиск прототипов...', en: 'Discovering prototypes...' },
   'app.builtInForkName': { ru: 'Встроенный', en: 'Built-in' },
+  'app.remoteForkName': { ru: 'С сервера хоста', en: "From host's session" },
   'app.loading.resourceLoadFailed': { ru: 'Ошибка загрузки ресурсов: {error}', en: 'Resource load failed: {error}' },
   'app.status.newMap': { ru: 'Новая карта', en: 'New map' },
   'app.status.imported': { ru: 'Импортировано: сетка {width}x{height}, сущностей: {count}', en: 'Imported: {width}x{height} grid, {count} entities' },
@@ -246,6 +247,25 @@ export const strings: Record<string, Record<Locale, string>> = {
   'multiplayer.peers': { ru: 'Участники', en: 'Participants' },
   'multiplayer.you': { ru: '(вы)', en: '(you)' },
   'multiplayer.host': { ru: 'хост', en: 'host' },
+  'multiplayer.buttonLabel': { ru: 'Мультиплеер', en: 'Multiplayer' },
+  'multiplayer.playerCount': { ru: '{count} игрок(ов)', en: '{count} player(s)' },
+  'multiplayer.brokerChecking': { ru: 'Проверка сервера подключений...', en: 'Checking connection server...' },
+  'multiplayer.brokerUnavailable': { ru: 'Сервер подключений недоступен. Используйте режим "без сервера".', en: 'Connection server unreachable. Use the "no server" mode.' },
+  'multiplayer.modeServer': { ru: 'Через сервер (по ссылке)', en: 'Via server (link)' },
+  'multiplayer.modeManual': { ru: 'Без сервера (по коду)', en: 'No server (by code)' },
+  'multiplayer.manualHostStep1': { ru: 'Нажмите «Создать код», отправьте код другу любым способом (чат, голосом).', en: 'Click "Create code", send the code to your friend any way you like (chat, voice).' },
+  'multiplayer.manualCreateCode': { ru: 'Создать код', en: 'Create code' },
+  'multiplayer.manualYourCode': { ru: 'Ваш код (отправьте другу):', en: 'Your code (send to your friend):' },
+  'multiplayer.manualCopyCode': { ru: 'Скопировать код', en: 'Copy code' },
+  'multiplayer.manualCodeCopied': { ru: 'Код скопирован!', en: 'Code copied!' },
+  'multiplayer.manualWaitingForAnswer': { ru: 'Вставьте код ответа от друга:', en: 'Paste your friend\'s reply code:' },
+  'multiplayer.manualAnswerPlaceholder': { ru: 'Код ответа', en: 'Reply code' },
+  'multiplayer.manualConnect': { ru: 'Подключиться', en: 'Connect' },
+  'multiplayer.manualJoinStep1': { ru: 'Вставьте код, полученный от друга:', en: 'Paste the code you got from your friend:' },
+  'multiplayer.manualOfferPlaceholder': { ru: 'Код от друга', en: 'Friend\'s code' },
+  'multiplayer.manualCreateAnswer': { ru: 'Создать код ответа', en: 'Create reply code' },
+  'multiplayer.manualYourAnswer': { ru: 'Ваш код ответа (отправьте другу):', en: 'Your reply code (send it back):' },
+  'multiplayer.manualCopyAnswer': { ru: 'Скопировать код ответа', en: 'Copy reply code' },
 
   // SelectionInfoPanel
   'app.panel.selectionInfo': { ru: 'Информация о выделении', en: 'Selection Info' },
@@ -315,6 +335,7 @@ export const strings: Record<string, Record<Locale, string>> = {
 
   // ForkSelector
   'forkSelector.subtitle': { ru: 'Выберите форк, чтобы начать', en: 'Select a fork to get started' },
+  'forkSelector.joinSectionHint': { ru: 'Или подключитесь к игроку — ресурсы карты будут получены от него', en: "Or join another player — map resources will be fetched from them" },
   'forkSelector.invalidRepository': { ru: 'Некорректный репозиторий', en: 'Invalid repository' },
   'forkSelector.unknown': { ru: 'Неизвестно', en: 'Unknown' },
   'forkSelector.openFolder': { ru: 'Открыть папку форка', en: 'Open Fork Folder' },
@@ -386,8 +407,8 @@ export const strings: Record<string, Record<Locale, string>> = {
   'tilePalette.tileCount': { ru: 'Тайлов: {count}', en: '{count} tiles' },
 
   // BenchmarkOverlay
-  'benchmarkOverlay.stop': { ru: '⏹ Стоп ({seconds}с)', en: '⏹ Stop ({seconds}s)' },
-  'benchmarkOverlay.start': { ru: '▶ Бенчмарк (15с)', en: '▶ Benchmark (15s)' },
+  'benchmarkOverlay.stop': { ru: 'Стоп ({seconds}с)', en: 'Stop ({seconds}s)' },
+  'benchmarkOverlay.start': { ru: 'Бенчмарк (15с)', en: 'Benchmark (15s)' },
   'benchmarkOverlay.recording': { ru: '● Запись... осталось {seconds}с', en: '● Recording... {seconds}s remaining' },
   'benchmarkOverlay.results.title': { ru: 'Результаты бенчмарка', en: 'Benchmark Results' },
   'benchmarkOverlay.results.timing': { ru: 'Время', en: 'Timing' },

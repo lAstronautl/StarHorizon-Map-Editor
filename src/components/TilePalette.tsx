@@ -88,19 +88,24 @@ export const TilePalette: React.FC<Props> = ({ registry, selectedItem, onSelect 
 
 /** Cache: tile ID -> image URL (data URL or resource URL) */
 const swatchUrlCache = new Map<string, string | null>();
+/** Tile IDs currently being fetched — dedupes concurrent TileSwatch instances for the same id. */
+const swatchInFlight = new Set<string>();
 
 /** Clear the tile swatch cache (called on fork switch). */
 export function clearTileSwatchCache(): void {
   swatchUrlCache.clear();
+  swatchInFlight.clear();
 }
 
 const TileSwatch: React.FC<{ id: string; registry: IPrototypeRegistry | null }> = ({ id, registry }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loaded, setLoaded] = useState(0);
 
-  // Start loading the tile image
+  // Start loading the tile image. If the provider doesn't have a URL ready yet (e.g.
+  // RemoteResourceProvider still fetching the bytes from the host), retry briefly instead
+  // of permanently caching "no image" — the sprite arrives asynchronously over P2P.
   useEffect(() => {
-    if (swatchUrlCache.has(id)) return; // already loaded or loading
+    if (swatchUrlCache.has(id) || swatchInFlight.has(id)) return; // already loaded, loading, or being retried
 
     const tile = registry?.getTile(id);
     if (!tile?.sprite) {
@@ -108,26 +113,42 @@ const TileSwatch: React.FC<{ id: string; registry: IPrototypeRegistry | null }> 
       return;
     }
 
-    swatchUrlCache.set(id, null); // mark as loading
-    const url = getActiveProvider().getImageUrl(tile.sprite);
-    if (!url) return;
-    loadImage(url)
-      .then((img) => {
-        // Draw first variant onto a small canvas to get a data URL
-        const variants = tile.variants ?? 1;
-        const srcSize = img.width / variants;
-        const offscreen = document.createElement('canvas');
-        offscreen.width = 32;
-        offscreen.height = 32;
-        const octx = offscreen.getContext('2d')!;
-        octx.drawImage(img, 0, 0, srcSize, img.height, 0, 0, 32, 32);
-        swatchUrlCache.set(id, offscreen.toDataURL());
-        setLoaded(n => n + 1);
-      })
-      .catch(() => {
-        swatchUrlCache.set(id, null);
-        setLoaded(n => n + 1);
-      });
+    swatchInFlight.add(id);
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    const attempt = () => {
+      if (cancelled) return;
+      const url = getActiveProvider().getImageUrl(tile.sprite!);
+      if (!url) {
+        retryTimer = setTimeout(attempt, 500);
+        return;
+      }
+      loadImage(url)
+        .then((img) => {
+          if (cancelled) return;
+          // Draw first variant onto a small canvas to get a data URL
+          const variants = tile.variants ?? 1;
+          const srcSize = img.width / variants;
+          const offscreen = document.createElement('canvas');
+          offscreen.width = 32;
+          offscreen.height = 32;
+          const octx = offscreen.getContext('2d')!;
+          octx.drawImage(img, 0, 0, srcSize, img.height, 0, 0, 32, 32);
+          swatchUrlCache.set(id, offscreen.toDataURL());
+          swatchInFlight.delete(id);
+          setLoaded(n => n + 1);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          swatchUrlCache.set(id, null);
+          swatchInFlight.delete(id);
+          setLoaded(n => n + 1);
+        });
+    };
+    attempt();
+
+    return () => { cancelled = true; clearTimeout(retryTimer); swatchInFlight.delete(id); };
   }, [id, registry]);
 
   // Draw onto canvas whenever loaded changes
