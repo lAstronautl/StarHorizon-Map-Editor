@@ -266,6 +266,12 @@ export const strings: Record<string, Record<Locale, string>> = {
   'multiplayer.manualCreateAnswer': { ru: 'Создать код ответа', en: 'Create reply code' },
   'multiplayer.manualYourAnswer': { ru: 'Ваш код ответа (отправьте другу):', en: 'Your reply code (send it back):' },
   'multiplayer.manualCopyAnswer': { ru: 'Скопировать код ответа', en: 'Copy reply code' },
+  'multiplayer.modeLan': { ru: 'По IP (локально)', en: 'By IP (local)' },
+  'multiplayer.lanHint': { ru: 'Запустите "npm run lan-signal-server" на компьютере хоста (например через Hamachi/Radmin), затем создайте комнату.', en: 'Run "npm run lan-signal-server" on the host\'s machine (e.g. over Hamachi/Radmin), then create a room.' },
+  'multiplayer.lanHostLabel': { ru: 'Порт сервера сигнализации', en: 'Signaling server port' },
+  'multiplayer.lanJoinLabel': { ru: 'IP хоста : порт', en: "Host's IP : port" },
+  'multiplayer.lanAddressPlaceholder': { ru: 'напр. 26.10.20.30:5140', en: 'e.g. 26.10.20.30:5140' },
+  'multiplayer.lanHostedHint': { ru: 'Дайте другим игрокам ваш IP-адрес (см. окно сервера сигнализации) и порт, чтобы они могли подключиться.', en: "Give other players your IP address (shown in the signaling server window) and port so they can join." },
 
   // SelectionInfoPanel
   'app.panel.selectionInfo': { ru: 'Информация о выделении', en: 'Selection Info' },

@@ -3,6 +3,7 @@ import type { EditorState } from '../state/editorState';
 import type { EditorAction } from '../state/actions';
 import { PeerConnectionManager, type IConnectionManager } from './peerConnection';
 import { ManualPeerConnectionManager } from './manualPeerConnection';
+import { LanPeerConnectionManager } from './lanPeerConnection';
 import type { NetworkMessage, NetworkSnapshot, PresencePayload, ToolPreviewSnapshot } from './messages';
 import { createNetworkDispatch, applyRemoteAction, applyRemoteCommand, type RawDispatch } from './networkDispatch';
 import { getPeerColor } from './peerColors';
@@ -45,6 +46,11 @@ export interface UseMultiplayerResult {
   hostRoomManual: (nickname: string) => Promise<string>;
   acceptManualAnswer: (answerCode: string) => Promise<void>;
   joinRoomManual: (nickname: string, offerCode: string) => Promise<string>;
+  /** LAN mode: signaling via a small local WebSocket relay the host runs themselves
+   *  (scripts/lan-signal-server.mjs) — automatic (no code copy-paste), works over
+   *  Hamachi/Radmin/plain LAN, no public broker involved at all. */
+  hostRoomLan: (nickname: string, relayUrl: string) => Promise<string>;
+  joinRoomLan: (nickname: string, relayUrl: string) => Promise<void>;
   /** For a guest with no local resource fork: pull files from the host over P2P instead. */
   createRemoteResourceProvider: (forkName: string, onResourceReady: (path: string) => void) => RemoteResourceProvider;
 }
@@ -366,6 +372,59 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
     // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
   }, [handleMessage, handlePeerDisconnected]);
 
+  // --- LAN signaling (via a local WebSocket relay the host runs, automatic negotiation) ---
+
+  const hostRoomLan = useCallback(async (nickname: string, relayUrl: string): Promise<string> => {
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    myColorRef.current = getPeerColor(0);
+    nextPeerIndexRef.current = 1;
+    peerIndexByIdRef.current.clear();
+    roleRef.current = 'host';
+
+    const manager = new LanPeerConnectionManager('host', {
+      onPeerConnected: () => {}, // host waits for each guest's snapshot-request, same as PeerJS mode
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    managerRef.current = manager;
+    const id = await manager.hostRoom(relayUrl);
+    setRole('host');
+    setRoomId(id);
+    setStatus('connected');
+    setPeers([{ peerId: id, peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
+    return id;
+  }, [handleMessage, handlePeerDisconnected]);
+
+  const joinRoomLan = useCallback(async (nickname: string, relayUrl: string): Promise<void> => {
+    managerRef.current?.disconnect();
+    managerRef.current = null;
+
+    setStatus('connecting');
+    setErrorMessage(null);
+    myNameRef.current = nickname || 'Player';
+    roleRef.current = 'guest';
+
+    const manager = new LanPeerConnectionManager('guest', {
+      onPeerConnected: () => {
+        manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
+      },
+      onPeerDisconnected: handlePeerDisconnected,
+      onMessage: handleMessage,
+      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
+    });
+    managerRef.current = manager;
+    await manager.joinRoom(relayUrl);
+    setRole('guest');
+    setRoomId(relayUrl);
+    // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
+  }, [handleMessage, handlePeerDisconnected]);
+
   const sendPresence = useCallback((cursorTileX: number | null, cursorTileY: number | null, preview: ToolPreviewSnapshot | null) => {
     const manager = managerRef.current;
     if (!manager || status !== 'connected') return;
@@ -417,7 +476,8 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   return {
     status, role, roomId, peers, presenceByPeerId, errorMessage, brokerStatus,
     networkDispatch, hostRoom, joinRoom, leaveRoom, sendPresence,
-    hostRoomManual, acceptManualAnswer, joinRoomManual, createRemoteResourceProvider,
+    hostRoomManual, acceptManualAnswer, joinRoomManual,
+    hostRoomLan, joinRoomLan, createRemoteResourceProvider,
   };
 }
 

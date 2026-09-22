@@ -7,14 +7,17 @@ interface Props {
   multiplayer: UseMultiplayerResult;
 }
 
-type ConnectMode = 'server' | 'manual';
+type ConnectMode = 'server' | 'manual' | 'lan';
 type ManualStep = 'idle' | 'offer-created' | 'awaiting-answer' | 'answer-created';
+
+const DEFAULT_LAN_PORT = '5140';
 
 export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
   const { t } = useT();
   const {
     status, role, roomId, peers, errorMessage, brokerStatus,
     hostRoom, joinRoom, leaveRoom, hostRoomManual, acceptManualAnswer, joinRoomManual,
+    hostRoomLan, joinRoomLan,
   } = multiplayer;
   const [nickname, setNickname] = useState('');
   const [joinTarget, setJoinTarget] = useState(() => {
@@ -30,6 +33,9 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
   const [manualPastedOffer, setManualPastedOffer] = useState('');
   const [manualPastedAnswer, setManualPastedAnswer] = useState('');
   const [manualCodeCopied, setManualCodeCopied] = useState(false);
+
+  const [lanPort, setLanPort] = useState(DEFAULT_LAN_PORT);
+  const [lanJoinAddress, setLanJoinAddress] = useState('');
 
   const isBusy = status === 'connecting';
   const isJoined = status === 'connected';
@@ -87,6 +93,20 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
     }).catch(() => {});
   };
 
+  const handleLanHost = () => {
+    const port = lanPort.trim() || DEFAULT_LAN_PORT;
+    hostRoomLan(nickname, `ws://localhost:${port}`).catch(() => {});
+  };
+
+  const handleLanJoin = () => {
+    const target = lanJoinAddress.trim();
+    if (!target) return;
+    // Accept "ip:port" or "ip" (falls back to the default port).
+    const hasPort = /:\d+$/.test(target);
+    const relayUrl = `ws://${hasPort ? target : `${target}:${DEFAULT_LAN_PORT}`}`;
+    joinRoomLan(nickname, relayUrl).catch(() => {});
+  };
+
   const resetManualFlow = () => {
     setManualStep('idle');
     setManualOfferCode('');
@@ -134,6 +154,12 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
               className={`flex-1 text-[10px] px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'manual' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
             >
               {t('multiplayer.modeManual')}
+            </button>
+            <button
+              onClick={() => { setMode('lan'); resetManualFlow(); }}
+              className={`flex-1 text-[10px] px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'lan' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
+            >
+              {t('multiplayer.modeLan')}
             </button>
           </div>
 
@@ -246,7 +272,47 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
             </div>
           )}
 
-          {status === 'connecting' && mode === 'server' && (
+          {mode === 'lan' && (
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] text-muted leading-relaxed">{t('multiplayer.lanHint')}</p>
+
+              <span className="text-[10px] text-muted">{t('multiplayer.lanHostLabel')}</span>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={lanPort}
+                  onChange={(e) => setLanPort(e.target.value)}
+                  placeholder={DEFAULT_LAN_PORT}
+                  className={`w-16 ${inputClass}`}
+                />
+                <button onClick={handleLanHost} disabled={isBusy} className={`${primaryButtonClass} flex-1`}>
+                  {t('multiplayer.hostRoom')}
+                </button>
+              </div>
+
+              <div className="h-px bg-subtle my-1" />
+
+              <span className="text-[10px] text-muted">{t('multiplayer.lanJoinLabel')}</span>
+              <div className="flex gap-1">
+                <input
+                  type="text"
+                  value={lanJoinAddress}
+                  onChange={(e) => setLanJoinAddress(e.target.value)}
+                  placeholder={t('multiplayer.lanAddressPlaceholder')}
+                  className={`flex-1 min-w-0 ${inputClass}`}
+                />
+                <button
+                  onClick={handleLanJoin}
+                  disabled={isBusy || !lanJoinAddress.trim()}
+                  className={`${primaryButtonClass} whitespace-nowrap`}
+                >
+                  {t('multiplayer.joinRoom')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {status === 'connecting' && (mode === 'server' || mode === 'lan') && (
             <span className="text-[11px] text-muted">{t('multiplayer.connecting')}</span>
           )}
           {errorMessage && (
@@ -257,10 +323,13 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
 
       {isJoined && (
         <>
-          {role === 'host' && roomId && (
+          {role === 'host' && roomId && mode !== 'lan' && (
             <button onClick={copyInviteLink} className={primaryButtonClass}>
               {linkCopied ? t('multiplayer.linkCopied') : t('multiplayer.copyLink')}
             </button>
+          )}
+          {role === 'host' && mode === 'lan' && (
+            <p className="text-[10px] text-muted leading-relaxed">{t('multiplayer.lanHostedHint')}</p>
           )}
 
           <div className="flex flex-col gap-1">
