@@ -30,43 +30,12 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
 
-/** Gzip-compress the JSON before base64 — SDP text (especially with several ICE
- *  candidates once STUN is involved) compresses very well, roughly halving the code's
- *  length compared to plain base64 of the raw JSON. Falls back to uncompressed base64
- *  if CompressionStream isn't available (very old browsers), with a marker byte so
- *  decode() can tell the two formats apart either way. */
 export async function encode(obj: unknown): Promise<string> {
-  const json = JSON.stringify(obj);
-  if (typeof CompressionStream === 'undefined') {
-    return '0' + btoa(json);
-  }
-  const bytes = new TextEncoder().encode(json);
-  const cs = new CompressionStream('gzip');
-  const writer = cs.writable.getWriter();
-  writer.write(bytes);
-  writer.close();
-  const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
-  let binary = '';
-  for (let i = 0; i < compressed.length; i++) binary += String.fromCharCode(compressed[i]);
-  return '1' + btoa(binary);
+  return btoa(encodeURIComponent(JSON.stringify(obj)));
 }
 
 export async function decode<T>(code: string): Promise<T> {
-  const trimmed = code.trim();
-  const marker = trimmed[0];
-  const payload = trimmed.slice(1);
-  if (marker === '0') {
-    return JSON.parse(atob(payload));
-  }
-  const binary = atob(payload);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  const ds = new DecompressionStream('gzip');
-  const writer = ds.writable.getWriter();
-  writer.write(bytes);
-  writer.close();
-  const decompressed = await new Response(ds.readable).arrayBuffer();
-  return JSON.parse(new TextDecoder().decode(decompressed));
+  return JSON.parse(decodeURIComponent(atob(code.trim())));
 }
 
 /** Wait for ICE gathering to finish so the encoded description includes all candidates

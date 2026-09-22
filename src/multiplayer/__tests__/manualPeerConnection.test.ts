@@ -173,10 +173,7 @@ describe('ManualPeerConnectionManager', () => {
 
 });
 
-describe('encode/decode (gzip compression)', () => {
-  // A real offer with STUN involved typically carries several ICE candidate lines —
-  // build a representative fake one to measure the actual compression win on SDP-shaped
-  // text (repetitive attribute names/prefixes compress very well with gzip).
+describe('encode/decode', () => {
   const candidateLines = Array.from({ length: 6 }, (_, i) =>
     `a=candidate:${i} 1 udp 2122260223 192.168.1.${10 + i} ${5000 + i} typ host generation 0 ufrag abcd network-cost 999`,
   ).join('\r\n');
@@ -193,11 +190,10 @@ describe('encode/decode (gzip compression)', () => {
     expect(decoded).toEqual(fakeDescription);
   });
 
-  it('compresses a realistic multi-candidate SDP to noticeably less than plain base64', async () => {
-    const plainBase64Length = btoa(JSON.stringify(fakeDescription)).length;
-    const compressedLength = (await encode(fakeDescription)).length;
-    // Repetitive SDP text compresses well; expect at least a meaningful reduction
-    // (not asserting an exact ratio since gzip overhead varies slightly by payload).
-    expect(compressedLength).toBeLessThan(plainBase64Length * 0.7);
+  it('round-trips text containing non-ASCII characters (e.g. nicknames elsewhere in the app)', async () => {
+    const payload = { note: 'Привет, мир! 🚀' };
+    const code = await encode(payload);
+    const decoded = await decode<typeof payload>(code);
+    expect(decoded).toEqual(payload);
   });
 });
