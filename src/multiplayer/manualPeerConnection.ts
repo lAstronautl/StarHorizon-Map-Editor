@@ -6,8 +6,10 @@ import type { PeerConnectionCallbacks, IConnectionManager } from './peerConnecti
  * opaque code (base64 of the SDP offer/answer, gzip-free since browsers handle it fine
  * at this size) by any channel they like (chat, voice call, pasting into this app's UI).
  * This is the fallback for when the public PeerJS broker is unreachable (blocked network,
- * no internet at all) — it works even for two machines on the same LAN with zero outside
- * connectivity, as long as ICE can find a path (mDNS/LAN candidates need no STUN either).
+ * no internet at all) — it works even for two machines on a VPN mesh (Radmin/Hamachi) or
+ * plain LAN with zero other outside connectivity, as long as ICE can find a path. A public
+ * STUN server is still used purely to help gather real candidates (see ICE_SERVERS below);
+ * no data ever flows through it.
  *
  * Mirrors PeerConnectionManager's public shape (hostRoom/joinRoom/broadcast/sendTo/
  * myPeerId/disconnect) so `roomSession.ts` can use either transport interchangeably,
@@ -19,12 +21,52 @@ import type { PeerConnectionCallbacks, IConnectionManager } from './peerConnecti
 const LOCAL_PEER_ID = 'manual-self';
 const REMOTE_PEER_ID = 'manual-remote';
 
-function encode(obj: unknown): string {
-  return btoa(encodeURIComponent(JSON.stringify(obj)));
+// STUN-only (no TURN, no relay of actual data) — this just helps the browser discover
+// its real reflexive/host candidates instead of hiding local IPs behind mDNS `.local`
+// names, which often fail to resolve between two machines joined via a VPN mesh like
+// Radmin/Hamachi. No data ever touches this server, only the ICE candidate-gathering step.
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+
+/** Gzip-compress the JSON before base64 — SDP text (especially with several ICE
+ *  candidates once STUN is involved) compresses very well, roughly halving the code's
+ *  length compared to plain base64 of the raw JSON. Falls back to uncompressed base64
+ *  if CompressionStream isn't available (very old browsers), with a marker byte so
+ *  decode() can tell the two formats apart either way. */
+export async function encode(obj: unknown): Promise<string> {
+  const json = JSON.stringify(obj);
+  if (typeof CompressionStream === 'undefined') {
+    return '0' + btoa(json);
+  }
+  const bytes = new TextEncoder().encode(json);
+  const cs = new CompressionStream('gzip');
+  const writer = cs.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const compressed = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+  let binary = '';
+  for (let i = 0; i < compressed.length; i++) binary += String.fromCharCode(compressed[i]);
+  return '1' + btoa(binary);
 }
 
-function decode<T>(code: string): T {
-  return JSON.parse(decodeURIComponent(atob(code.trim())));
+export async function decode<T>(code: string): Promise<T> {
+  const trimmed = code.trim();
+  const marker = trimmed[0];
+  const payload = trimmed.slice(1);
+  if (marker === '0') {
+    return JSON.parse(atob(payload));
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  const ds = new DecompressionStream('gzip');
+  const writer = ds.writable.getWriter();
+  writer.write(bytes);
+  writer.close();
+  const decompressed = await new Response(ds.readable).arrayBuffer();
+  return JSON.parse(new TextDecoder().decode(decompressed));
 }
 
 /** Wait for ICE gathering to finish so the encoded description includes all candidates
@@ -55,7 +97,7 @@ export class ManualPeerConnectionManager implements IConnectionManager {
 
   /** Host step 1: create the offer code to send to the guest. */
   async createOffer(): Promise<string> {
-    const pc = new RTCPeerConnection();
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.pc = pc;
     const channel = pc.createDataChannel('data', { ordered: true });
     this.setupChannel(channel);
@@ -75,14 +117,14 @@ export class ManualPeerConnectionManager implements IConnectionManager {
   /** Host step 2: apply the guest's answer code once they've sent it back. */
   async acceptAnswer(answerCode: string): Promise<void> {
     if (!this.pc) throw new Error('No offer was created yet.');
-    const { sdp } = decode<{ sdp: RTCSessionDescriptionInit }>(answerCode);
+    const { sdp } = await decode<{ sdp: RTCSessionDescriptionInit }>(answerCode);
     await this.pc.setRemoteDescription(sdp);
   }
 
   /** Guest step 1: apply the host's offer code, producing the answer code to send back. */
   async acceptOffer(offerCode: string): Promise<string> {
-    const { sdp } = decode<{ sdp: RTCSessionDescriptionInit }>(offerCode);
-    const pc = new RTCPeerConnection();
+    const { sdp } = await decode<{ sdp: RTCSessionDescriptionInit }>(offerCode);
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     this.pc = pc;
 
     pc.ondatachannel = (e) => this.setupChannel(e.channel);
