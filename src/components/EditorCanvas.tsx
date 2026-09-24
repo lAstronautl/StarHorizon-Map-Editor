@@ -31,6 +31,7 @@ import type { DecalInstance } from '../import/decalParser';
 import type { DecalPlacementSettings } from './DecalPalette';
 import type { EraseSettings } from '../tools/eraseTool';
 import type { SymmetrySettings } from '../tools/symmetrySettings';
+import type { BrushSettings } from '../tools/brushSettings';
 import type { ToolType } from '../types';
 import { useT } from '../i18n';
 import { renderRemotePresence } from '../rendering/remotePresenceRenderer';
@@ -53,6 +54,7 @@ interface Props {
   decalPlacementSettingsRef: React.MutableRefObject<DecalPlacementSettings>;
   eraseSettingsRef: React.MutableRefObject<EraseSettings>;
   symmetrySettingsRef: React.MutableRefObject<SymmetrySettings>;
+  brushSettingsRef: React.MutableRefObject<BrushSettings>;
   previousToolRef: React.MutableRefObject<ToolType>;
   highlightTile?: { x: number; y: number; startTime: number } | null;
   presenceByPeerId?: Record<string, RemotePresence>;
@@ -67,7 +69,7 @@ const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, eraseSettingsRef,
-  symmetrySettingsRef, previousToolRef, highlightTile, presenceByPeerId,
+  symmetrySettingsRef, brushSettingsRef, previousToolRef, highlightTile, presenceByPeerId,
 }) => {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -184,9 +186,10 @@ export const EditorCanvas: React.FC<Props> = ({
       layerVisibility: layerVisibilityRef.current,
       eraseSettings: eraseSettingsRef.current,
       symmetrySettings: symmetrySettingsRef.current,
+      brushSettings: brushSettingsRef.current,
       previousTool: previousToolRef.current,
     };
-  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, symmetrySettingsRef, previousToolRef]);
+  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, symmetrySettingsRef, brushSettingsRef, previousToolRef]);
 
   // Check if we should pan (middle button, space held, or pan tool active)
   const shouldPan = useCallback((button: number) => {

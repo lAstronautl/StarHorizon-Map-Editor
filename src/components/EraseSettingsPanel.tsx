@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import type { EraseSettings } from '../tools/eraseTool';
+import type { BrushSettings } from '../tools/brushSettings';
+import { BrushSettingsPanel } from './BrushSettingsPanel';
 import { useT } from '../i18n';
 
 interface Props {
   settingsRef: React.MutableRefObject<EraseSettings>;
+  brushSettingsRef: React.MutableRefObject<BrushSettings>;
 }
 
-export const EraseSettingsPanel: React.FC<Props> = ({ settingsRef }) => {
+export const EraseSettingsPanel: React.FC<Props> = ({ settingsRef, brushSettingsRef }) => {
   const { t } = useT();
   const [mode, setMode] = useState<EraseSettings['mode']>(settingsRef.current.mode);
   const [eraseTiles, setEraseTiles] = useState(settingsRef.current.eraseTiles);
@@ -18,6 +21,9 @@ export const EraseSettingsPanel: React.FC<Props> = ({ settingsRef }) => {
 
   return (
     <div className="p-3 flex flex-col gap-2 text-xs">
+      <BrushSettingsPanel settingsRef={brushSettingsRef} />
+      <div className="h-px bg-subtle my-1" />
+
       <div className="flex flex-col gap-1">
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input

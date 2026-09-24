@@ -224,9 +224,12 @@ export const strings: Record<string, Record<Locale, string>> = {
   'eraseSettings.mode.selective': { ru: 'Выборочно', en: 'Selective' },
   'eraseSettings.eraseTiles': { ru: 'Стирать тайлы', en: 'Erase tiles' },
   'eraseSettings.eraseEntities': { ru: 'Стирать сущности', en: 'Erase entities' },
+  'brushSettings.mode.hold': { ru: 'Удержание (рисовать при движении)', en: 'Hold (paint while dragging)' },
+  'brushSettings.mode.click': { ru: 'Нажатие (только 1 тайл за клик)', en: 'Click (one tile per click)' },
 
   // SymmetrySettingsPanel
   'app.panel.symmetry': { ru: 'Симметрия', en: 'Symmetry' },
+  'app.panel.brush': { ru: 'Кисть', en: 'Brush' },
   'symmetrySettings.mode.none': { ru: 'Выкл.', en: 'Off' },
   'symmetrySettings.mode.mirror': { ru: 'Зеркало', en: 'Mirror' },
   'symmetrySettings.mode.fourWay': { ru: '4 стороны', en: '4-way' },

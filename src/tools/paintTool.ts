@@ -71,6 +71,8 @@ export class PaintTool implements ITool {
       return;
     }
 
+    if (ctx.brushSettings?.strokeMode === 'click') return;
+
     if (this.erasing) {
       this.eraseAt(ctx, tileX, tileY);
     } else if (this.painting) {

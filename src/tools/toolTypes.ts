@@ -7,6 +7,7 @@ import type { DecalPlacementOptions } from './decalBrushHelper';
 import type { LayerVisibility } from '../rendering/entityRenderer';
 import type { EraseSettings } from './eraseTool';
 import type { SymmetrySettings } from './symmetrySettings';
+import type { BrushSettings } from './brushSettings';
 import type { ToolPreviewSnapshot } from '../multiplayer/messages';
 
 export interface ToolContext {
@@ -27,6 +28,9 @@ export interface ToolContext {
   eraseSettings?: EraseSettings;
   /** Mirror/symmetry painting mode (currently supported by PaintTool). */
   symmetrySettings?: SymmetrySettings;
+  /** Stroke behavior for brush-like tools (PaintTool, EraseTool): hold-to-paint vs.
+   *  click-once. */
+  brushSettings?: BrushSettings;
   /** Tool that was active before switching to the eyedropper; picking an item restores it. */
   previousTool?: ToolType;
 }

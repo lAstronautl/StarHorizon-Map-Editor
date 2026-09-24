@@ -46,6 +46,7 @@ export class EraseTool implements ITool {
 
   onMouseMove(ctx: ToolContext, tileX: number, tileY: number) {
     if (!this.erasing) return;
+    if (ctx.brushSettings?.strokeMode === 'click') return;
     this.eraseAt(ctx, tileX, tileY);
   }
 

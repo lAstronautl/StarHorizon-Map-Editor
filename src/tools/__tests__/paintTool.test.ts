@@ -61,6 +61,23 @@ describe('PaintTool merged with entity placement', () => {
     expect(getCell(ctx.state.grid, 6, 5)?.tileId).toBe('FloorSteel');
   });
 
+  it('with strokeMode "click", paints only the clicked tile and ignores drag movement', () => {
+    const { ctx, dispatched } = makeToolContext([], { type: 'tile', id: 'FloorSteel' });
+    ctx.brushSettings = { strokeMode: 'click' };
+    const tool = new PaintTool();
+
+    tool.onMouseDown(ctx, 5, 5, 0);
+    tool.onMouseMove(ctx, 6, 5);
+    tool.onMouseMove(ctx, 7, 5);
+    tool.onMouseUp(ctx);
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].command.tileChanges).toHaveLength(1);
+    expect(getCell(ctx.state.grid, 5, 5)?.tileId).toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 6, 5)?.tileId).not.toBe('FloorSteel');
+    expect(getCell(ctx.state.grid, 7, 5)?.tileId).not.toBe('FloorSteel');
+  });
+
   it('places one entity per click via the internal entityPlaceTool (not drag-per-tile)', () => {
     const { ctx, dispatched } = makeToolContext([], { type: 'entity', id: 'TableSteel' });
     const tool = new PaintTool();

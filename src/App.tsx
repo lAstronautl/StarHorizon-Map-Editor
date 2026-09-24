@@ -7,6 +7,8 @@ import type { ITool } from './tools/toolTypes';
 import { PaintTool } from './tools/paintTool';
 import { EraseTool, DEFAULT_ERASE_SETTINGS } from './tools/eraseTool';
 import type { EraseSettings } from './tools/eraseTool';
+import { DEFAULT_BRUSH_SETTINGS } from './tools/brushSettings';
+import type { BrushSettings } from './tools/brushSettings';
 import { DEFAULT_SYMMETRY_SETTINGS } from './tools/symmetrySettings';
 import type { SymmetrySettings } from './tools/symmetrySettings';
 import { EyedropperTool } from './tools/eyedropperTool';
@@ -35,6 +37,7 @@ import { EntityInfoPanel } from './components/EntityInfoPanel';
 import { DecalInfoPanel } from './components/DecalInfoPanel';
 import { EraseSettingsPanel } from './components/EraseSettingsPanel';
 import { SymmetrySettingsPanel } from './components/SymmetrySettingsPanel';
+import { BrushSettingsPanel } from './components/BrushSettingsPanel';
 import { SelectionInfoPanel } from './components/SelectionInfoPanel';
 import { MenuBar } from './components/MenuBar';
 import { StatusBar } from './components/StatusBar';
@@ -139,6 +142,7 @@ export const App: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const decalPlacementSettingsRef = useRef<DecalPlacementSettings>({ ...DEFAULT_DECAL_PLACEMENT_SETTINGS });
   const eraseSettingsRef = useRef<EraseSettings>({ ...DEFAULT_ERASE_SETTINGS });
+  const brushSettingsRef = useRef<BrushSettings>({ ...DEFAULT_BRUSH_SETTINGS });
   const symmetrySettingsRef = useRef<SymmetrySettings>({ ...DEFAULT_SYMMETRY_SETTINGS });
   const palettePanelRef = useRef<PalettePanelHandle>(null);
   const preEyedropperToolRef = useRef<ToolType>('paint');
@@ -836,6 +840,7 @@ export const App: React.FC = () => {
               decalPlacementSettingsRef={decalPlacementSettingsRef}
               eraseSettingsRef={eraseSettingsRef}
               symmetrySettingsRef={symmetrySettingsRef}
+              brushSettingsRef={brushSettingsRef}
               previousToolRef={preEyedropperToolRef}
               highlightTile={highlightTile}
               presenceByPeerId={multiplayer.presenceByPeerId}
@@ -899,7 +904,14 @@ export const App: React.FC = () => {
           )}
           {state.activeTool === 'erase' && (
             <CollapsiblePanel title={t('app.panel.eraseSettings')} defaultOpen={true}>
-              <EraseSettingsPanel settingsRef={eraseSettingsRef} />
+              <EraseSettingsPanel settingsRef={eraseSettingsRef} brushSettingsRef={brushSettingsRef} />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'paint' && (
+            <CollapsiblePanel title={t('app.panel.brush')} defaultOpen={false}>
+              <div className="p-3">
+                <BrushSettingsPanel settingsRef={brushSettingsRef} />
+              </div>
             </CollapsiblePanel>
           )}
           {state.activeTool === 'paint' && (
