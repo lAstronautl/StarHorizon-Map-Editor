@@ -67,7 +67,7 @@ export class PaintTool implements ITool {
 
   onMouseMove(ctx: ToolContext, tileX: number, tileY: number) {
     if (this.isEntityMode(ctx)) {
-      this.entityPlaceTool.onMouseMove();
+      this.entityPlaceTool.onMouseMove(ctx, tileX, tileY);
       return;
     }
 

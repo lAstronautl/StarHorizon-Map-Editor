@@ -127,6 +127,71 @@ describe('EntityPlaceTool', () => {
     expect(uid2).toBe(uid1 + 1);
   });
 
+  describe('drag-to-place (brush strokeMode)', () => {
+    it('places an entity on each newly-entered tile while dragging with strokeMode "hold"', () => {
+      const tool = new EntityPlaceTool();
+      const { ctx, dispatched } = makeToolContext();
+      ctx.brushSettings = { strokeMode: 'hold' };
+
+      tool.onMouseDown(ctx, 5, 10, 0);
+      tool.onMouseMove(ctx, 6, 10);
+      tool.onMouseMove(ctx, 7, 10);
+      tool.onMouseUp();
+
+      expect(dispatched).toHaveLength(3);
+      const positions = dispatched.map(d => d.command.entityChanges[0].entity.position.x);
+      expect(positions).toEqual([5.5, 6.5, 7.5]);
+    });
+
+    it('does not place again when the cursor re-enters an already-visited tile mid-drag', () => {
+      const tool = new EntityPlaceTool();
+      const { ctx, dispatched } = makeToolContext();
+      ctx.brushSettings = { strokeMode: 'hold' };
+
+      tool.onMouseDown(ctx, 5, 10, 0);
+      tool.onMouseMove(ctx, 6, 10);
+      tool.onMouseMove(ctx, 5, 10); // back to the starting tile
+      tool.onMouseUp();
+
+      expect(dispatched).toHaveLength(2);
+    });
+
+    it('ignores movement (places only on click) when strokeMode is "click"', () => {
+      const tool = new EntityPlaceTool();
+      const { ctx, dispatched } = makeToolContext();
+      ctx.brushSettings = { strokeMode: 'click' };
+
+      tool.onMouseDown(ctx, 5, 10, 0);
+      tool.onMouseMove(ctx, 6, 10);
+      tool.onMouseMove(ctx, 7, 10);
+      tool.onMouseUp();
+
+      expect(dispatched).toHaveLength(1);
+    });
+
+    it('does not place on mouse move before any mouse-down has started a drag', () => {
+      const tool = new EntityPlaceTool();
+      const { ctx, dispatched } = makeToolContext();
+      ctx.brushSettings = { strokeMode: 'hold' };
+
+      tool.onMouseMove(ctx, 6, 10);
+
+      expect(dispatched).toHaveLength(0);
+    });
+
+    it('stops placing on drag after mouse-up, until the next mouse-down', () => {
+      const tool = new EntityPlaceTool();
+      const { ctx, dispatched } = makeToolContext();
+      ctx.brushSettings = { strokeMode: 'hold' };
+
+      tool.onMouseDown(ctx, 5, 10, 0);
+      tool.onMouseUp();
+      tool.onMouseMove(ctx, 6, 10);
+
+      expect(dispatched).toHaveLength(1);
+    });
+  });
+
   describe('renderPreview sprite ghost', () => {
     it('draws sprite image when registry provides sprite', () => {
       const tool = new EntityPlaceTool();

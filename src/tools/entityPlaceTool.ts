@@ -22,6 +22,15 @@ export class EntityPlaceTool implements ITool {
   cursor = 'crosshair';
 
   private _rotation = 0;
+  /** True between mouse-down and mouse-up with the left button held, so onMouseMove knows
+   *  whether a drag is in progress (hold-to-paint mode places one entity per newly-entered
+   *  tile, mirroring PaintTool's brush drag, instead of only ever placing on the initial
+   *  click). */
+  private placing = false;
+  /** Tiles already placed on during the current drag, so re-entering the same tile (or
+   *  jittering within it) doesn't stack duplicate entities — same role as PaintTool's
+   *  `visited` set for its own drag. Cleared on mouse-up/deactivate. */
+  private visited = new Set<string>();
 
   get currentRotation(): number {
     return this._rotation;
@@ -30,6 +39,33 @@ export class EntityPlaceTool implements ITool {
   onMouseDown(ctx: ToolContext, tileX: number, tileY: number, button: number) {
     if (button !== 0) return;
 
+    const { state } = ctx;
+    if (!state.selectedPaletteItem || state.selectedPaletteItem.type !== 'entity') return;
+
+    this.placing = true;
+    this.visited.clear();
+    this.visited.add(`${Math.floor(tileX)},${Math.floor(tileY)}`);
+    this.placeAt(ctx, tileX, tileY);
+  }
+
+  onMouseMove(ctx: ToolContext, tileX: number, tileY: number) {
+    if (!this.placing) return;
+    // Only PaintTool (which delegates entity placement here) ever sets brushSettings;
+    // default to 'hold' so this still drags-to-place when invoked without that context.
+    if (ctx.brushSettings?.strokeMode === 'click') return;
+
+    const key = `${Math.floor(tileX)},${Math.floor(tileY)}`;
+    if (this.visited.has(key)) return;
+    this.visited.add(key);
+    this.placeAt(ctx, tileX, tileY);
+  }
+
+  onMouseUp() {
+    this.placing = false;
+    this.visited.clear();
+  }
+
+  private placeAt(ctx: ToolContext, tileX: number, tileY: number) {
     const { state, dispatch, shiftHeld } = ctx;
     if (!state.selectedPaletteItem || state.selectedPaletteItem.type !== 'entity') return;
 
@@ -68,10 +104,6 @@ export class EntityPlaceTool implements ITool {
       },
     });
   }
-
-  onMouseMove() {}
-
-  onMouseUp() {}
 
   renderPreview(
     canvasCtx: CanvasRenderingContext2D,
@@ -164,5 +196,7 @@ export class EntityPlaceTool implements ITool {
 
   deactivate() {
     this._rotation = 0;
+    this.placing = false;
+    this.visited.clear();
   }
 }
