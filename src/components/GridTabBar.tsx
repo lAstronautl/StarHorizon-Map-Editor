@@ -129,7 +129,6 @@ export const GridTabBar: React.FC<Props> = ({
         className="flex items-center gap-1 self-center text-white bg-active hover:brightness-125 cursor-pointer border border-subtle rounded-sm text-[11px] px-2 py-0.5 mr-2 shrink-0"
         title={t('gridTabBar.aiAssistant')}
       >
-        <span className="text-[12px]">&#x1F916;</span>
         <span>{t('gridTabBar.aiAssistant')}</span>
       </button>
 

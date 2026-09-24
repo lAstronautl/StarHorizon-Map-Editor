@@ -99,13 +99,14 @@ export const strings: Record<string, Record<Locale, string>> = {
   'gridTabBar.closeGrid': { ru: 'Закрыть сетку', en: 'Close grid' },
   'gridTabBar.addNewGrid': { ru: 'Добавить новую сетку', en: 'Add new grid' },
   'gridTabBar.validateMap': { ru: 'Проверить карту', en: 'Validate Map' },
-  'gridTabBar.aiAssistant': { ru: 'ИИ-ассистент', en: 'AI Assistant' },
+  'gridTabBar.aiAssistant': { ru: 'ИИ-Агент', en: 'AI Agent' },
 
   // AiChatPanel
-  'aiChatPanel.title': { ru: 'ИИ-ассистент', en: 'AI Assistant' },
+  'aiChatPanel.title': { ru: 'ИИ-Агент', en: 'AI Agent' },
   'aiChatPanel.provider': { ru: 'Провайдер', en: 'Provider' },
   'aiChatPanel.model': { ru: 'Модель', en: 'Model' },
-  'aiChatPanel.fallbackHint': { ru: 'При лимите запросов автоматически переключится: {chain}', en: 'Automatically falls back on rate limits: {chain}' },
+  'aiChatPanel.fallbackModel': { ru: 'Резервная модель', en: 'Fallback model' },
+  'aiChatPanel.fallbackModelPlaceholder': { ru: 'Необязательно', en: 'Optional' },
   'aiChatPanel.fallbackUsed': { ru: 'Ответ получен от резервной модели: {model}', en: 'Answered by fallback model: {model}' },
   'aiChatPanel.apiKey': { ru: 'API-ключ', en: 'API key' },
   'aiChatPanel.apiKeyPlaceholder': { ru: 'Вставьте API-ключ...', en: 'Paste your API key...' },

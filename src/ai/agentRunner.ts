@@ -28,6 +28,8 @@ export interface RunAgentTurnParams {
   provider: AiProvider;
   apiKey: string;
   model: string;
+  /** User-chosen fallback model, see AiRequestParams.fallbackModel. */
+  fallbackModel?: string;
   history: ChatMessage[];
   toolCtx: AgentToolContext;
   onStep?: (step: { toolName: string; input: Record<string, unknown>; result: unknown; isError: boolean }) => void;
@@ -54,6 +56,7 @@ export async function runAgentTurn(params: RunAgentTurnParams): Promise<AgentTur
       provider: params.provider,
       apiKey: params.apiKey,
       model: params.model,
+      fallbackModel: params.fallbackModel,
       systemPrompt: SYSTEM_PROMPT,
       tools,
       messages,

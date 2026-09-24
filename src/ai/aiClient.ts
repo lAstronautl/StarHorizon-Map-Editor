@@ -12,6 +12,9 @@ export interface AiRequestParams {
   provider: AiProvider;
   apiKey: string;
   model: string;
+  /** User-chosen model to fall back to on rate limits, tried after `model` and before the
+   *  provider's own built-in chain. Empty/omitted means only the built-in chain applies. */
+  fallbackModel?: string;
   systemPrompt: string;
   tools: ToolDefinition[];
   messages: ChatMessage[];
@@ -50,7 +53,12 @@ export async function callAi(params: AiRequestParams): Promise<AiResponse> {
   const call = params.provider === 'gemini' ? callGemini : callClaude;
   const chain = MODEL_FALLBACK_CHAIN[params.provider];
   const startIdx = chain.indexOf(params.model);
-  const modelsToTry = startIdx >= 0 ? chain.slice(startIdx) : [params.model, ...chain];
+  const builtInChain = startIdx >= 0 ? chain.slice(startIdx) : [params.model, ...chain];
+  // User-chosen fallback goes right after the requested model, ahead of the built-in chain,
+  // and is de-duplicated in case it's already part of that chain.
+  const modelsToTry = params.fallbackModel && !builtInChain.includes(params.fallbackModel)
+    ? [builtInChain[0], params.fallbackModel, ...builtInChain.slice(1)]
+    : builtInChain;
 
   let lastErr: unknown;
   for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {

@@ -1,4 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrash } from '@fortawesome/free-solid-svg-icons';
 import type { EditorState } from '../state/editorState';
 import type { EditorAction } from '../state/actions';
 import type { AiProvider } from '../ai/aiTypes';
@@ -35,6 +37,7 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
   const [provider, setProvider] = useState<AiProvider>('gemini');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState(DEFAULT_MODELS.gemini);
+  const [fallbackModel, setFallbackModel] = useState(MODEL_FALLBACK_CHAIN.gemini[1] ?? '');
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +48,7 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
   const handleProviderChange = useCallback((next: AiProvider) => {
     setProvider(next);
     setModel(DEFAULT_MODELS[next]);
+    setFallbackModel(MODEL_FALLBACK_CHAIN[next][1] ?? '');
   }, []);
 
   const scrollToBottom = useCallback(() => {
@@ -73,6 +77,7 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
         provider,
         apiKey: apiKey.trim(),
         model,
+        fallbackModel: fallbackModel.trim() || undefined,
         history: historyRef.current,
         toolCtx: { state, dispatch },
         onStep: (step) => {
@@ -101,7 +106,7 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
       setBusy(false);
       scrollToBottom();
     }
-  }, [prompt, busy, apiKey, provider, model, state, dispatch, t, scrollToBottom]);
+  }, [prompt, busy, apiKey, provider, model, fallbackModel, state, dispatch, t, scrollToBottom]);
 
   const handleClear = useCallback(() => {
     setMessages([]);
@@ -119,7 +124,7 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
             title={t('aiChatPanel.clearChat')}
             className="bg-transparent border-none text-muted hover:text-primary cursor-pointer text-xs px-1"
           >
-            &#x1F5D1;
+            <FontAwesomeIcon icon={faTrash} />
           </button>
           <button
             onClick={onClose}
@@ -151,8 +156,14 @@ export const AiChatPanel: React.FC<Props> = ({ state, dispatch, onClose }) => {
             className="flex-1 bg-elevated border border-subtle rounded text-primary text-[11px] px-1.5 py-1"
           />
         </div>
-        <div className="text-muted text-[10px] leading-snug">
-          {t('aiChatPanel.fallbackHint', { chain: MODEL_FALLBACK_CHAIN[provider].join(' → ') })}
+        <div className="flex items-center gap-2">
+          <label className="text-muted w-16 shrink-0">{t('aiChatPanel.fallbackModel')}</label>
+          <input
+            value={fallbackModel}
+            onChange={e => setFallbackModel(e.target.value)}
+            placeholder={t('aiChatPanel.fallbackModelPlaceholder')}
+            className="flex-1 bg-elevated border border-subtle rounded text-primary text-[11px] px-1.5 py-1"
+          />
         </div>
         <div className="flex items-center gap-2">
           <label className="text-muted w-16 shrink-0">{t('aiChatPanel.apiKey')}</label>

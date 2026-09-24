@@ -125,4 +125,44 @@ describe('callAi model fallback', () => {
     const url = fetchMock.mock.calls[0][0] as string;
     expect(url).toContain('gemini-experimental-custom');
   });
+
+  it('tries the user-chosen fallbackModel before the built-in chain', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes(MODEL_FALLBACK_CHAIN.gemini[0])) {
+        return Promise.resolve(jsonResponse(geminiRateLimitBody(1), { status: 429 }));
+      }
+      return Promise.resolve(jsonResponse(geminiOkBody('user fallback answered')));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = callAi({ ...baseParams, fallbackModel: 'my-custom-fallback' });
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    const result = await promise;
+
+    expect(result.text).toBe('user fallback answered');
+    const urls = fetchMock.mock.calls.map(c => c[0] as string);
+    // The user-chosen fallback should be tried right after the primary model, before the
+    // provider's own built-in chain entry.
+    expect(urls[3]).toContain('my-custom-fallback');
+  });
+
+  it('does not duplicate the user fallbackModel if it already appears in the built-in chain', async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes(MODEL_FALLBACK_CHAIN.gemini[0])) {
+        return Promise.resolve(jsonResponse(geminiRateLimitBody(1), { status: 429 }));
+      }
+      return Promise.resolve(jsonResponse(geminiOkBody('built-in fallback answered')));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = callAi({ ...baseParams, fallbackModel: MODEL_FALLBACK_CHAIN.gemini[1] });
+    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(1000);
+    const result = await promise;
+
+    expect(result.text).toBe('built-in fallback answered');
+    const urls = fetchMock.mock.calls.map(c => c[0] as string);
+    expect(urls.filter(u => u.includes(MODEL_FALLBACK_CHAIN.gemini[1]))).toHaveLength(1);
+  });
 });
