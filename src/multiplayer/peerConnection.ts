@@ -16,7 +16,7 @@ export interface PeerConnectionCallbacks {
 
 /**
  * Shared shape between PeerConnectionManager (PeerJS broker signaling) and
- * ManualPeerConnectionManager (serverless offer/answer code signaling) — roomSession.ts
+ * LanPeerConnectionManager (local WebSocket relay signaling) — roomSession.ts
  * talks to whichever transport is active through this interface only.
  */
 export interface IConnectionManager {

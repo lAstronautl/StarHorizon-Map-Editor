@@ -10,8 +10,9 @@ interface Props {
   onJoined: () => void;
 }
 
-type ConnectMode = 'server' | 'manual';
-type ManualStep = 'idle' | 'awaiting-answer' | 'answer-created';
+type ConnectMode = 'server' | 'lan';
+
+const DEFAULT_LAN_PORT = '5140';
 
 /**
  * Main-menu entry point for joining someone else's session without a local resource
@@ -22,17 +23,14 @@ type ManualStep = 'idle' | 'awaiting-answer' | 'answer-created';
  */
 export const JoinRoomSection: React.FC<Props> = ({ multiplayer, onJoined }) => {
   const { t } = useT();
-  const { status, errorMessage, brokerStatus, joinRoom, joinRoomManual } = multiplayer;
+  const { status, errorMessage, brokerStatus, joinRoom, joinRoomLan } = multiplayer;
   const [nickname, setNickname] = useState('');
   const [joinTarget, setJoinTarget] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('room') ?? '';
   });
   const [mode, setMode] = useState<ConnectMode>('server');
-  const [manualStep, setManualStep] = useState<ManualStep>('idle');
-  const [manualAnswerCode, setManualAnswerCode] = useState('');
-  const [manualPastedOffer, setManualPastedOffer] = useState('');
-  const [manualCodeCopied, setManualCodeCopied] = useState(false);
+  const [lanJoinAddress, setLanJoinAddress] = useState('');
 
   const isBusy = status === 'connecting';
   const onJoinedRef = useRef(onJoined);
@@ -58,23 +56,15 @@ export const JoinRoomSection: React.FC<Props> = ({ multiplayer, onJoined }) => {
     if (target) joinRoom(nickname, target).catch(() => {});
   };
 
-  const handleManualAcceptOffer = () => {
-    if (!manualPastedOffer.trim()) return;
-    joinRoomManual(nickname, manualPastedOffer.trim()).then((code) => {
-      setManualAnswerCode(code);
-      setManualStep('answer-created');
-    }).catch(() => {});
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setManualCodeCopied(true);
-      setTimeout(() => setManualCodeCopied(false), 2000);
-    }).catch(() => {});
+  const handleLanJoin = () => {
+    const target = lanJoinAddress.trim();
+    if (!target) return;
+    const hasPort = /:\d+$/.test(target);
+    const relayUrl = `ws://${hasPort ? target : `${target}:${DEFAULT_LAN_PORT}`}`;
+    joinRoomLan(nickname, relayUrl).catch(() => {});
   };
 
   const inputClass = "bg-elevated border border-subtle rounded-sm text-primary text-xs px-2 py-1.5 w-full";
-  const primaryButtonClass = "w-full py-2.5 px-4 rounded-lg bg-accent text-white font-medium text-sm hover:brightness-110 active:brightness-90 transition-all cursor-pointer border-none outline-none disabled:opacity-50";
 
   return (
     <div className="flex flex-col gap-2">
@@ -95,16 +85,16 @@ export const JoinRoomSection: React.FC<Props> = ({ multiplayer, onJoined }) => {
 
       <div className="flex gap-1 bg-panel rounded-sm p-0.5">
         <button
-          onClick={() => { setMode('server'); setManualStep('idle'); }}
+          onClick={() => setMode('server')}
           className={`flex-1 text-xs px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'server' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
         >
           {t('multiplayer.modeServer')}
         </button>
         <button
-          onClick={() => { setMode('manual'); setManualStep('idle'); }}
-          className={`flex-1 text-xs px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'manual' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
+          onClick={() => setMode('lan')}
+          className={`flex-1 text-xs px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'lan' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
         >
-          {t('multiplayer.modeManual')}
+          {t('multiplayer.modeLan')}
         </button>
       </div>
 
@@ -127,40 +117,29 @@ export const JoinRoomSection: React.FC<Props> = ({ multiplayer, onJoined }) => {
         </div>
       )}
 
-      {mode === 'manual' && manualStep === 'idle' && (
+      {mode === 'lan' && (
         <div className="flex flex-col gap-2">
-          <p className="text-[11px] text-muted leading-relaxed">{t('multiplayer.manualJoinStep1')}</p>
-          <textarea
-            value={manualPastedOffer}
-            onChange={(e) => setManualPastedOffer(e.target.value)}
-            placeholder={t('multiplayer.manualOfferPlaceholder')}
-            rows={2}
-            className={`${inputClass} resize-none font-mono`}
-          />
-          <button onClick={handleManualAcceptOffer} disabled={isBusy || !manualPastedOffer.trim()} className={primaryButtonClass}>
-            {t('multiplayer.manualCreateAnswer')}
-          </button>
+          <p className="text-[11px] text-muted leading-relaxed">{t('multiplayer.lanJoinLabel')}</p>
+          <div className="flex gap-1">
+            <input
+              type="text"
+              value={lanJoinAddress}
+              onChange={(e) => setLanJoinAddress(e.target.value)}
+              placeholder={t('multiplayer.lanAddressPlaceholder')}
+              className={`flex-1 min-w-0 ${inputClass}`}
+            />
+            <button
+              onClick={handleLanJoin}
+              disabled={isBusy || !lanJoinAddress.trim()}
+              className="py-1.5 px-3 rounded-lg bg-accent text-white text-xs font-medium hover:brightness-110 cursor-pointer border-none disabled:opacity-50 whitespace-nowrap"
+            >
+              {t('multiplayer.joinRoom')}
+            </button>
+          </div>
         </div>
       )}
 
-      {mode === 'manual' && manualStep === 'answer-created' && (
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] text-muted">{t('multiplayer.manualYourAnswer')}</span>
-          <textarea
-            readOnly
-            value={manualAnswerCode}
-            rows={3}
-            className={`${inputClass} resize-none font-mono`}
-            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-          />
-          <button onClick={() => copyToClipboard(manualAnswerCode)} className={primaryButtonClass}>
-            {manualCodeCopied ? t('multiplayer.manualCodeCopied') : t('multiplayer.manualCopyAnswer')}
-          </button>
-          <span className="text-[11px] text-muted text-center">{t('multiplayer.connecting')}</span>
-        </div>
-      )}
-
-      {status === 'connecting' && mode === 'server' && (
+      {status === 'connecting' && (
         <span className="text-xs text-muted text-center">{t('multiplayer.connecting')}</span>
       )}
       {errorMessage && (

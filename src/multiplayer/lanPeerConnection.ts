@@ -4,10 +4,10 @@ import type { LanSignalMessage } from './lanSignaling';
 
 /**
  * WebRTC signaling over a small local WebSocket relay (scripts/lan-signal-server.mjs) that
- * the host runs on their own machine. Unlike ManualPeerConnectionManager's copy-paste offer/
- * answer codes, this uses trickle ICE — candidates are sent as they're discovered instead of
- * waiting for gathering to fully complete, and the relay makes joining automatic (enter the
- * host's LAN/Hamachi/Radmin IP and port, no manual code exchange). The relay only ever sees
+ * the host runs on their own machine. Uses trickle ICE — candidates are sent as they're
+ * discovered instead of waiting for gathering to fully complete — and the relay makes joining
+ * automatic (enter the host's LAN/Hamachi/Radmin IP and port, no manual code exchange). The
+ * relay only ever sees
  * SDP/ICE signaling messages, never map data — once a WebRTC DataChannel is open, all actual
  * traffic goes directly peer-to-peer and the relay is no longer involved for that pair.
  *

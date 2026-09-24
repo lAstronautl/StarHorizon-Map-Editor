@@ -235,7 +235,7 @@ export const EditorCanvas: React.FC<Props> = ({
     const decalFreePlace = !decalSettings.snap || e.shiftKey;
     if (s.selectedPaletteItem?.type === 'decal' && e.button === 0 && decalFreePlace) {
       const toolName = tool?.name ?? '';
-      const canPlace = !['entitySelect', 'select', 'pan', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(toolName);
+      const canPlace = !['entitySelect', 'select', 'pan', 'zoom', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(toolName);
       if (canPlace) {
         const world = screenToWorld(e.clientX, e.clientY, true);
         const activeGrid = s.grids[s.activeGridIndex];
@@ -763,7 +763,7 @@ export const EditorCanvas: React.FC<Props> = ({
     // Decal ghost preview when a decal palette item is selected
     // Only show when in a placement-compatible tool (paint, erase, fill, rectangle, line, circle, entityPlace)
     const currentToolName = toolRef.current?.name ?? '';
-    const isPlacementTool = !['entitySelect', 'select', 'pan', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(currentToolName);
+    const isPlacementTool = !['entitySelect', 'select', 'pan', 'zoom', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(currentToolName);
     if (!isSpaceHeldRef.current && isPlacementTool && s.selectedPaletteItem?.type === 'decal' && s.registry) {
       const settings = decalPlacementSettingsRef.current;
       const img = getDecalSprite(s.selectedPaletteItem.id, s.registry);

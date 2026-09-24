@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorState } from '../state/editorState';
 import type { EditorAction } from '../state/actions';
 import { PeerConnectionManager, type IConnectionManager } from './peerConnection';
-import { ManualPeerConnectionManager } from './manualPeerConnection';
 import { LanPeerConnectionManager } from './lanPeerConnection';
 import type { NetworkMessage, NetworkSnapshot, PresencePayload, ToolPreviewSnapshot } from './messages';
 import { createNetworkDispatch, applyRemoteAction, applyRemoteCommand, type RawDispatch } from './networkDispatch';
@@ -25,7 +24,7 @@ export interface RemotePresence extends PresencePayload {
 export type RoomStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 /** Whether the public PeerJS signaling broker looks reachable right now. Checked once on
- *  mount so the UI can steer users toward the serverless manual-code flow when it's down. */
+ *  mount so the UI can steer users toward LAN mode when it's down. */
 export type BrokerStatus = 'checking' | 'available' | 'unavailable';
 
 export interface UseMultiplayerResult {
@@ -42,10 +41,6 @@ export interface UseMultiplayerResult {
   joinRoom: (nickname: string, hostRoomId: string) => Promise<void>;
   leaveRoom: () => void;
   sendPresence: (cursorTileX: number | null, cursorTileY: number | null, preview: ToolPreviewSnapshot | null) => void;
-  /** Serverless fallback: exchange one-shot offer/answer codes directly, no broker involved. */
-  hostRoomManual: (nickname: string) => Promise<string>;
-  acceptManualAnswer: (answerCode: string) => Promise<void>;
-  joinRoomManual: (nickname: string, offerCode: string) => Promise<string>;
   /** LAN mode: signaling via a small local WebSocket relay the host runs themselves
    *  (scripts/lan-signal-server.mjs) — automatic (no code copy-paste), works over
    *  Hamachi/Radmin/plain LAN, no public broker involved at all. */
@@ -95,7 +90,6 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   }, []);
 
   const managerRef = useRef<IConnectionManager | null>(null);
-  const manualManagerRef = useRef<ManualPeerConnectionManager | null>(null);
   const rawDispatchRef = useRef(rawDispatch);
   rawDispatchRef.current = rawDispatch;
   const getStateRef = useRef(getState);
@@ -301,7 +295,6 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   const leaveRoom = useCallback(() => {
     managerRef.current?.disconnect();
     managerRef.current = null;
-    manualManagerRef.current = null;
     roleRef.current = null;
     setStatus('disconnected');
     setRole(null);
@@ -310,67 +303,6 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
     setPresenceByPeerId({});
     setErrorMessage(null);
   }, []);
-
-  // --- Serverless manual signaling (offer/answer code exchange, no broker at all) ---
-
-  /** Host step 1: produce the offer code. Connection isn't "live" yet — status stays
-   *  'connecting' until acceptManualAnswer() completes the handshake. */
-  const hostRoomManual = useCallback(async (nickname: string): Promise<string> => {
-    managerRef.current?.disconnect();
-    managerRef.current = null;
-
-    setStatus('connecting');
-    setErrorMessage(null);
-    myNameRef.current = nickname || 'Player';
-    myColorRef.current = getPeerColor(0);
-    nextPeerIndexRef.current = 1;
-    peerIndexByIdRef.current.clear();
-    roleRef.current = 'host';
-
-    const manager = new ManualPeerConnectionManager({
-      onPeerConnected: () => {
-        setRole('host');
-        setStatus('connected');
-        setPeers([{ peerId: 'manual-self', peerIndex: 0, name: myNameRef.current, color: myColorRef.current }]);
-      },
-      onPeerDisconnected: handlePeerDisconnected,
-      onMessage: handleMessage,
-      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
-    });
-    manualManagerRef.current = manager;
-    managerRef.current = manager;
-    return manager.createOffer();
-  }, [handleMessage, handlePeerDisconnected]);
-
-  /** Host step 2: apply the guest's answer code, completing the handshake. */
-  const acceptManualAnswer = useCallback(async (answerCode: string): Promise<void> => {
-    if (!manualManagerRef.current) throw new Error('No offer was created yet.');
-    await manualManagerRef.current.acceptAnswer(answerCode);
-  }, []);
-
-  /** Guest step 1: apply the host's offer code, producing the answer code to send back. */
-  const joinRoomManual = useCallback(async (nickname: string, offerCode: string): Promise<string> => {
-    managerRef.current?.disconnect();
-    managerRef.current = null;
-
-    setStatus('connecting');
-    setErrorMessage(null);
-    myNameRef.current = nickname || 'Player';
-    roleRef.current = 'guest';
-
-    const manager = new ManualPeerConnectionManager({
-      onPeerConnected: () => {
-        manager.broadcast({ type: 'snapshot-request', name: myNameRef.current });
-      },
-      onPeerDisconnected: handlePeerDisconnected,
-      onMessage: handleMessage,
-      onError: (err) => { setStatus('error'); setErrorMessage(err.message); },
-    });
-    manualManagerRef.current = manager;
-    managerRef.current = manager;
-    return manager.acceptOffer(offerCode);
-    // status becomes 'connected' once the snapshot arrives (handleMessage's 'snapshot' case)
-  }, [handleMessage, handlePeerDisconnected]);
 
   // --- LAN signaling (via a local WebSocket relay the host runs, automatic negotiation) ---
 
@@ -451,7 +383,7 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
 
   /** For a guest with no local fork: create a ResourceProvider that pulls files from
    *  the host over the already-open P2P connection. Must be called after the DataChannel
-   *  is open (i.e. after joinRoom()/joinRoomManual() resolves) but works before the map
+   *  is open (i.e. after joinRoom()/joinRoomLan() resolves) but works before the map
    *  snapshot itself arrives — registry loading and snapshot loading are independent. */
   const createRemoteResourceProvider = useCallback((forkName: string, onResourceReady: (path: string) => void): RemoteResourceProvider => {
     if (!managerRef.current) throw new Error('Not connected to a room.');
@@ -476,7 +408,6 @@ export function useMultiplayer(getState: () => EditorState, rawDispatch: RawDisp
   return {
     status, role, roomId, peers, presenceByPeerId, errorMessage, brokerStatus,
     networkDispatch, hostRoom, joinRoom, leaveRoom, sendPresence,
-    hostRoomManual, acceptManualAnswer, joinRoomManual,
     hostRoomLan, joinRoomLan, createRemoteResourceProvider,
   };
 }

@@ -23,6 +23,7 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   'e': 'erase',
   'i': 'eyedropper',
   'h': 'pan',
+  'z': 'zoom',
   'g': 'fill',
   'r': 'rectangle',
   'l': 'line',

@@ -11,6 +11,7 @@ import { DEFAULT_SYMMETRY_SETTINGS } from './tools/symmetrySettings';
 import type { SymmetrySettings } from './tools/symmetrySettings';
 import { EyedropperTool } from './tools/eyedropperTool';
 import { PanTool } from './tools/panTool';
+import { ZoomTool } from './tools/zoomTool';
 import { FillTool } from './tools/fillTool';
 import { RectangleTool } from './tools/rectangleTool';
 import { LineTool } from './tools/lineTool';
@@ -82,6 +83,7 @@ const TOOL_MAP: Record<string, ITool> = {
   erase: new EraseTool(),
   eyedropper: new EyedropperTool(),
   pan: new PanTool(),
+  zoom: new ZoomTool(),
   fill: new FillTool(),
   rectangle: new RectangleTool(),
   line: new LineTool(),

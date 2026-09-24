@@ -7,8 +7,7 @@ interface Props {
   multiplayer: UseMultiplayerResult;
 }
 
-type ConnectMode = 'server' | 'manual' | 'lan';
-type ManualStep = 'idle' | 'offer-created' | 'awaiting-answer' | 'answer-created';
+type ConnectMode = 'server' | 'lan';
 
 const DEFAULT_LAN_PORT = '5140';
 
@@ -16,8 +15,7 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
   const { t } = useT();
   const {
     status, role, roomId, peers, errorMessage, brokerStatus,
-    hostRoom, joinRoom, leaveRoom, hostRoomManual, acceptManualAnswer, joinRoomManual,
-    hostRoomLan, joinRoomLan,
+    hostRoom, joinRoom, leaveRoom, hostRoomLan, joinRoomLan,
   } = multiplayer;
   const [nickname, setNickname] = useState('');
   const [joinTarget, setJoinTarget] = useState(() => {
@@ -27,13 +25,6 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [mode, setMode] = useState<ConnectMode>('server');
-  const [manualStep, setManualStep] = useState<ManualStep>('idle');
-  const [manualOfferCode, setManualOfferCode] = useState('');
-  const [manualAnswerCode, setManualAnswerCode] = useState('');
-  const [manualPastedOffer, setManualPastedOffer] = useState('');
-  const [manualPastedAnswer, setManualPastedAnswer] = useState('');
-  const [manualCodeCopied, setManualCodeCopied] = useState(false);
-
   const [lanPort, setLanPort] = useState(DEFAULT_LAN_PORT);
   const [lanJoinAddress, setLanJoinAddress] = useState('');
 
@@ -66,33 +57,6 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
     }).catch(() => {});
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setManualCodeCopied(true);
-      setTimeout(() => setManualCodeCopied(false), 2000);
-    }).catch(() => {});
-  };
-
-  const handleManualCreateOffer = () => {
-    hostRoomManual(nickname).then((code) => {
-      setManualOfferCode(code);
-      setManualStep('offer-created');
-    }).catch(() => {});
-  };
-
-  const handleManualAcceptAnswer = () => {
-    if (!manualPastedAnswer.trim()) return;
-    acceptManualAnswer(manualPastedAnswer.trim()).catch(() => {});
-  };
-
-  const handleManualAcceptOffer = () => {
-    if (!manualPastedOffer.trim()) return;
-    joinRoomManual(nickname, manualPastedOffer.trim()).then((code) => {
-      setManualAnswerCode(code);
-      setManualStep('answer-created');
-    }).catch(() => {});
-  };
-
   const handleLanHost = () => {
     const port = lanPort.trim() || DEFAULT_LAN_PORT;
     hostRoomLan(nickname, `ws://localhost:${port}`).catch(() => {});
@@ -105,14 +69,6 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
     const hasPort = /:\d+$/.test(target);
     const relayUrl = `ws://${hasPort ? target : `${target}:${DEFAULT_LAN_PORT}`}`;
     joinRoomLan(nickname, relayUrl).catch(() => {});
-  };
-
-  const resetManualFlow = () => {
-    setManualStep('idle');
-    setManualOfferCode('');
-    setManualAnswerCode('');
-    setManualPastedOffer('');
-    setManualPastedAnswer('');
   };
 
   const inputClass = "bg-elevated border border-subtle rounded-sm text-primary text-[11px] px-1.5 py-1";
@@ -144,19 +100,13 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
 
           <div className="flex gap-1 bg-panel rounded-sm p-0.5">
             <button
-              onClick={() => { setMode('server'); resetManualFlow(); }}
+              onClick={() => setMode('server')}
               className={`flex-1 text-[10px] px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'server' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
             >
               {t('multiplayer.modeServer')}
             </button>
             <button
-              onClick={() => { setMode('manual'); resetManualFlow(); }}
-              className={`flex-1 text-[10px] px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'manual' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
-            >
-              {t('multiplayer.modeManual')}
-            </button>
-            <button
-              onClick={() => { setMode('lan'); resetManualFlow(); }}
+              onClick={() => setMode('lan')}
               className={`flex-1 text-[10px] px-2 py-1 rounded-sm cursor-pointer border-none ${mode === 'lan' ? 'bg-accent text-white' : 'bg-transparent text-muted hover:text-primary'}`}
             >
               {t('multiplayer.modeLan')}
@@ -186,90 +136,6 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
                 </button>
               </div>
             </>
-          )}
-
-          {mode === 'manual' && (
-            <div className="flex flex-col gap-2">
-              {manualStep === 'idle' && (
-                <>
-                  <p className="text-[10px] text-muted leading-relaxed">{t('multiplayer.manualHostStep1')}</p>
-                  <button onClick={handleManualCreateOffer} disabled={isBusy} className={primaryButtonClass}>
-                    {t('multiplayer.manualCreateCode')}
-                  </button>
-                  <div className="h-px bg-subtle my-1" />
-                  <p className="text-[10px] text-muted leading-relaxed">{t('multiplayer.manualJoinStep1')}</p>
-                  <textarea
-                    value={manualPastedOffer}
-                    onChange={(e) => setManualPastedOffer(e.target.value)}
-                    placeholder={t('multiplayer.manualOfferPlaceholder')}
-                    rows={2}
-                    className={`${inputClass} resize-none font-mono`}
-                  />
-                  <button
-                    onClick={handleManualAcceptOffer}
-                    disabled={isBusy || !manualPastedOffer.trim()}
-                    className={primaryButtonClass}
-                  >
-                    {t('multiplayer.manualCreateAnswer')}
-                  </button>
-                </>
-              )}
-
-              {manualStep === 'offer-created' && (
-                <>
-                  <span className="text-[10px] text-muted">{t('multiplayer.manualYourCode')}</span>
-                  <textarea
-                    readOnly
-                    value={manualOfferCode}
-                    rows={3}
-                    className={`${inputClass} resize-none font-mono`}
-                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                  />
-                  <button onClick={() => copyToClipboard(manualOfferCode)} className={primaryButtonClass}>
-                    {manualCodeCopied ? t('multiplayer.manualCodeCopied') : t('multiplayer.manualCopyCode')}
-                  </button>
-                  <div className="h-px bg-subtle my-1" />
-                  <span className="text-[10px] text-muted">{t('multiplayer.manualWaitingForAnswer')}</span>
-                  <textarea
-                    value={manualPastedAnswer}
-                    onChange={(e) => setManualPastedAnswer(e.target.value)}
-                    placeholder={t('multiplayer.manualAnswerPlaceholder')}
-                    rows={2}
-                    className={`${inputClass} resize-none font-mono`}
-                  />
-                  <button
-                    onClick={handleManualAcceptAnswer}
-                    disabled={!manualPastedAnswer.trim()}
-                    className={primaryButtonClass}
-                  >
-                    {t('multiplayer.manualConnect')}
-                  </button>
-                  <button onClick={resetManualFlow} className={secondaryButtonClass}>
-                    {t('common.cancel')}
-                  </button>
-                </>
-              )}
-
-              {manualStep === 'answer-created' && (
-                <>
-                  <span className="text-[10px] text-muted">{t('multiplayer.manualYourAnswer')}</span>
-                  <textarea
-                    readOnly
-                    value={manualAnswerCode}
-                    rows={3}
-                    className={`${inputClass} resize-none font-mono`}
-                    onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                  />
-                  <button onClick={() => copyToClipboard(manualAnswerCode)} className={primaryButtonClass}>
-                    {manualCodeCopied ? t('multiplayer.manualCodeCopied') : t('multiplayer.manualCopyAnswer')}
-                  </button>
-                  <span className="text-[10px] text-muted">{t('multiplayer.connecting')}</span>
-                  <button onClick={resetManualFlow} className={secondaryButtonClass}>
-                    {t('common.cancel')}
-                  </button>
-                </>
-              )}
-            </div>
           )}
 
           {mode === 'lan' && (
@@ -312,7 +178,7 @@ export const MultiplayerPanel: React.FC<Props> = ({ multiplayer }) => {
             </div>
           )}
 
-          {status === 'connecting' && (mode === 'server' || mode === 'lan') && (
+          {status === 'connecting' && (
             <span className="text-[11px] text-muted">{t('multiplayer.connecting')}</span>
           )}
           {errorMessage && (

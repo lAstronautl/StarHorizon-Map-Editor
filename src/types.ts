@@ -67,7 +67,7 @@ export interface InfrastructureLayout {
 
 // ---- Editor-specific types ----
 
-export type ToolType = 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line' | 'circle' | 'select' | 'polygon' | 'pan' | 'entitySelect' | 'cableDraw' | 'pipeDraw' | 'deviceLink' | 'prefabPlace';
+export type ToolType = 'paint' | 'erase' | 'eyedropper' | 'fill' | 'rectangle' | 'line' | 'circle' | 'select' | 'polygon' | 'pan' | 'zoom' | 'entitySelect' | 'cableDraw' | 'pipeDraw' | 'deviceLink' | 'prefabPlace';
 
 // ---- Infrastructure drawing ----
 
