@@ -29,7 +29,7 @@ interface Props {
 /** Imperative handle so callers outside the panel (e.g. canvas drag & drop) can
  *  register a prefab into the visible list and select it, as if imported via '+'. */
 export interface PrefabPanelHandle {
-  addAndSelectPrefab: (data: PrefabData, filename: string) => void;
+  addAndSelectPrefab: (data: PrefabData, filename: string, folder?: string) => void;
   /** Parse a dropped .prefab.json/.json/.yml/.yaml file's raw text and register it,
    *  surfacing a visible error in this panel if parsing fails (instead of failing silently). */
   handleDroppedFile: (content: string, filename: string) => void;
@@ -107,14 +107,15 @@ export const PrefabPanel = forwardRef<PrefabPanelHandle, Props>(({ onSelectPrefa
     onSelectPrefab(prefab.data);
   }, [onSelectPrefab]);
 
-  /** Add a locally-sourced prefab (root folder) to the list, replacing any prior
-   *  entry with the same filename, then select it for placement. */
-  const registerLocalPrefab = useCallback((data: PrefabData, filename: string) => {
+  /** Add a locally-sourced prefab to the list (root folder by default, e.g. an imported
+   *  .prefab.json/.yml — or a named folder such as "convertation" for image-import results),
+   *  replacing any prior entry with the same filename+folder, then select it for placement. */
+  const registerLocalPrefab = useCallback((data: PrefabData, filename: string, folder = '') => {
     setPrefabs(prev => {
-      const filtered = prev.filter(p => !(p.filename === filename && p.folder === ''));
-      return [...filtered, { data, filename, folder: '' }];
+      const filtered = prev.filter(p => !(p.filename === filename && p.folder === folder));
+      return [...filtered, { data, filename, folder }];
     });
-    handleSelect({ data, filename, folder: '' });
+    handleSelect({ data, filename, folder });
   }, [handleSelect]);
 
   const handleDroppedFile = useCallback((content: string, filename: string) => {

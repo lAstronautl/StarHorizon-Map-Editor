@@ -8,6 +8,7 @@ import { DecalPalette } from './DecalPalette';
 import type { DecalPlacementSettings } from './DecalPalette';
 import { PrefabPanel } from './PrefabPanel';
 import type { PrefabPanelHandle } from './PrefabPanel';
+import { ImageImportPanel } from './ImageImportPanel';
 import { useT } from '../i18n';
 
 interface Props {
@@ -18,12 +19,12 @@ interface Props {
   decalPlacementSettingsRef?: React.MutableRefObject<DecalPlacementSettings>;
 }
 
-type Tab = 'tiles' | 'entities' | 'decals' | 'prefabs';
+type Tab = 'tiles' | 'entities' | 'decals' | 'prefabs' | 'imageImport';
 
 /** Imperative handle so callers outside the panel (e.g. canvas drag & drop) can
  *  register a dropped prefab, switching to the Prefabs tab so it's visible. */
 export interface PalettePanelHandle {
-  addAndSelectDroppedPrefab: (data: PrefabData, filename: string) => void;
+  addAndSelectDroppedPrefab: (data: PrefabData, filename: string, folder?: string) => void;
 }
 
 export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, selectedItem, onSelect, onSelectPrefab, decalPlacementSettingsRef }, ref) => {
@@ -40,9 +41,9 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
 
   // PrefabPanel stays mounted at all times (see render below), so its ref is always
   // attached — no need to defer these calls until after a tab-switch remount.
-  const addAndSelectDroppedPrefab = useCallback((data: PrefabData, filename: string) => {
+  const addAndSelectDroppedPrefab = useCallback((data: PrefabData, filename: string, folder?: string) => {
     setActiveTab('prefabs');
-    prefabPanelRef.current?.addAndSelectPrefab(data, filename);
+    prefabPanelRef.current?.addAndSelectPrefab(data, filename, folder);
   }, []);
 
   /** Switch to the Prefabs tab and hand raw dropped file text to PrefabPanel, which parses
@@ -121,6 +122,9 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
         <TabButton label={t('palettePanel.tabs.entities')} active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
         <TabButton label={t('palettePanel.tabs.decals')} active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
         <TabButton label={t('palettePanel.tabs.prefabs')} active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
+        {onSelectPrefab && (
+          <TabButton label={t('palettePanel.tabs.imageImport')} active={activeTab === 'imageImport'} onClick={() => setActiveTab('imageImport')} />
+        )}
       </div>
 
       {/* All tab contents stay mounted at all times (visibility toggled via CSS) instead of
@@ -146,6 +150,11 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
       {onSelectPrefab && (
         <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'prefabs' ? '' : 'hidden'}`}>
           <PrefabPanel ref={prefabPanelRef} onSelectPrefab={onSelectPrefab} />
+        </div>
+      )}
+      {onSelectPrefab && (
+        <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'imageImport' ? '' : 'hidden'}`}>
+          <ImageImportPanel registry={registry} onConverted={addAndSelectDroppedPrefab} />
         </div>
       )}
     </div>

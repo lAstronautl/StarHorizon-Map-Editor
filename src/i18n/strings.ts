@@ -92,7 +92,25 @@ export const strings: Record<string, Record<Locale, string>> = {
   'palettePanel.tabs.entities': { ru: 'Сущности', en: 'Entities' },
   'palettePanel.tabs.decals': { ru: 'Декали', en: 'Decals' },
   'palettePanel.tabs.prefabs': { ru: 'Префабы', en: 'Prefabs' },
+  'palettePanel.tabs.imageImport': { ru: 'Импорт изображения', en: 'Image Import' },
   'palettePanel.dropAsPrefab': { ru: 'Отпустите, чтобы сохранить как префаб', en: 'Drop to save as a prefab' },
+
+  // ImageImportPanel
+  'imageImportPanel.chooseImage': { ru: 'Выбрать изображение...', en: 'Choose image...' },
+  'imageImportPanel.clear': { ru: 'Очистить изображение', en: 'Clear image' },
+  'imageImportPanel.dropHint': { ru: 'Перетащите PNG/JPG сюда или нажмите, чтобы выбрать', en: 'Drop a PNG/JPG here or click to choose' },
+  'imageImportPanel.dimensions': { ru: '{width}×{height} пикселей', en: '{width}×{height} pixels' },
+  'imageImportPanel.mappedCount': { ru: 'Сопоставлено: {mapped} из {total}', en: 'Mapped: {mapped} of {total}' },
+  'imageImportPanel.autogenerate': { ru: 'Автогенерировать', en: 'Autogenerate' },
+  'imageImportPanel.autogenBusy': { ru: 'Вычисление цветов тайлов...', en: 'Computing tile colors...' },
+  'imageImportPanel.tooManyColors': { ru: 'В изображении слишком много цветов ({count}, лимит {limit}). Список сопоставления будет работать очень медленно. Уменьшите количество цветов, чтобы продолжить.', en: 'The image has too many colors ({count}, limit {limit}). The mapping list would be very slow. Reduce the color count to continue.' },
+  'imageImportPanel.reduceColors': { ru: 'Уменьшить количество цветов', en: 'Reduce color count' },
+  'imageImportPanel.reducingColors': { ru: 'Уменьшение...', en: 'Reducing...' },
+  'imageImportPanel.convert': { ru: 'Конвертировать', en: 'Convert' },
+  'imageImportPanel.tileSearchPlaceholder': { ru: 'Поиск тайла...', en: 'Search tile...' },
+  'imageImportPanel.entitiesPlaceholder': { ru: 'Сущности через пробел (необязательно)', en: 'Entities separated by spaces (optional)' },
+  'imageImportPanel.loadFailed': { ru: 'Не удалось загрузить изображение: {error}', en: 'Failed to load image: {error}' },
+  'imageImportPanel.autogenFailed': { ru: 'Автогенерация не удалась: {error}', en: 'Autogenerate failed: {error}' },
 
   // GridTabBar
   'gridTabBar.renameGridPrompt': { ru: 'Переименовать сетку:', en: 'Rename grid:' },
