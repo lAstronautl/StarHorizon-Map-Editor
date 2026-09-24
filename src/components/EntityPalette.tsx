@@ -10,8 +10,11 @@ interface Props {
   onSelect: (item: PaletteItem) => void;
 }
 
-/** Entities tagged HideSpawnMenu are debug/internal spawns, hidden by default. */
-const isDebugEntity = (e: ResolvedEntity) => e.categories?.includes('HideSpawnMenu') ?? false;
+/** Entities tagged HideSpawnMenu, or with a "DEBUG" suffix, are debug/internal spawns,
+ *  hidden by default (matches the SS14 client's own entity spawn menu behavior). */
+const isDebugEntity = (e: ResolvedEntity) =>
+  (e.categories?.includes('HideSpawnMenu') ?? false) ||
+  (typeof e.suffix === 'string' && e.suffix.toUpperCase() === 'DEBUG');
 
 /** Common entity categories to prioritize at top */
 const PRIORITY_CATEGORIES = [

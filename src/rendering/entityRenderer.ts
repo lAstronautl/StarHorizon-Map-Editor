@@ -508,7 +508,11 @@ export function getEntitySprite(
         entitySpriteCache.set(cacheKey, drawInfo);
         markSceneDirty();
       })
-      .catch(() => {
+      .catch((err) => {
+        // NOT_READY (RemoteResourceProvider hasn't fetched the bytes yet) is transient —
+        // leave the cache empty so the next getEntitySprite() call retries instead of
+        // permanently freezing on "no sprite".
+        if (err instanceof Error && err.message === 'NOT_READY') return;
         entitySpriteCache.set(cacheKey, null);
       })
       .finally(() => {
@@ -623,7 +627,14 @@ function getExtraLayers(
     };
 
     layerPromises.push(
-      loadSprite(layerSpriteInfo, direction, 0).then(sprite => sprite ? { sprite, isPipeLayer } : null),
+      loadSprite(layerSpriteInfo, direction, 0)
+        .then(sprite => sprite ? { sprite, isPipeLayer } : null)
+        .catch((err) => {
+          // Re-throw NOT_READY so it can short-circuit the whole batch below (retry later)
+          // instead of being swallowed and this one layer just silently missing forever.
+          if (err instanceof Error && err.message === 'NOT_READY') throw err;
+          return null;
+        }),
     );
   }
 
@@ -633,7 +644,8 @@ function getExtraLayers(
       extraLayerCache.set(cacheKey, validLayers.length > 0 ? validLayers : null);
       markSceneDirty();
     })
-    .catch(() => {
+    .catch((err) => {
+      if (err instanceof Error && err.message === 'NOT_READY') return; // retry next call
       extraLayerCache.set(cacheKey, null);
     })
     .finally(() => {

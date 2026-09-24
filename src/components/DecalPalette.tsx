@@ -55,10 +55,16 @@ function getDecalThumbnail(decal: DecalPrototypeInfo): string | null | undefined
   if (thumbCache.has(decal.id)) return thumbCache.get(decal.id)!;
   if (pendingLoads.has(decal.id)) return undefined; // still loading
 
-  const url = getDecalThumbUrl(decal);
-  if (!url) {
+  if (!decal.state) {
     thumbCache.set(decal.id, null);
     return null;
+  }
+  const url = getDecalThumbUrl(decal);
+  if (!url) {
+    // No URL yet (e.g. RemoteResourceProvider still fetching from the host) — return
+    // undefined (not cached) so DecalThumbnail's polling loop below retries shortly,
+    // instead of freezing on "no thumbnail" forever.
+    return undefined;
   }
   pendingLoads.add(decal.id);
   const img = new Image();

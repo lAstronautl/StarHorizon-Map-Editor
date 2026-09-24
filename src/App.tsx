@@ -7,15 +7,19 @@ import type { ITool } from './tools/toolTypes';
 import { PaintTool } from './tools/paintTool';
 import { EraseTool, DEFAULT_ERASE_SETTINGS } from './tools/eraseTool';
 import type { EraseSettings } from './tools/eraseTool';
+import { DEFAULT_BRUSH_SETTINGS } from './tools/brushSettings';
+import type { BrushSettings } from './tools/brushSettings';
+import { DEFAULT_SYMMETRY_SETTINGS } from './tools/symmetrySettings';
+import type { SymmetrySettings } from './tools/symmetrySettings';
 import { EyedropperTool } from './tools/eyedropperTool';
 import { PanTool } from './tools/panTool';
+import { ZoomTool } from './tools/zoomTool';
 import { FillTool } from './tools/fillTool';
 import { RectangleTool } from './tools/rectangleTool';
 import { LineTool } from './tools/lineTool';
 import { SelectTool } from './tools/selectTool';
 import { CircleTool } from './tools/circleTool';
 import { EntitySelectTool } from './tools/entitySelectTool';
-import { EntityPlaceTool } from './tools/entityPlaceTool';
 import { CableDrawTool } from './tools/cableDrawTool';
 import { PipeDrawTool } from './tools/pipeDrawTool';
 import { DeviceLinkTool } from './tools/deviceLinkTool';
@@ -32,11 +36,15 @@ import type { DecalPlacementSettings } from './components/DecalPalette';
 import { EntityInfoPanel } from './components/EntityInfoPanel';
 import { DecalInfoPanel } from './components/DecalInfoPanel';
 import { EraseSettingsPanel } from './components/EraseSettingsPanel';
+import { SymmetrySettingsPanel } from './components/SymmetrySettingsPanel';
+import { BrushSettingsPanel } from './components/BrushSettingsPanel';
+import { SelectionInfoPanel } from './components/SelectionInfoPanel';
 import { MenuBar } from './components/MenuBar';
 import { StatusBar } from './components/StatusBar';
 import { LoadingScreen } from './components/LoadingScreen';
 import { LayerPanel } from './components/LayerPanel';
 import { useKeyboard } from './hooks/useKeyboard';
+import { useAnimationFrame } from './hooks/useAnimationFrame';
 import { initRegistry } from './loaders/initRegistry';
 import { setActiveProvider, HttpResourceProvider } from './loaders/resourceProvider';
 import type { ResourceProvider } from './loaders/resourceProvider';
@@ -53,6 +61,7 @@ import { CollapsiblePanel } from './components/CollapsiblePanel';
 import { GridTabBar } from './components/GridTabBar';
 import { ConfirmModal } from './components/ConfirmModal';
 import { BenchmarkOverlay } from './components/BenchmarkOverlay';
+import { useMultiplayer } from './multiplayer/roomSession';
 import { markSceneDirty, markOverlayDirty, markAllDirty } from './rendering/dirtyFlags';
 import { buildTransformComponent } from './tools/entityHelpers';
 import { resetAllCaches } from './loaders/resetAllCaches';
@@ -64,24 +73,27 @@ import { useT } from './i18n';
 import './App.css';
 
 const entitySelectTool = new EntitySelectTool();
-const entityPlaceTool = new EntityPlaceTool();
+const paintTool = new PaintTool();
+// Entity placement (rotation, free placement, sprite ghost) now lives inside PaintTool,
+// used whenever the palette selection is an entity — see paintTool.ts's isEntityMode.
+const entityPlaceTool = paintTool.entityPlaceTool;
 const cableDrawTool = new CableDrawTool();
 const pipeDrawTool = new PipeDrawTool();
 const deviceLinkTool = new DeviceLinkTool();
 const prefabPlaceTool = new PrefabPlaceTool();
 
 const TOOL_MAP: Record<string, ITool> = {
-  paint: new PaintTool(),
+  paint: paintTool,
   erase: new EraseTool(),
   eyedropper: new EyedropperTool(),
   pan: new PanTool(),
+  zoom: new ZoomTool(),
   fill: new FillTool(),
   rectangle: new RectangleTool(),
   line: new LineTool(),
   select: new SelectTool(),
   circle: new CircleTool(),
   entitySelect: entitySelectTool,
-  entityPlace: entityPlaceTool,
   cableDraw: cableDrawTool,
   pipeDraw: pipeDrawTool,
   deviceLink: deviceLinkTool,
@@ -90,7 +102,12 @@ const TOOL_MAP: Record<string, ITool> = {
 
 export const App: React.FC = () => {
   const { t } = useT();
-  const [state, dispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const [state, rawDispatch] = useReducer(editorReducer, undefined, createInitialState);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const getState = useCallback(() => stateRef.current, []);
+  const multiplayer = useMultiplayer(getState, rawDispatch);
+  const dispatch = multiplayer.networkDispatch;
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('space-station-14-map-editor-disclaimer-dismissed'));
   const [statusMessage, setStatusMessage] = useState(() => t('app.status.ready'));
   const [loadingMessage, setLoadingMessage] = useState(() => t('app.loading.discoveringPrototypes'));
@@ -122,10 +139,13 @@ export const App: React.FC = () => {
   const [infraSelection, setInfraSelection] = useState<InfrastructureSelection>({
     mode: 'cable', cableType: 'CableHV', pipeType: 'supply', pipeLayer: 'Primary',
   });
+  const [selectionSummary, setSelectionSummary] = useState<{ tileCount: number; entityCount: number; decalCount: number } | null>(null);
   const cameraRef = useRef(new Camera());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const decalPlacementSettingsRef = useRef<DecalPlacementSettings>({ ...DEFAULT_DECAL_PLACEMENT_SETTINGS });
   const eraseSettingsRef = useRef<EraseSettings>({ ...DEFAULT_ERASE_SETTINGS });
+  const brushSettingsRef = useRef<BrushSettings>({ ...DEFAULT_BRUSH_SETTINGS });
+  const symmetrySettingsRef = useRef<SymmetrySettings>({ ...DEFAULT_SYMMETRY_SETTINGS });
   const palettePanelRef = useRef<PalettePanelHandle>(null);
   const preEyedropperToolRef = useRef<ToolType>('paint');
 
@@ -159,6 +179,16 @@ export const App: React.FC = () => {
     });
   }, []);
 
+  // Called once a guest's P2P connection to the host is open (before any map snapshot
+  // arrives) — the guest has no local fork on disk, so it pulls every texture/prototype
+  // from the host over the DataChannel instead, lazily and on demand.
+  const handleJoinedWithoutFork = useCallback(() => {
+    const provider = multiplayer.createRemoteResourceProvider(t('app.remoteForkName'), () => {
+      markAllDirty();
+    });
+    handleForkReady(provider, provider.forkName);
+  }, [multiplayer, handleForkReady]);
+
   const handleSwitchFork = useCallback(() => {
     if (forkProvider) {
       forkProvider.dispose();
@@ -191,19 +221,13 @@ export const App: React.FC = () => {
   }, [state.selectedEntityUids, state.entities]);
 
   const handleSelectTool = useCallback((tool: ToolType) => {
-    // Redirect entityPlace to paint when a decal palette item is active
-    // (entityPlace only handles entities, not decals)
-    if (tool === 'entityPlace' && state.selectedPaletteItem?.type === 'decal') {
-      dispatch({ type: 'SET_TOOL', tool: 'paint' });
-      return;
-    }
     // Remember the tool active before switching to the eyedropper, so picking an
-    // item restores it instead of always landing on paint/entityPlace.
+    // item restores it instead of always landing on paint.
     if (tool === 'eyedropper' && state.activeTool !== 'eyedropper') {
       preEyedropperToolRef.current = state.activeTool;
     }
     dispatch({ type: 'SET_TOOL', tool });
-  }, [state.selectedPaletteItem, state.activeTool]);
+  }, [state.activeTool]);
 
   const handleSelectPaletteItem = useCallback((item: PaletteItem) => {
     dispatch({ type: 'SET_PALETTE_ITEM', item });
@@ -507,6 +531,37 @@ export const App: React.FC = () => {
     }
   }, [state.activeTool, state.selectedEntityUids, state.selectedDecalIds, makeToolContext, getSelectTool, rotateSelectedDecals]);
 
+  const handleMirrorSelection = useCallback((axis: 'horizontal' | 'vertical') => {
+    getSelectTool()?.mirrorSelection(makeToolContext(), axis);
+  }, [getSelectTool, makeToolContext]);
+
+  // Poll the select tool's (non-React) selection state each frame while it's active,
+  // so the selection info panel stays in sync with marquee drags/moves/undo without
+  // the tool needing to know about React at all.
+  useAnimationFrame(() => {
+    if (state.activeTool !== 'select') {
+      if (selectionSummary !== null) setSelectionSummary(null);
+      return;
+    }
+    const tool = getSelectTool();
+    const summary = tool?.hasSelection() ? tool.getSelectionSummary(makeToolContext()) : null;
+    setSelectionSummary(prev => {
+      if (!summary && !prev) return prev;
+      if (summary && prev && summary.tileCount === prev.tileCount && summary.entityCount === prev.entityCount && summary.decalCount === prev.decalCount) {
+        return prev;
+      }
+      return summary;
+    });
+  });
+
+  // Broadcast our own cursor position + any uncommitted tool preview (paint stroke,
+  // marquee) to the room each frame, so other players see it as a live ghost overlay.
+  useAnimationFrame(() => {
+    if (multiplayer.status !== 'connected') return;
+    const preview = activeTool?.getRemotePreviewSnapshot?.() ?? null;
+    multiplayer.sendPresence(cursorTile.x, cursorTile.y, preview);
+  });
+
   const handleUpdateEntity = useCallback((updated: import('./import/mapImporter').ImportedEntity) => {
     const original = state.entities.find(e => e.uid === updated.uid);
     if (!original) return;
@@ -523,8 +578,10 @@ export const App: React.FC = () => {
     });
   }, [state.entities, dispatch, t]);
 
+  const isEntityPlacementActive = state.activeTool === 'paint' && state.selectedPaletteItem?.type === 'entity';
+
   const handleCycleEntityRotationCW = useCallback(() => {
-    if (state.activeTool === 'entityPlace') {
+    if (isEntityPlacementActive) {
       entityPlaceTool.cycleRotation('cw');
     }
     // Rotate decal placement angle by 90° CW
@@ -532,10 +589,10 @@ export const App: React.FC = () => {
       const settings = decalPlacementSettingsRef.current;
       decalPlacementSettingsRef.current = { ...settings, angle: settings.angle - Math.PI / 2 };
     }
-  }, [state.activeTool, state.selectedPaletteItem]);
+  }, [isEntityPlacementActive, state.selectedPaletteItem]);
 
   const handleCycleEntityRotationCCW = useCallback(() => {
-    if (state.activeTool === 'entityPlace') {
+    if (isEntityPlacementActive) {
       entityPlaceTool.cycleRotation('ccw');
     }
     // Rotate decal placement angle by 90° CCW
@@ -543,7 +600,7 @@ export const App: React.FC = () => {
       const settings = decalPlacementSettingsRef.current;
       decalPlacementSettingsRef.current = { ...settings, angle: settings.angle + Math.PI / 2 };
     }
-  }, [state.activeTool]);
+  }, [isEntityPlacementActive, state.selectedPaletteItem]);
 
   const keyboardActions = useMemo(() => ({
     onSetTool: handleSelectTool,
@@ -555,12 +612,12 @@ export const App: React.FC = () => {
     onDelete: handleDelete,
     onRotateEntityCW: (state.activeTool === 'entitySelect' && (state.selectedEntityUids.length > 0 || state.selectedDecalIds.length > 0 || entitySelectTool.isPasting())) || state.activeTool === 'select' ? handleRotateEntityCW : undefined,
     onRotateEntityCCW: (state.activeTool === 'entitySelect' && (state.selectedEntityUids.length > 0 || state.selectedDecalIds.length > 0 || entitySelectTool.isPasting())) || state.activeTool === 'select' ? handleRotateEntityCCW : undefined,
-    onCycleEntityRotationCW: state.activeTool === 'entityPlace' || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCW : undefined,
-    onCycleEntityRotationCCW: state.activeTool === 'entityPlace' || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCCW : undefined,
+    onCycleEntityRotationCW: isEntityPlacementActive || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCW : undefined,
+    onCycleEntityRotationCCW: isEntityPlacementActive || state.selectedPaletteItem?.type === 'decal' ? handleCycleEntityRotationCCW : undefined,
     onEscape: state.activeTool === 'deviceLink' ? () => deviceLinkTool.cancelLinking() : undefined,
     onShowShortcuts: () => setShowShortcuts(s => !s),
     onFocusSearch: () => searchInputRef.current?.focus(),
-  }), [handleSelectTool, handleUndo, handleRedo, handleCopy, handleCut, handlePaste, handleDelete, handleRotateEntityCW, handleRotateEntityCCW, handleCycleEntityRotationCW, handleCycleEntityRotationCCW, state.activeTool, state.selectedEntityUids, state.selectedDecalIds, state.selectedPaletteItem]);
+  }), [handleSelectTool, handleUndo, handleRedo, handleCopy, handleCut, handlePaste, handleDelete, handleRotateEntityCW, handleRotateEntityCCW, handleCycleEntityRotationCW, handleCycleEntityRotationCCW, state.activeTool, state.selectedEntityUids, state.selectedDecalIds, state.selectedPaletteItem, isEntityPlacementActive]);
 
   const { isSpaceHeld, isRHeld } = useKeyboard(keyboardActions);
 
@@ -607,7 +664,15 @@ export const App: React.FC = () => {
 
   // Show fork selector when no provider selected yet
   if (!forkProvider) {
-    return <ForkSelector onReady={handleForkReady} builtInAvailable={builtInAvailable} builtInForkName={builtInForkName} />;
+    return (
+      <ForkSelector
+        onReady={handleForkReady}
+        builtInAvailable={builtInAvailable}
+        builtInForkName={builtInForkName}
+        multiplayer={multiplayer}
+        onJoinedWithoutFork={handleJoinedWithoutFork}
+      />
+    );
   }
 
   // Show loading screen while registry loads
@@ -631,7 +696,7 @@ export const App: React.FC = () => {
             borderRadius: 8, padding: '32px 40px', maxWidth: 480,
             color: '#ccc', fontSize: 14, lineHeight: 1.7, textAlign: 'center',
           }}>
-            <img src={withBase('/images/clown.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
+            <img src={withBase('/images/chief_engineer.png')} alt="" style={{ width: 64, height: 64, imageRendering: 'pixelated', marginBottom: 12, display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
             <h2 style={{ color: '#fff', margin: '0 0 16px', fontSize: 20 }}>
               {t('app.disclaimer.title')}
             </h2>
@@ -741,6 +806,7 @@ export const App: React.FC = () => {
             onSearchNavigate={handleSearchNavigate}
             searchInputRef={searchInputRef}
             onValidate={handleValidate}
+            multiplayer={multiplayer}
             onToggleAiChat={() => setShowAiChat(v => !v)}
           />
           <div
@@ -783,8 +849,11 @@ export const App: React.FC = () => {
               lightingEnabled={state.lightingEnabled}
               decalPlacementSettingsRef={decalPlacementSettingsRef}
               eraseSettingsRef={eraseSettingsRef}
+              symmetrySettingsRef={symmetrySettingsRef}
+              brushSettingsRef={brushSettingsRef}
               previousToolRef={preEyedropperToolRef}
               highlightTile={highlightTile}
+              presenceByPeerId={multiplayer.presenceByPeerId}
             />
           </div>
         </div>
@@ -845,7 +914,33 @@ export const App: React.FC = () => {
           )}
           {state.activeTool === 'erase' && (
             <CollapsiblePanel title={t('app.panel.eraseSettings')} defaultOpen={true}>
-              <EraseSettingsPanel settingsRef={eraseSettingsRef} />
+              <EraseSettingsPanel settingsRef={eraseSettingsRef} brushSettingsRef={brushSettingsRef} />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'paint' && (
+            <CollapsiblePanel title={t('app.panel.brush')} defaultOpen={false}>
+              <div className="p-3">
+                <BrushSettingsPanel settingsRef={brushSettingsRef} />
+              </div>
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'paint' && (
+            <CollapsiblePanel title={t('app.panel.symmetry')} defaultOpen={false}>
+              <SymmetrySettingsPanel settingsRef={symmetrySettingsRef} />
+            </CollapsiblePanel>
+          )}
+          {state.activeTool === 'select' && selectionSummary && (
+            <CollapsiblePanel title={t('app.panel.selectionInfo')} forceOpen={true}>
+              <SelectionInfoPanel
+                tileCount={selectionSummary.tileCount}
+                entityCount={selectionSummary.entityCount}
+                decalCount={selectionSummary.decalCount}
+                onRotateCW={handleRotateEntityCW}
+                onRotateCCW={handleRotateEntityCCW}
+                onMirrorHorizontal={() => handleMirrorSelection('horizontal')}
+                onMirrorVertical={() => handleMirrorSelection('vertical')}
+                onDelete={handleDelete}
+              />
             </CollapsiblePanel>
           )}
           {/* Palette, always visible, takes remaining space */}

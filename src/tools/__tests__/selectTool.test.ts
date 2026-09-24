@@ -27,6 +27,7 @@ function makeToolContext(
   const state: EditorState = {
     ...createInitialState(),
     grid: makeGrid(20, 20, 0, 0),
+    ...(overrides.nextEntityId !== undefined ? { localEntityCounter: overrides.nextEntityId } : {}),
     ...overrides,
   };
   const ctx: ToolContext = {
@@ -838,6 +839,140 @@ describe('SelectTool', () => {
       const ys = [...new Set(placed.map((tc: TileChange) => tc.y))].sort((a, b) => (a as number) - (b as number));
       expect(xs).toHaveLength(4);  // 4 wide after rotation
       expect(ys).toHaveLength(6);  // 6 tall after rotation
+    });
+  });
+
+  describe('mirrorSelection', () => {
+    it('mirrors tiles horizontally within the same bounds (no dimension change)', () => {
+      const { ctx, dispatched } = makeToolContext({ nextEntityId: 100 });
+
+      // 3 wide x 2 tall, with a distinctive L-shape: only x=0 column filled.
+      setCell(ctx.state.grid, 0, 0, { tileId: 'FloorSteel' });
+      setCell(ctx.state.grid, 0, 1, { tileId: 'FloorSteel' });
+
+      tool.onMouseDown(ctx, 0, 0, 0);
+      tool.onMouseMove(ctx, 2, 1);
+      tool.onMouseUp(ctx);
+
+      tool.mirrorSelection(ctx, 'horizontal');
+
+      expect(dispatched).toHaveLength(1);
+      const cmd = dispatched[0].command;
+      expect(cmd.label).toBe('Отзеркалить по горизонтали');
+
+      const placed = cmd.tileChanges
+        .filter((tc: TileChange) => tc.after.tileId === 'FloorSteel')
+        .map((tc: TileChange) => `${tc.x},${tc.y}`);
+      // Column 0 (left edge) mirrors to column 2 (right edge) within the 3-wide selection.
+      expect(placed).toContain('2,0');
+      expect(placed).toContain('2,1');
+      expect(placed).toHaveLength(2);
+
+      // Original column 0 should be cleared.
+      const cleared = cmd.tileChanges
+        .filter((tc: TileChange) => tc.after.tileId === 'Space')
+        .map((tc: TileChange) => `${tc.x},${tc.y}`);
+      expect(cleared).toContain('0,0');
+      expect(cleared).toContain('0,1');
+    });
+
+    it('mirrors tiles vertically within the same bounds', () => {
+      const { ctx, dispatched } = makeToolContext({ nextEntityId: 100 });
+
+      // 2 wide x 3 tall, only bottom row (y=0) filled.
+      setCell(ctx.state.grid, 0, 0, { tileId: 'FloorSteel' });
+      setCell(ctx.state.grid, 1, 0, { tileId: 'FloorSteel' });
+
+      tool.onMouseDown(ctx, 0, 0, 0);
+      tool.onMouseMove(ctx, 1, 2);
+      tool.onMouseUp(ctx);
+
+      tool.mirrorSelection(ctx, 'vertical');
+
+      const cmd = dispatched[0].command;
+      const placed = cmd.tileChanges
+        .filter((tc: TileChange) => tc.after.tileId === 'FloorSteel')
+        .map((tc: TileChange) => `${tc.x},${tc.y}`);
+      // Bottom row (y=0) mirrors to top row (y=2) within the 3-tall selection.
+      expect(placed).toContain('0,2');
+      expect(placed).toContain('1,2');
+      expect(placed).toHaveLength(2);
+    });
+
+    it('mirrors entity position horizontally and reflects rotation (not preserved)', () => {
+      // Entity facing east (pi/2) at the left edge of a 3-wide selection.
+      const entity: ImportedEntity = {
+        uid: 10, prototype: 'AirlockGlass', position: { x: 0.5, y: 0.5 }, rotation: Math.PI / 2, components: [],
+      };
+      rebuildSpatialIndex([entity]);
+      const { ctx, dispatched } = makeToolContext({ entities: [entity], nextEntityId: 100 });
+      setCell(ctx.state.grid, 0, 0, { tileId: 'Plating' });
+
+      tool.onMouseDown(ctx, 0, 0, 0);
+      tool.onMouseMove(ctx, 2, 0);
+      tool.onMouseUp(ctx);
+
+      tool.mirrorSelection(ctx, 'horizontal');
+
+      const cmd = dispatched[0].command;
+      const adds = cmd.entityChanges.filter((ec: EntityChange) => ec.action === 'add');
+      expect(adds).toHaveLength(1);
+      // Mirrored to the right edge (x=2.5), reflecting east (pi/2) to west (3pi/2).
+      expect(adds[0].entity.position.x).toBeCloseTo(2.5);
+      expect(adds[0].entity.position.y).toBeCloseTo(0.5);
+      expect(adds[0].entity.rotation).toBeCloseTo(3 * Math.PI / 2);
+    });
+
+    it('mirrors entity rotation vertically: east stays east, south becomes north', () => {
+      const entity: ImportedEntity = {
+        uid: 10, prototype: 'AirlockGlass', position: { x: 0.5, y: 0.5 }, rotation: 0, components: [], // South (0)
+      };
+      rebuildSpatialIndex([entity]);
+      const { ctx, dispatched } = makeToolContext({ entities: [entity], nextEntityId: 100 });
+      setCell(ctx.state.grid, 0, 0, { tileId: 'Plating' });
+
+      tool.onMouseDown(ctx, 0, 0, 0);
+      tool.onMouseMove(ctx, 0, 2);
+      tool.onMouseUp(ctx);
+
+      tool.mirrorSelection(ctx, 'vertical');
+
+      const cmd = dispatched[0].command;
+      const adds = cmd.entityChanges.filter((ec: EntityChange) => ec.action === 'add');
+      expect(adds).toHaveLength(1);
+      // South (0) reflects to North (pi) on a vertical (top-bottom) flip.
+      expect(adds[0].entity.rotation).toBeCloseTo(Math.PI);
+    });
+
+    it('does nothing when there is no selection', () => {
+      const { ctx, dispatched } = makeToolContext();
+      tool.mirrorSelection(ctx, 'horizontal');
+      expect(dispatched).toHaveLength(0);
+    });
+
+    it('mirrors the paste preview in place without committing', () => {
+      const { ctx } = makeToolContext({ nextEntityId: 100 });
+      setClipboard({
+        width: 3, height: 1,
+        tiles: [{ tileId: 'FloorSteel' }, { tileId: 'Space' }, { tileId: 'Space' }],
+        entities: [],
+        originX: 0, originY: 0,
+      });
+
+      tool.paste(ctx);
+      tool.mirrorSelection(ctx, 'horizontal');
+
+      const dispatched: any[] = [];
+      const ctx2: ToolContext = { ...ctx, dispatch: (a: any) => dispatched.push(a) };
+      tool.onMouseMove(ctx2, 5, 5);
+      tool.onMouseDown(ctx2, 5, 5, 0);
+
+      expect(dispatched).toHaveLength(1);
+      const placed = dispatched[0].command.tileChanges.filter((tc: TileChange) => tc.after.tileId === 'FloorSteel');
+      // Mirrored: the tile originally at column 0 should now be at column 2.
+      expect(placed).toHaveLength(1);
+      expect(placed[0].x).toBe(7); // pasteX(5) + mirrored column 2
+      expect(placed[0].y).toBe(5);
     });
   });
 

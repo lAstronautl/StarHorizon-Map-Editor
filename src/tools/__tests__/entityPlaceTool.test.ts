@@ -9,6 +9,7 @@ function makeToolContext(): { ctx: ToolContext; dispatched: any[] } {
     ...createInitialState(),
     selectedPaletteItem: { type: 'entity' as const, id: 'APCBasic' },
     nextEntityId: 10,
+    localEntityCounter: 10,
   };
   const ctx: ToolContext = {
     state,
@@ -18,6 +19,7 @@ function makeToolContext(): { ctx: ToolContext; dispatched: any[] } {
         for (const ec of action.command.entityChanges) {
           if (ec.action === 'add') {
             state.nextEntityId = ec.entity.uid + 1;
+            state.localEntityCounter = ec.entity.uid - state.localPeerIndex * (2 ** 24) + 1;
           }
         }
       }

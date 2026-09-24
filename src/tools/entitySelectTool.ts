@@ -11,6 +11,7 @@ import { getDecalSprite } from '../rendering/decalRenderer';
 import { updateTransformPos, updateTransformRot, normalizeRotation, cloneComponentsWithPosRot } from './entityHelpers';
 import { getClipboard, setClipboard } from '../state/clipboard';
 import type { ClipboardData, ClipboardEntity, ClipboardDecal } from '../state/clipboard';
+import { peerUid } from '../multiplayer/uidAllocation';
 
 function selectedSet(uids: number[]): Set<number> {
   return new Set(uids);
@@ -520,7 +521,7 @@ export class EntitySelectTool implements ITool {
 
     const entityChanges: { action: 'add' | 'remove'; entity: ImportedEntity }[] = [];
     const newUids: number[] = [];
-    let nextUid = state.nextEntityId;
+    let nextUid = peerUid(state.localPeerIndex, state.localEntityCounter);
 
     for (const entity of selectedEntities) {
       const newUid = nextUid++;
@@ -708,7 +709,7 @@ export class EntitySelectTool implements ITool {
     if (!this.pasteData) return;
 
     const entityChanges: { action: 'add' | 'remove'; entity: ImportedEntity }[] = [];
-    let nextUid = ctx.state.nextEntityId;
+    let nextUid = peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter);
 
     for (const ce of this.pasteData.entities) {
       const newPos = { x: this.pasteX + ce.dx, y: this.pasteY + ce.dy };

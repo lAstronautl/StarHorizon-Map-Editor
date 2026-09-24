@@ -4,7 +4,6 @@ import { loadImage } from '../loaders/rsiLoader';
 import { getActiveProvider } from '../loaders/resourceProvider';
 import { Camera } from './camera';
 import { markSceneDirty } from './dirtyFlags';
-import { withBase } from '../basePath';
 
 const TILE_SIZE = 32;
 
@@ -14,140 +13,6 @@ const FALLBACK_COLORS: Record<string, string> = {
   fallback: '#555566',
   wall: '#3a3a4a',
 };
-
-/**
- * Space background cache.
- *
- * Pre-bakes dust and tinted star layers into offscreen canvases with blur
- * already applied. Each frame just does drawImage calls, zero ctx.filter ops.
- */
-
-export const STAR_TINTS = [
-  { r: 100, g: 150, b: 255 }, // deep blue
-  { r: 255, g: 170, b: 80 },  // orange-gold
-  { r: 220, g: 100, b: 255 }, // bright violet
-];
-
-export const STAR_DEPTH_LAYERS = [
-  { tint: 0, scale: 0.4, parallax: 0.02, opacity: 0.4, blur: 4 },
-  { tint: 1, scale: 0.5, parallax: 0.08, opacity: 0.6, blur: 2.5 },
-  { tint: 2, scale: 0.65, parallax: 0.22, opacity: 0.9, blur: 1 },
-];
-
-interface SpaceBgCache {
-  dustCanvas: HTMLCanvasElement | null;
-  starCanvases: HTMLCanvasElement[];  // pre-blurred, tiled, one per depth layer
-  cachedW: number;
-  cachedH: number;
-}
-
-let spaceBgLoading = false;
-let spaceDustImg: HTMLImageElement | null = null;
-let spaceStarsImg: HTMLImageElement | null = null;
-let spaceBgCache: SpaceBgCache = { dustCanvas: null, starCanvases: [], cachedW: 0, cachedH: 0 };
-
-/** Reset space background state (for testing). */
-export function resetSpaceBg(): void {
-  spaceBgLoading = false;
-  spaceDustImg = null;
-  spaceStarsImg = null;
-  spaceBgCache = { dustCanvas: null, starCanvases: [], cachedW: 0, cachedH: 0 };
-}
-
-export function bakeTintedStars(src: HTMLImageElement): void {
-  spaceStarsImg = src;
-}
-
-/** Bake a tiled+blurred pattern fill into an offscreen canvas. */
-function bakePatternLayer(
-  src: HTMLImageElement | HTMLCanvasElement,
-  w: number, h: number,
-  scale: number, blur: number,
-): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
-  const ctx = c.getContext('2d')!;
-  const pat = ctx.createPattern(src, 'repeat');
-  if (pat) {
-    pat.setTransform(new DOMMatrix().scaleSelf(scale, scale));
-    ctx.filter = `blur(${blur}px)`;
-    ctx.fillStyle = pat;
-    ctx.fillRect(0, 0, w, h);
-  }
-  return c;
-}
-
-/** Tint a star image and return a canvas. */
-function tintStars(src: HTMLImageElement, tint: { r: number; g: number; b: number }): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = src.width;
-  c.height = src.height;
-  const ctx = c.getContext('2d')!;
-  ctx.drawImage(src, 0, 0);
-  ctx.globalCompositeOperation = 'source-atop';
-  ctx.fillStyle = `rgb(${tint.r},${tint.g},${tint.b})`;
-  ctx.fillRect(0, 0, c.width, c.height);
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.5;
-  ctx.drawImage(src, 0, 0);
-  return c;
-}
-
-/** Start loading space background images if not already started. */
-export function loadSpaceBg(): void {
-  if (spaceBgLoading) return;
-  spaceBgLoading = true;
-  const dust = new Image();
-  const stars = new Image();
-  dust.onload = () => { spaceDustImg = dust; spaceBgCache.dustCanvas = null; markSceneDirty(); };
-  stars.onload = () => { spaceStarsImg = stars; spaceBgCache.starCanvases = []; markSceneDirty(); };
-  dust.onerror = () => { spaceBgLoading = false; };
-  stars.onerror = () => { };
-  dust.src = withBase('/images/space-bg.png');
-  stars.src = withBase('/images/space-stars.png');
-}
-
-/**
- * Get pre-baked background canvases for the given viewport size.
- * Rebuilds cache only when viewport size changes or on first call.
- * Returns null if images haven't loaded yet.
- */
-export function getSpaceBgCache(w: number, h: number): SpaceBgCache | null {
-  loadSpaceBg();
-  if (!spaceDustImg) return null;
-
-  // Rebuild if viewport size changed
-  if (spaceBgCache.cachedW !== w || spaceBgCache.cachedH !== h || !spaceBgCache.dustCanvas) {
-    spaceBgCache.cachedW = w;
-    spaceBgCache.cachedH = h;
-    spaceBgCache.dustCanvas = bakePatternLayer(spaceDustImg, w, h, 0.5, 4);
-
-    if (spaceStarsImg) {
-      spaceBgCache.starCanvases = STAR_DEPTH_LAYERS.map(layer => {
-        const tinted = tintStars(spaceStarsImg!, STAR_TINTS[layer.tint % STAR_TINTS.length]);
-        // Bake at larger size to allow parallax offset without gaps
-        const margin = 200;
-        return bakePatternLayer(tinted, w + margin * 2, h + margin * 2, layer.scale, layer.blur);
-      });
-    }
-  } else if (spaceStarsImg && spaceBgCache.starCanvases.length === 0) {
-    // Stars loaded after dust, rebuild star layers only
-    spaceBgCache.starCanvases = STAR_DEPTH_LAYERS.map(layer => {
-      const tinted = tintStars(spaceStarsImg!, STAR_TINTS[layer.tint % STAR_TINTS.length]);
-      const margin = 200;
-      return bakePatternLayer(tinted, w + margin * 2, h + margin * 2, layer.scale, layer.blur);
-    });
-  }
-
-  return spaceBgCache;
-}
-
-/** @deprecated Use getSpaceBgCache instead. Kept for test compatibility. */
-export function getSpaceBgLayers(): { dust: HTMLImageElement | null; stars: HTMLCanvasElement[] } {
-  loadSpaceBg();
-  return { dust: spaceDustImg, stars: [] };
-}
 
 /**
  * Tile image cache. Maps tile ID to loaded HTMLImageElement, or null if
@@ -165,7 +30,7 @@ export function clearTileImageCache(): void {
  * If the image hasn't been requested yet, kicks off an async load and
  * returns null (the next render frame will pick it up once loaded).
  */
-function getTileImage(
+export function getTileImage(
   tileId: string,
   registry: IPrototypeRegistry,
 ): HTMLImageElement | null {
@@ -177,14 +42,17 @@ function getTileImage(
     return null;
   }
 
-  // Mark as loading (null placeholder) so we don't re-request
-  tileImageCache.set(tileId, null);
-
   const provider = getActiveProvider();
   const url = provider.getImageUrl(tile.sprite);
   if (!url) {
+    // No URL yet (e.g. RemoteResourceProvider still fetching bytes from the host) —
+    // deliberately NOT cached, so the next render frame calls getImageUrl() again and
+    // picks up the real URL once it's ready, instead of being stuck on the fallback color.
     return null;
   }
+
+  // Mark as loading (null placeholder) so we don't re-request while the image itself loads
+  tileImageCache.set(tileId, null);
   loadImage(url)
     .then((img) => {
       tileImageCache.set(tileId, img);
@@ -200,7 +68,7 @@ function getTileImage(
 /**
  * Get a simple fallback color for a tile when no texture is available.
  */
-function getFallbackColor(tileId: string): string {
+export function getFallbackColor(tileId: string): string {
   if (tileId === 'Space') return FALLBACK_COLORS.Space;
   if (tileId.startsWith('Wall')) return FALLBACK_COLORS.wall;
   return FALLBACK_COLORS.fallback;

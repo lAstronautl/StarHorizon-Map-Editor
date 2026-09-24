@@ -5,11 +5,12 @@ import type { ITool, ToolContext } from '../tools/toolTypes';
 import { Camera } from '../rendering/camera';
 import { ContextMenu } from './ContextMenu';
 import type { ContextMenuItem } from './ContextMenu';
-import { renderGrid, getSpaceBgCache, STAR_DEPTH_LAYERS } from '../rendering/gridRenderer';
+import { renderGrid } from '../rendering/gridRenderer';
+import { renderParallaxBackground } from '../rendering/parallaxBackground';
 import { renderSpaceClown, isClownActive } from '../rendering/spaceClown';
 import { renderEntities, getEntitiesAtTile, isLayerVisible, getCachedDrawDepth } from '../rendering/entityRenderer';
 import { EntitySelectTool } from '../tools/entitySelectTool';
-import { EntityPlaceTool } from '../tools/entityPlaceTool';
+import { PaintTool } from '../tools/paintTool';
 import type { LayerVisibility } from '../rendering/entityRenderer';
 import { renderConnections } from '../rendering/connectionRenderer';
 import { renderDecals, getDecalSprite } from '../rendering/decalRenderer';
@@ -29,8 +30,12 @@ import { benchmarkSample } from '../rendering/benchmarkCapture';
 import type { DecalInstance } from '../import/decalParser';
 import type { DecalPlacementSettings } from './DecalPalette';
 import type { EraseSettings } from '../tools/eraseTool';
+import type { SymmetrySettings } from '../tools/symmetrySettings';
+import type { BrushSettings } from '../tools/brushSettings';
 import type { ToolType } from '../types';
 import { useT } from '../i18n';
+import { renderRemotePresence } from '../rendering/remotePresenceRenderer';
+import type { RemotePresence } from '../multiplayer/roomSession';
 
 interface Props {
   state: EditorState;
@@ -48,8 +53,11 @@ interface Props {
   lightingEnabled: boolean;
   decalPlacementSettingsRef: React.MutableRefObject<DecalPlacementSettings>;
   eraseSettingsRef: React.MutableRefObject<EraseSettings>;
+  symmetrySettingsRef: React.MutableRefObject<SymmetrySettings>;
+  brushSettingsRef: React.MutableRefObject<BrushSettings>;
   previousToolRef: React.MutableRefObject<ToolType>;
   highlightTile?: { x: number; y: number; startTime: number } | null;
+  presenceByPeerId?: Record<string, RemotePresence>;
 }
 
 const TILE_SIZE = 32;
@@ -61,7 +69,7 @@ const pointMidpoint = (a: Point, b: Point): Point => ({ x: (a.x + b.x) / 2, y: (
 export const EditorCanvas: React.FC<Props> = ({
   state, dispatch, camera, activeTool, showEntities, showGrid, showSpaceBackground, isSpaceHeld, isRHeld,
   showSubFloor, layerVisibility, showConnections, lightingEnabled, decalPlacementSettingsRef, eraseSettingsRef,
-  previousToolRef, highlightTile,
+  symmetrySettingsRef, brushSettingsRef, previousToolRef, highlightTile, presenceByPeerId,
 }) => {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,6 +95,15 @@ export const EditorCanvas: React.FC<Props> = ({
   stateRef.current = state;
   const toolRef = useRef(activeTool);
   toolRef.current = activeTool;
+
+  /** True for tools that place things at fractional (non-tile-snapped) positions when
+   *  Shift is held: entitySelect always, and paint specifically while an entity is the
+   *  selected palette item (paint delegates that case to its internal EntityPlaceTool). */
+  const usesPreciseCoords = useCallback((tool: ITool | null | undefined) => {
+    if (!tool) return false;
+    if (tool.name === 'entitySelect') return true;
+    return tool.name === 'paint' && stateRef.current.selectedPaletteItem?.type === 'entity';
+  }, []);
   const showEntitiesRef = useRef(showEntities);
   showEntitiesRef.current = showEntities;
   const showGridRef = useRef(showGrid);
@@ -95,6 +112,8 @@ export const EditorCanvas: React.FC<Props> = ({
   isSpaceHeldRef.current = isSpaceHeld;
   const isRHeldRef = useRef(isRHeld);
   isRHeldRef.current = isRHeld;
+  const presenceByPeerIdRef = useRef(presenceByPeerId);
+  presenceByPeerIdRef.current = presenceByPeerId;
   const isShiftHeldRef = useRef(false);
   const isCtrlHeldRef = useRef(false);
   const showSubFloorRef = useRef(showSubFloor);
@@ -166,9 +185,11 @@ export const EditorCanvas: React.FC<Props> = ({
       },
       layerVisibility: layerVisibilityRef.current,
       eraseSettings: eraseSettingsRef.current,
+      symmetrySettings: symmetrySettingsRef.current,
+      brushSettings: brushSettingsRef.current,
       previousTool: previousToolRef.current,
     };
-  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, previousToolRef]);
+  }, [dispatch, camera, decalPlacementSettingsRef, eraseSettingsRef, symmetrySettingsRef, brushSettingsRef, previousToolRef]);
 
   // Check if we should pan (middle button, space held, or pan tool active)
   const shouldPan = useCallback((button: number) => {
@@ -217,7 +238,7 @@ export const EditorCanvas: React.FC<Props> = ({
     const decalFreePlace = !decalSettings.snap || e.shiftKey;
     if (s.selectedPaletteItem?.type === 'decal' && e.button === 0 && decalFreePlace) {
       const toolName = tool?.name ?? '';
-      const canPlace = !['entitySelect', 'select', 'pan', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(toolName);
+      const canPlace = !['entitySelect', 'select', 'pan', 'zoom', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(toolName);
       if (canPlace) {
         const world = screenToWorld(e.clientX, e.clientY, true);
         const activeGrid = s.grids[s.activeGridIndex];
@@ -245,7 +266,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
 
     // Free placement: fractional coords when Shift held + placement-compatible tool
-    const usePrecise = e.shiftKey && (tool?.name === 'entityPlace' || tool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(tool);
     const tile = screenToWorld(e.clientX, e.clientY, usePrecise);
 
     if (tool && tool instanceof EntitySelectTool) {
@@ -302,7 +323,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
 
     const moveTool = toolRef.current;
-    const usePrecise = e.shiftKey && (moveTool?.name === 'entityPlace' || moveTool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(moveTool);
     const moveCoord = usePrecise ? world : tile;
     moveTool?.onMouseMove(getToolContext(), moveCoord.x, moveCoord.y);
   }, [camera, screenToWorld, getToolContext]);
@@ -332,7 +353,7 @@ export const EditorCanvas: React.FC<Props> = ({
     }
     markOverlayDirty();
     const tool = toolRef.current;
-    const usePrecise = e.shiftKey && (tool?.name === 'entityPlace' || tool?.name === 'entitySelect');
+    const usePrecise = e.shiftKey && usesPreciseCoords(tool);
     const tile = screenToWorld(e.clientX, e.clientY, usePrecise);
     tool?.onMouseUp(getToolContext(), tile.x, tile.y);
   }, [screenToWorld, getToolContext]);
@@ -394,9 +415,10 @@ export const EditorCanvas: React.FC<Props> = ({
         return;
       }
 
-      // Rotate entity placement preview
-      if (tool instanceof EntityPlaceTool) {
-        tool.smoothRotate(deltaRadians);
+      // Rotate entity placement preview (PaintTool delegates entity placement to its
+      // internal EntityPlaceTool whenever the palette selection is an entity)
+      if (tool instanceof PaintTool && s.selectedPaletteItem?.type === 'entity') {
+        tool.entityPlaceTool.smoothRotate(deltaRadians);
         markOverlayDirty();
         return;
       }
@@ -645,30 +667,12 @@ export const EditorCanvas: React.FC<Props> = ({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, w, h);
 
-    // Space background, pre-baked dust + parallax star layers (zero filters per frame)
+    // Space background: the same "Default" parallax the game uses (layer1.png base
+    // + 4 procedural star layers), each independently tiled/scrolled by its own
+    // slowness factor — see rendering/parallaxBackground.ts.
     if (showSpaceBackground) {
-      const bgCache = getSpaceBgCache(w, h);
-      if (bgCache?.dustCanvas) {
-        ctx.drawImage(bgCache.dustCanvas, 0, 0);
-        if (bgCache.starCanvases.length > 0) {
-          const tss = camera.tileScreenSize;
-          const margin = 200;
-          ctx.globalCompositeOperation = 'screen';
-          for (let i = 0; i < bgCache.starCanvases.length; i++) {
-            const layer = STAR_DEPTH_LAYERS[i];
-            const ox = (w / 2 - camera.x * tss) * layer.parallax;
-            const oy = (h / 2 + camera.y * tss) * layer.parallax;
-            const tileW = bgCache.starCanvases[i].width;
-            const tileH = bgCache.starCanvases[i].height;
-            const drawX = ((ox % tileW) + tileW) % tileW - margin;
-            const drawY = ((oy % tileH) + tileH) % tileH - margin;
-            ctx.globalAlpha = layer.opacity;
-            ctx.drawImage(bgCache.starCanvases[i], drawX, drawY);
-          }
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = 'source-over';
-        }
-      } else {
+      const drew = renderParallaxBackground(ctx, camera, w, h);
+      if (!drew) {
         ctx.fillStyle = '#111122';
         ctx.fillRect(0, 0, w, h);
       }
@@ -750,8 +754,9 @@ export const EditorCanvas: React.FC<Props> = ({
           shiftHeld: isShiftHeldRef.current,
           ctrlHeld: isCtrlHeldRef.current,
           decalSettings: decalPlacementSettingsRef.current,
+          symmetrySettings: symmetrySettingsRef.current,
         };
-        const usePreciseCursor = isShiftHeldRef.current && (tool.name === 'entityPlace' || tool.name === 'entitySelect');
+        const usePreciseCursor = isShiftHeldRef.current && usesPreciseCoords(tool);
         const cx = usePreciseCursor ? cursorWorld.current.x : cursorTile.current.x;
         const cy = usePreciseCursor ? cursorWorld.current.y : cursorTile.current.y;
         tool.renderPreview(ctx, toolCtx, cx, cy);
@@ -761,7 +766,7 @@ export const EditorCanvas: React.FC<Props> = ({
     // Decal ghost preview when a decal palette item is selected
     // Only show when in a placement-compatible tool (paint, erase, fill, rectangle, line, circle, entityPlace)
     const currentToolName = toolRef.current?.name ?? '';
-    const isPlacementTool = !['entitySelect', 'select', 'pan', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(currentToolName);
+    const isPlacementTool = !['entitySelect', 'select', 'pan', 'zoom', 'pipeDraw', 'cableDraw', 'deviceLink'].includes(currentToolName);
     if (!isSpaceHeldRef.current && isPlacementTool && s.selectedPaletteItem?.type === 'decal' && s.registry) {
       const settings = decalPlacementSettingsRef.current;
       const img = getDecalSprite(s.selectedPaletteItem.id, s.registry);
@@ -871,6 +876,11 @@ export const EditorCanvas: React.FC<Props> = ({
         ctx.globalAlpha = 1;
         markOverlayDirty(); // keep animating
       }
+    }
+
+    // Other players' cursors/ghosts, drawn every frame regardless of local pan/space-hold.
+    if (presenceByPeerIdRef.current) {
+      renderRemotePresence(ctx, camera, w, h, presenceByPeerIdRef.current);
     }
 
     ctx.restore();

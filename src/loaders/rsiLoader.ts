@@ -146,6 +146,12 @@ export async function loadRsiStateImage(
   const provider = getActiveProvider();
   const texPath = rsiPath.startsWith('Textures/') ? `/${rsiPath}` : `/Textures/${rsiPath}`;
   const url = provider.getImageUrl(`${texPath}/${stateName}.png`);
+  if (!url) {
+    // No URL yet (e.g. RemoteResourceProvider still fetching from the host) — deliberately
+    // not cached in imageCache, so the next call re-checks getImageUrl() for the real URL
+    // instead of getting stuck on a permanently-failed '' request.
+    throw new Error('NOT_READY');
+  }
   return loadImage(url);
 }
 

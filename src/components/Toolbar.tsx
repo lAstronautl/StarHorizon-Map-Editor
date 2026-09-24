@@ -14,10 +14,10 @@ import {
   faCircle,
   faObjectGroup,
   faMousePointer,
-  faCube,
   faLink,
   faBolt,
   faWater,
+  faMagnifyingGlass,
 } from '@fortawesome/free-solid-svg-icons';
 
 interface Props {
@@ -36,6 +36,7 @@ function useToolGroups(): { tileTools: ToolDef[]; entityTools: ToolDef[]; infraT
   const { t } = useT();
   const tileTools: ToolDef[] = [
     { id: 'pan', label: t('toolbar.tool.pan'), shortcut: 'H', icon: faHandPaper },
+    { id: 'zoom', label: t('toolbar.tool.zoom'), shortcut: 'Z', icon: faMagnifyingGlass },
     { id: 'paint', label: t('toolbar.tool.paint'), shortcut: 'B', icon: faPaintBrush },
     { id: 'erase', label: t('toolbar.tool.erase'), shortcut: 'E', icon: faEraser },
     { id: 'eyedropper', label: t('toolbar.tool.eyedropper'), shortcut: 'I', icon: faEyeDropper },
@@ -48,7 +49,6 @@ function useToolGroups(): { tileTools: ToolDef[]; entityTools: ToolDef[]; infraT
 
   const entityTools: ToolDef[] = [
     { id: 'entitySelect', label: t('toolbar.tool.entitySelect'), shortcut: 'V', icon: faMousePointer },
-    { id: 'entityPlace', label: t('toolbar.tool.entityPlace'), shortcut: 'P', icon: faCube },
     { id: 'deviceLink', label: t('toolbar.tool.deviceLink'), shortcut: 'D', icon: faLink },
   ];
 
