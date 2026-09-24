@@ -131,6 +131,7 @@ const tileDir = path.join(resourcesRoot, 'Prototypes/Tiles');
 const entityDir = path.join(resourcesRoot, 'Prototypes/Entities');
 const catalogDir = path.join(resourcesRoot, 'Prototypes/Catalog');
 const decalDir = path.join(resourcesRoot, 'Prototypes/Decals');
+const localeDir = path.join(resourcesRoot, 'Locale/ru-RU');
 
 const tileFiles = walkDir(tileDir, '.yml').map(f =>
   '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
@@ -142,6 +143,11 @@ const catalogFiles = walkDir(catalogDir, '.yml').map(f =>
   '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
 );
 const decalFiles = walkDir(decalDir, '.yml').map(f =>
+  '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
+);
+// Unlike Prototypes/, ru-RU localization (base game AND every fork's own strings) already
+// lives as one combined tree under Locale/ru-RU/ — no per-fork subdirectory discovery needed.
+const localeFiles = walkDir(localeDir, '.ftl').map(f =>
   '/' + path.relative(resourcesRoot, f).replace(/\\/g, '/')
 );
 
@@ -190,6 +196,7 @@ fs.writeFileSync(path.join(manifestDir, 'tiles.json'), JSON.stringify([...tileFi
 fs.writeFileSync(path.join(manifestDir, 'entities.json'), JSON.stringify([...entityFiles, ...forkEntityFiles]));
 fs.writeFileSync(path.join(manifestDir, 'catalog.json'), JSON.stringify([...catalogFiles, ...forkCatalogFiles]));
 fs.writeFileSync(path.join(manifestDir, 'decals.json'), JSON.stringify([...decalFiles, ...forkDecalFiles]));
+fs.writeFileSync(path.join(manifestDir, 'locale.json'), JSON.stringify(localeFiles));
 
 // Determine the built-in fork name shown in the UI. Prefer an explicit --fork-name;
 // otherwise auto-detect when there is exactly one fork directory (e.g. _MyFork ->
@@ -202,6 +209,7 @@ console.log(`  Tile prototypes: ${tileFiles.length + forkTileFiles.length} files
 console.log(`  Entity prototypes: ${entityFiles.length + forkEntityFiles.length} files (${entityFiles.length} base + ${forkEntityFiles.length} fork)`);
 console.log(`  Catalog prototypes: ${catalogFiles.length + forkCatalogFiles.length} files (${catalogFiles.length} base + ${forkCatalogFiles.length} fork)`);
 console.log(`  Decal prototypes: ${decalFiles.length + forkDecalFiles.length} files (${decalFiles.length} base + ${forkDecalFiles.length} fork)`);
+console.log(`  ru-RU localization: ${localeFiles.length} files`);
 
 // Step 2: Copy prototype YAML files
 console.log('\nStep 2: Copying prototype files...');
@@ -215,6 +223,19 @@ for (const relPath of [...tileFiles, ...forkTileFiles, ...entityFiles, ...forkEn
   protoCount++;
 }
 console.log(`  Copied ${protoCount} prototype files`);
+
+// Step 2b: Copy ru-RU localization files
+console.log('\nStep 2b: Copying ru-RU localization files...');
+
+let localeCount = 0;
+for (const relPath of localeFiles) {
+  const src = path.join(resourcesRoot, relPath);
+  const dest = path.join(publicResources, relPath);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.copyFileSync(src, dest);
+  localeCount++;
+}
+console.log(`  Copied ${localeCount} localization files`);
 
 // Step 3: Copy textures
 console.log(`\nStep 3: Copying textures (mode: ${textureMode})...`);

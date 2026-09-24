@@ -28,6 +28,21 @@ describe('resolveTiles', () => {
     expect(space.variants).toBe(1);
     expect(space.isSubfloor).toBe(true);
   });
+
+  describe('localization (locIndex)', () => {
+    it('resolves the display name via the loc key stored in the tile\'s name field', () => {
+      const raw: RawTilePrototype = { type: 'tile', id: 'FloorSteel', name: 'tiles-steel-floor' };
+      const locIndex = new Map([['tiles-steel-floor', { value: 'Стальной пол', attributes: {} }]]);
+      const result = resolveTiles([raw], locIndex);
+      expect(result.get('FloorSteel')!.name).toBe('Стальной пол');
+    });
+
+    it('falls back to the raw loc key when it has no entry in the locIndex', () => {
+      const raw: RawTilePrototype = { type: 'tile', id: 'FloorWeird', name: 'tiles-unknown-key' };
+      const result = resolveTiles([raw], new Map());
+      expect(result.get('FloorWeird')!.name).toBe('tiles-unknown-key');
+    });
+  });
 });
 
 describe('resolveEntities', () => {
@@ -90,6 +105,55 @@ describe('resolveEntities', () => {
     ]);
     expect(result.has('Base')).toBe(false);
     expect(result.has('Real')).toBe(true);
+  });
+
+  describe('localization (locIndex)', () => {
+    it('uses the ent-<id> Fluent message for name/description/suffix when present', () => {
+      const proto: RawEntityPrototype = {
+        type: 'entity', id: 'VendingMachine', name: 'vending machine', description: 'Just add capitalism!',
+        components: [],
+      };
+      const locIndex = new Map([
+        ['ent-VendingMachine', { value: 'торговый автомат', attributes: { desc: 'Просто добавь капитализма!' } }],
+      ]);
+      const result = resolveEntities([{ proto, category: 'Other' }], locIndex);
+      const resolved = result.get('VendingMachine')!;
+      expect(resolved.name).toBe('торговый автомат');
+      expect(resolved.description).toBe('Просто добавь капитализма!');
+      expect(resolved.suffix).toBe(''); // no .suffix attribute on the message, falls back to literal (empty)
+    });
+
+    it('inherits localization from a parent when the entity itself has no ent-<id> message', () => {
+      const parent: RawEntityPrototype = {
+        type: 'entity', id: 'BaseMachine', abstract: true, name: 'base machine', components: [],
+      };
+      const child: RawEntityPrototype = {
+        type: 'entity', id: 'ChildMachine', parent: 'BaseMachine', name: 'child machine', components: [],
+      };
+      const locIndex = new Map([
+        ['ent-BaseMachine', { value: 'базовый автомат', attributes: {} }],
+      ]);
+      const result = resolveEntities([
+        { proto: parent, category: 'Other' },
+        { proto: child, category: 'Other' },
+      ], locIndex);
+      expect(result.get('ChildMachine')!.name).toBe('базовый автомат');
+    });
+
+    it('falls back to the literal YAML name when no locIndex entry exists anywhere in the chain', () => {
+      const proto: RawEntityPrototype = {
+        type: 'entity', id: 'Unlocalized', name: 'plain english name', components: [],
+      };
+      const locIndex = new Map([['ent-SomethingElse', { value: 'irrelevant', attributes: {} }]]);
+      const result = resolveEntities([{ proto, category: 'Other' }], locIndex);
+      expect(result.get('Unlocalized')!.name).toBe('plain english name');
+    });
+
+    it('behaves exactly as before when no locIndex is passed at all', () => {
+      const proto: RawEntityPrototype = { type: 'entity', id: 'Foo', name: 'foo', components: [] };
+      const result = resolveEntities([{ proto, category: 'Other' }]);
+      expect(result.get('Foo')!.name).toBe('foo');
+    });
   });
 });
 

@@ -27,6 +27,7 @@ function manifestName(dir: string): string | null {
   if (dir.includes('Catalog')) return 'catalog';
   if (dir.includes('Decals')) return 'decals';
   if (dir.includes('Entities')) return 'entities';
+  if (dir.includes('Locale')) return 'locale';
   return null;
 }
 

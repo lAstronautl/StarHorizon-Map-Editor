@@ -9,18 +9,30 @@ import type {
   SpriteInfo,
   SpriteLayerInfo,
 } from './registryTypes';
+import type { FluentMessage } from './fluentLoc';
 
 /**
  * Convert raw tile prototypes into resolved tiles with defaulted fields.
  * Tiles have no inheritance, so this is a straightforward mapping.
+ *
+ * Unlike entities, a tile's `name:` YAML field IS itself the Fluent loc key (e.g.
+ * `tiles-steel-floor`), not literal display text — so when a `locIndex` is provided,
+ * look that key up directly and use its `.value` as the display name; if the key isn't
+ * present (no localization loaded, or the fork's .ftl doesn't cover it), fall back to
+ * the raw key itself, exactly like before this lookup existed.
  */
-export function resolveTiles(rawTiles: RawTilePrototype[]): Map<string, ResolvedTile> {
+export function resolveTiles(
+  rawTiles: RawTilePrototype[],
+  locIndex?: Map<string, FluentMessage>,
+): Map<string, ResolvedTile> {
   const result = new Map<string, ResolvedTile>();
 
   for (const raw of rawTiles) {
+    const rawName = String(raw.name ?? raw.id);
+    const localizedName = locIndex?.get(rawName)?.value;
     const resolved: ResolvedTile = {
       id: raw.id,
-      name: String(raw.name ?? raw.id),
+      name: localizedName ?? rawName,
       sprite: raw.sprite ?? null,
       variants: raw.variants ?? 1,
       isSubfloor: raw.isSubfloor ?? true,
@@ -230,13 +242,46 @@ function mergeComponents(chain: RawEntityPrototype[]): RawComponent[] {
  */
 export function resolveEntities(
   entries: EntityEntry[],
+  locIndex?: Map<string, FluentMessage>,
 ): Map<string, ResolvedEntity> {
-  return resolveEntitiesWithAbstractIds(entries).entities;
+  return resolveEntitiesWithAbstractIds(entries, locIndex).entities;
+}
+
+/**
+ * Look up an entity's localized name/description/suffix by walking its ancestor chain
+ * from leaf to root, same as the game engine's own inheritance order — the first
+ * ancestor (closest to the entity itself) with a `ent-<id>` Fluent message wins, and any
+ * field missing from that specific message (e.g. a message with a `.desc` but no
+ * `.suffix`) falls back to the literal YAML value rather than continuing up the chain.
+ */
+function resolveLocalizedFields(
+  chain: RawEntityPrototype[],
+  locIndex: Map<string, FluentMessage> | undefined,
+): { name: string; description: string; suffix: string } {
+  const leafProto = chain[chain.length - 1];
+  const fallback = {
+    name: String(leafProto.name ?? leafProto.id),
+    description: String(leafProto.description ?? ''),
+    suffix: String(leafProto.suffix ?? ''),
+  };
+  if (!locIndex) return fallback;
+
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const message = locIndex.get(`ent-${chain[i].id}`);
+    if (!message) continue;
+    return {
+      name: message.value ?? fallback.name,
+      description: message.attributes.desc ?? fallback.description,
+      suffix: message.attributes.suffix ?? fallback.suffix,
+    };
+  }
+  return fallback;
 }
 
 /** Same as resolveEntities, but also returns the set of prototype IDs marked `abstract: true`. */
 export function resolveEntitiesWithAbstractIds(
   entries: EntityEntry[],
+  locIndex?: Map<string, FluentMessage>,
 ): { entities: Map<string, ResolvedEntity>; abstractIds: Set<string> } {
   // Index all prototypes by ID (including abstract ones, needed for resolution)
   const protoById = new Map<string, EntityEntry>();
@@ -299,13 +344,13 @@ export function resolveEntitiesWithAbstractIds(
 
     const chain = buildChain(proto.id);
     const components = mergeComponents(chain);
+    const localized = resolveLocalizedFields(chain, locIndex);
 
     const resolved: ResolvedEntity = {
       id: proto.id,
-      // Same coercion as tiles: YAML scalars are not guaranteed to be strings.
-      name: String(proto.name ?? proto.id),
-      description: String(proto.description ?? ''),
-      suffix: String(proto.suffix ?? ''),
+      name: localized.name,
+      description: localized.description,
+      suffix: localized.suffix,
       abstract: false,
       categories: proto.categories ?? [],
       placement: proto.placement ?? {},
