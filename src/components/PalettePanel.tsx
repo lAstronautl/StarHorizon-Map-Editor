@@ -8,7 +8,7 @@ import { DecalPalette } from './DecalPalette';
 import type { DecalPlacementSettings } from './DecalPalette';
 import { PrefabPanel } from './PrefabPanel';
 import type { PrefabPanelHandle } from './PrefabPanel';
-import { ImageImportPanel } from './ImageImportPanel';
+import { ImageImportModal } from './ImageImportModal';
 import { useT } from '../i18n';
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
   decalPlacementSettingsRef?: React.MutableRefObject<DecalPlacementSettings>;
 }
 
-type Tab = 'tiles' | 'entities' | 'decals' | 'prefabs' | 'imageImport';
+type Tab = 'tiles' | 'entities' | 'decals' | 'prefabs';
 
 /** Imperative handle so callers outside the panel (e.g. canvas drag & drop) can
  *  register a dropped prefab, switching to the Prefabs tab so it's visible. */
@@ -29,6 +29,7 @@ export interface PalettePanelHandle {
 
 export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, selectedItem, onSelect, onSelectPrefab, decalPlacementSettingsRef }, ref) => {
   const [activeTab, setActiveTab] = useState<Tab>('tiles');
+  const [showImageImportModal, setShowImageImportModal] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   // dragenter/dragleave fire in pairs as the cursor crosses child element boundaries (e.g.
   // moving over a row in the prefab list), not just when truly entering/leaving this panel.
@@ -117,13 +118,25 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
           </div>
         </div>
       )}
-      <div className="flex border-b border-subtle bg-surface">
-        <TabButton label={t('palettePanel.tabs.tiles')} active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
-        <TabButton label={t('palettePanel.tabs.entities')} active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
-        <TabButton label={t('palettePanel.tabs.decals')} active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
-        <TabButton label={t('palettePanel.tabs.prefabs')} active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
+      <div className="flex items-stretch border-b border-subtle bg-surface">
+        <div className="flex flex-1 min-w-0">
+          <TabButton label={t('palettePanel.tabs.tiles')} active={activeTab === 'tiles'} onClick={() => setActiveTab('tiles')} />
+          <TabButton label={t('palettePanel.tabs.entities')} active={activeTab === 'entities'} onClick={() => setActiveTab('entities')} />
+          <TabButton label={t('palettePanel.tabs.decals')} active={activeTab === 'decals'} onClick={() => setActiveTab('decals')} />
+          <TabButton label={t('palettePanel.tabs.prefabs')} active={activeTab === 'prefabs'} onClick={() => setActiveTab('prefabs')} />
+        </div>
         {onSelectPrefab && (
-          <TabButton label={t('palettePanel.tabs.imageImport')} active={activeTab === 'imageImport'} onClick={() => setActiveTab('imageImport')} />
+          <button
+            onClick={() => setShowImageImportModal(true)}
+            title={t('palettePanel.tabs.imageImport')}
+            className="shrink-0 flex items-center px-2.5 py-1.5 text-muted hover:text-primary hover:bg-hover cursor-pointer bg-transparent border-none border-l border-subtle"
+          >
+            <svg viewBox="0 0 512 512" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="32" strokeLinejoin="round">
+              <path d="M16 96 L138 16 L256 96 L374 16 L496 96 L496 416 L374 496 L256 416 L138 496 L16 416 Z" />
+              <line x1="138" y1="16" x2="138" y2="496" />
+              <line x1="374" y1="16" x2="374" y2="496" />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -152,10 +165,15 @@ export const PalettePanel = forwardRef<PalettePanelHandle, Props>(({ registry, s
           <PrefabPanel ref={prefabPanelRef} onSelectPrefab={onSelectPrefab} />
         </div>
       )}
-      {onSelectPrefab && (
-        <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'imageImport' ? '' : 'hidden'}`}>
-          <ImageImportPanel registry={registry} onConverted={addAndSelectDroppedPrefab} />
-        </div>
+      {onSelectPrefab && showImageImportModal && (
+        <ImageImportModal
+          registry={registry}
+          onConverted={(data, filename, folder) => {
+            addAndSelectDroppedPrefab(data, filename, folder);
+            setShowImageImportModal(false);
+          }}
+          onClose={() => setShowImageImportModal(false)}
+        />
       )}
     </div>
   );

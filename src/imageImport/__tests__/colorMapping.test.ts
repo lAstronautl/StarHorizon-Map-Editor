@@ -63,4 +63,24 @@ describe('buildPrefabFromColorGrid', () => {
     expect(prefab.tiles).toEqual([{ dx: 0, dy: 0, tileId: 'FloorSteel' }]);
     expect(prefab.entities).toEqual([{ dx: 0.5, dy: 0.5, prototype: 'TableSteel', rotation: 0, components: [] }]);
   });
+
+  it('skips empty/whitespace-only entity id slots (an added-but-unfilled slot in the UI)', () => {
+    const grid: PixelGrid = { width: 1, height: 1, pixels: ['#ff0000ff'] };
+    const assignments: Record<string, ColorAssignment> = {
+      '#ff0000ff': { tileId: null, entityIds: ['TableSteel', '', '   '] },
+    };
+    const prefab = buildPrefabFromColorGrid(grid, assignments, 'test');
+
+    expect(prefab.entities).toEqual([{ dx: 0.5, dy: 0.5, prototype: 'TableSteel', rotation: 0, components: [] }]);
+  });
+
+  it('trims whitespace around an entity id', () => {
+    const grid: PixelGrid = { width: 1, height: 1, pixels: ['#ff0000ff'] };
+    const assignments: Record<string, ColorAssignment> = {
+      '#ff0000ff': { tileId: null, entityIds: ['  TableSteel  '] },
+    };
+    const prefab = buildPrefabFromColorGrid(grid, assignments, 'test');
+
+    expect(prefab.entities[0].prototype).toBe('TableSteel');
+  });
 });

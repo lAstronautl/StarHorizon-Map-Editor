@@ -45,10 +45,12 @@ export function buildPrefabFromColorGrid(
         tiles.push({ dx, dy, tileId: assignment.tileId });
       }
       for (const prototype of assignment.entityIds) {
+        const trimmed = prototype.trim();
+        if (!trimmed) continue; // an added-but-not-yet-filled-in entity slot
         entities.push({
           dx: dx + 0.5,
           dy: dy + 0.5,
-          prototype,
+          prototype: trimmed,
           rotation: 0,
           components: [],
         });

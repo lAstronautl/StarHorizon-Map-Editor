@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import type { PrefabData } from '../prefab/prefabTypes';
 import type { ColorAssignment } from '../imageImport/colorMapping';
@@ -7,6 +7,9 @@ import { extractUniquePixelColors, extractPixelGrid, quantizeImageData, COLOR_LI
 import type { PixelColorInfo, PixelGrid } from '../imageImport/pixelColors';
 import { buildTileColorCache, findClosestTileByColor } from '../imageImport/tileColorAverages';
 import type { RgbaColor } from '../imageImport/tileColorAverages';
+import { getTileImage } from '../rendering/gridRenderer';
+import { PreviewCanvas, createPreviewCamera, fitPreviewCamera } from './PreviewCanvas';
+import type { PreviewCamera } from './PreviewCanvas';
 import { useT } from '../i18n';
 
 interface Props {
@@ -21,11 +24,15 @@ interface Props {
  *  root list alongside manually imported/dropped prefabs. */
 const CONVERTATION_FOLDER = 'convertation';
 
+/** Caps how many entities can be stacked on a single pixel color — unbounded stacking has
+ *  no real use case here and just makes the per-color row grow without limit. */
+const MAX_ENTITIES_PER_COLOR = 3;
+
 /** Small (not full-resolution) preview thumbnail, rendered as a data URL so it's cheap to
  *  keep around (no lingering blob: URL / object-URL leak to manage or forget to revoke). */
 const PREVIEW_THUMBNAIL_SIZE = 64;
 
-async function decodeImageFile(file: File): Promise<{ previewDataUrl: string; imageData: ImageData }> {
+async function decodeImageFile(file: File): Promise<{ previewDataUrl: string; imageData: ImageData; sourceCanvas: HTMLCanvasElement }> {
   const url = URL.createObjectURL(file);
   let img: HTMLImageElement;
   try {
@@ -55,7 +62,7 @@ async function decodeImageFile(file: File): Promise<{ previewDataUrl: string; im
   if (thumbCtx) thumbCtx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
   const previewDataUrl = thumbCtx ? thumbCanvas.toDataURL() : '';
 
-  return { previewDataUrl, imageData };
+  return { previewDataUrl, imageData, sourceCanvas: canvas };
 }
 
 export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => {
@@ -72,12 +79,27 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [tooManyColorsCount, setTooManyColorsCount] = useState<number | null>(null);
   const [quantizeBusy, setQuantizeBusy] = useState(false);
+  // Mirrors tileColorCacheRef into React state once loaded, purely so the result preview
+  // (drawResult) re-renders with real tile colors instead of the source pixel color once
+  // the cache becomes available — the ref alone wouldn't trigger a redraw.
+  const [tileColorsReady, setTileColorsReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tileColorCacheRef = useRef<Map<string, RgbaColor> | null>(null);
   // Kept only for re-quantizing on demand (see handleReduceColors) — never rendered directly,
   // so it lives in a ref rather than state to avoid re-render churn on every load.
   const rawImageDataRef = useRef<ImageData | null>(null);
   const quantizeLevelsRef = useRef(256);
+  // Full-resolution source image, used by the "Source" preview canvas to draw at any zoom
+  // level (the small `previewUrl` thumbnail above is for the collapsed/header view only).
+  const sourceCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // One shared camera object for both preview canvases — mutated directly by pan/zoom
+  // gestures in either one (see PreviewCanvas), so panning/zooming one view moves both.
+  const previewCameraRef = useRef<PreviewCamera>(createPreviewCamera());
+  // Bumped on every camera mutation to force both PreviewCanvas instances to redraw —
+  // the camera itself is a plain mutable object, not React state, so this is how its
+  // changes get reflected without re-running pan/zoom through the render cycle.
+  const [cameraTick, setCameraTick] = useState(0);
+  const bumpCamera = useCallback(() => setCameraTick(t => t + 1), []);
 
   const tileIds = useMemo(() => {
     if (!registry) return [];
@@ -115,15 +137,18 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
     setError(null);
     quantizeLevelsRef.current = 256;
     try {
-      const { previewDataUrl, imageData } = await decodeImageFile(file);
+      const { previewDataUrl, imageData, sourceCanvas } = await decodeImageFile(file);
       setFileName(file.name);
       setPreviewUrl(previewDataUrl);
       rawImageDataRef.current = imageData;
+      sourceCanvasRef.current = sourceCanvas;
+      fitPreviewCamera(previewCameraRef.current, imageData.width, imageData.height, 400, 400);
+      bumpCamera();
       applyImageData(imageData);
     } catch (err) {
       setError(t('imageImportPanel.loadFailed', { error: String(err instanceof Error ? err.message : err) }));
     }
-  }, [t, applyImageData]);
+  }, [t, applyImageData, bumpCamera]);
 
   /** Re-quantizes the original (unquantized) image to progressively fewer color levels
    *  until it's under COLOR_LIMIT, or gives up after a few steps rather than looping
@@ -167,6 +192,7 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
     setError(null);
     setTooManyColorsCount(null);
     rawImageDataRef.current = null;
+    sourceCanvasRef.current = null;
   }, []);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -213,12 +239,28 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
     setSearchQuery('');
   }, []);
 
-  const setEntities = useCallback((hex: string, raw: string) => {
-    const entityIds = raw.trim() ? raw.trim().split(/\s+/) : [];
-    setAssignments(prev => ({
-      ...prev,
-      [hex]: { ...(prev[hex] ?? createEmptyAssignment()), entityIds },
-    }));
+  const addEntitySlot = useCallback((hex: string) => {
+    setAssignments(prev => {
+      const current = prev[hex] ?? createEmptyAssignment();
+      if (current.entityIds.length >= MAX_ENTITIES_PER_COLOR) return prev;
+      return { ...prev, [hex]: { ...current, entityIds: [...current.entityIds, ''] } };
+    });
+  }, []);
+
+  const updateEntitySlot = useCallback((hex: string, index: number, value: string) => {
+    setAssignments(prev => {
+      const current = prev[hex] ?? createEmptyAssignment();
+      const next = [...current.entityIds];
+      next[index] = value;
+      return { ...prev, [hex]: { ...current, entityIds: next } };
+    });
+  }, []);
+
+  const removeEntitySlot = useCallback((hex: string, index: number) => {
+    setAssignments(prev => {
+      const current = prev[hex] ?? createEmptyAssignment();
+      return { ...prev, [hex]: { ...current, entityIds: current.entityIds.filter((_, i) => i !== index) } };
+    });
   }, []);
 
   const handleAutogenerate = useCallback(async () => {
@@ -228,6 +270,7 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
     try {
       if (!tileColorCacheRef.current) {
         tileColorCacheRef.current = await buildTileColorCache(registry);
+        setTileColorsReady(true);
       }
       const cache = tileColorCacheRef.current;
       setAssignments(prev => {
@@ -257,6 +300,71 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
   }, [grid, assignments, fileName, onConverted, handleClear]);
 
   const mappedCount = colors.filter(c => assignments[c.hex]?.tileId || (assignments[c.hex]?.entityIds.length ?? 0) > 0).length;
+
+  // Loads tile sprite colors as soon as there's something to preview, not just when
+  // Autogenerate is clicked — otherwise a manually-chosen tile would show in its source
+  // pixel color in the result preview instead of the actual tile's color until the user
+  // happened to also run Autogenerate.
+  useEffect(() => {
+    if (!registry || !grid || tileColorCacheRef.current) return;
+    let cancelled = false;
+    buildTileColorCache(registry).then(cache => {
+      if (cancelled) return;
+      tileColorCacheRef.current = cache;
+      setTileColorsReady(true);
+    });
+    return () => { cancelled = true; };
+  }, [registry, grid]);
+
+  const drawSource = useCallback((ctx: CanvasRenderingContext2D) => {
+    const canvas = sourceCanvasRef.current;
+    if (!canvas) return;
+    ctx.drawImage(canvas, 0, 0);
+  }, []);
+
+  // Renders what the converted prefab will actually look like — a tile cell draws the
+  // actual tile sprite (same texture/cache the main map canvas uses, via getTileImage),
+  // falling back to the tile's average sprite color (and finally the source pixel color)
+  // only until the real sprite has finished loading. Entity slots show as a dot so it's
+  // clear which cells will also spawn something on top of the tile.
+  const drawResult = useCallback((ctx: CanvasRenderingContext2D) => {
+    if (!grid) return;
+    const tileColors = tileColorCacheRef.current;
+    let pendingSprite = false;
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        const hex = grid.pixels[y * grid.width + x];
+        if (!hex) continue;
+        const assignment = assignments[hex];
+        if (!assignment) continue;
+        if (assignment.tileId) {
+          const img = registry ? getTileImage(assignment.tileId, registry) : null;
+          if (img) {
+            const tile = registry!.getTile(assignment.tileId);
+            const srcSize = img.width / Math.max(1, tile?.variants ?? 1);
+            ctx.drawImage(img, 0, 0, srcSize, img.height, x, y, 1, 1);
+          } else {
+            pendingSprite = true;
+            const tileColor = tileColors?.get(assignment.tileId);
+            ctx.fillStyle = tileColor
+              ? `rgba(${tileColor.r}, ${tileColor.g}, ${tileColor.b}, ${tileColor.a / 255})`
+              : (hex.length >= 8 ? `#${hex.slice(1, 7)}` : hex);
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+        if (assignment.entityIds.some(id => id.trim())) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(x + 0.25, y + 0.25, 0.5, 0.5);
+        }
+      }
+    }
+    // Tile sprites load asynchronously (getTileImage kicks off a fetch and returns null
+    // the first time); since this preview isn't wired into the main canvas's redraw loop,
+    // poll once more shortly after so newly-loaded sprites actually appear.
+    if (pendingSprite) {
+      window.setTimeout(() => bumpCamera(), 150);
+    }
+  }, [grid, assignments, tileColorsReady, registry, bumpCamera]);
 
   return (
     <div
@@ -307,16 +415,24 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
         )}
 
         {previewUrl && grid && (
-          <div className="flex items-center gap-2">
-            <img
-              src={previewUrl}
-              alt={fileName ?? ''}
-              className="w-10 h-10 object-contain bg-panel border border-subtle rounded-sm"
-              style={{ imageRendering: 'pixelated' }}
-            />
-            <div className="text-[11px] text-muted">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex gap-2 h-80">
+              <PreviewCanvas
+                camera={previewCameraRef.current}
+                onCameraChange={bumpCamera}
+                draw={drawSource}
+                label={t('imageImportPanel.sourceLabel')}
+              />
+              <PreviewCanvas
+                camera={previewCameraRef.current}
+                onCameraChange={bumpCamera}
+                draw={drawResult}
+                label={t('imageImportPanel.resultLabel')}
+              />
+            </div>
+            <div className="text-[11px] text-muted text-center">
               {t('imageImportPanel.dimensions', { width: grid.width, height: grid.height })}
-              <br />
+              {' · '}
               {t('imageImportPanel.mappedCount', { mapped: mappedCount, total: colors.length })}
             </div>
           </div>
@@ -381,13 +497,34 @@ export const ImageImportPanel: React.FC<Props> = ({ registry, onConverted }) => 
                   className="flex-1 min-w-0 bg-elevated border border-subtle rounded-sm text-primary text-[11px] px-1.5 py-0.5"
                 />
               </div>
-              <input
-                type="text"
-                defaultValue={assignment?.entityIds.join(' ') ?? ''}
-                onBlur={e => setEntities(hex, e.target.value)}
-                placeholder={t('imageImportPanel.entitiesPlaceholder')}
-                className="w-full mt-1 bg-elevated border border-subtle rounded-sm text-primary text-[11px] px-1.5 py-0.5"
-              />
+              <div className="flex flex-col gap-1 mt-1">
+                {(assignment?.entityIds ?? []).map((entityId, index) => (
+                  <div key={index} className="flex gap-1">
+                    <input
+                      type="text"
+                      value={entityId}
+                      onChange={e => updateEntitySlot(hex, index, e.target.value)}
+                      placeholder={t('imageImportPanel.entityIdPlaceholder')}
+                      className="flex-1 min-w-0 bg-elevated border border-subtle rounded-sm text-primary text-[11px] px-1.5 py-0.5"
+                    />
+                    <button
+                      onClick={() => removeEntitySlot(hex, index)}
+                      title={t('imageImportPanel.removeEntity')}
+                      className="px-1.5 bg-elevated border border-subtle rounded-sm text-muted hover:text-danger hover:bg-hover cursor-pointer text-[11px]"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+                {(assignment?.entityIds.length ?? 0) < MAX_ENTITIES_PER_COLOR && (
+                  <button
+                    onClick={() => addEntitySlot(hex)}
+                    className="self-start px-2 py-0.5 bg-elevated border border-subtle rounded-sm text-primary text-[11px] cursor-pointer hover:bg-hover"
+                  >
+                    + {t('imageImportPanel.addEntity')}
+                  </button>
+                )}
+              </div>
               {isOpen && (
                 <div className="mt-1 max-h-32 overflow-y-auto bg-panel border border-subtle rounded-sm">
                   {filteredTileIds.slice(0, 100).map(id => (
