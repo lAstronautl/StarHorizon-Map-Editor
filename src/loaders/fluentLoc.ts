@@ -10,10 +10,13 @@ export interface FluentMessage {
 /**
  * Parses the subset of Fluent (.ftl) syntax SS14 content actually uses: flat
  * `key = value` messages optionally followed by indented `.attribute = value` lines.
- * Comments (`#`) and blank lines are skipped. Multiline values, term references,
- * and Fluent functions/selectors ({ $var }, { CAPITALIZE($var) }, etc.) are not
- * resolved — such messages simply keep their raw text, which is harmless here since
- * entity/tile display names never rely on those features in practice.
+ * Comments (`#`) and blank lines are skipped. Multiline values, and Fluent
+ * functions/selectors ({ $var }, { CAPITALIZE($var) }, etc.) are not resolved — such
+ * messages simply keep their raw text, which is harmless here since entity/tile display
+ * names never rely on those features in practice. Plain message/attribute references
+ * ({ ent-Foo }, { ent-Foo.desc }) ARE resolved, separately, by resolveMessageReferences —
+ * SS14 content uses these constantly so a child entity's name/desc can point back at its
+ * parent's (e.g. `ent-BusScheduleRoute1 = { ent-BusSchedule }`).
  */
 export function parseFtl(content: string): Map<string, FluentMessage> {
   const result = new Map<string, FluentMessage>();
@@ -44,7 +47,11 @@ export function parseFtl(content: string): Map<string, FluentMessage> {
 }
 
 /** Merges multiple parsed .ftl files into one flat key -> message index. Later files
- *  override earlier ones on key collision, matching how locale bundles normally merge. */
+ *  override earlier ones on key collision, matching how locale bundles normally merge.
+ *  Simple message/attribute references inside values are resolved afterward (see
+ *  resolveMessageReferences) — they routinely span files (a child entity's message can
+ *  reference a parent defined in a different .ftl), so resolution only makes sense once
+ *  every file has been merged into one index. */
 export function buildLocIndex(files: { path: string; content: string }[]): Map<string, FluentMessage> {
   const index = new Map<string, FluentMessage>();
   for (const file of files) {
@@ -53,7 +60,48 @@ export function buildLocIndex(files: { path: string; content: string }[]): Map<s
       index.set(key, message);
     }
   }
+  resolveMessageReferences(index);
   return index;
+}
+
+const REFERENCE_RE = /^\{\s*([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?\s*\}$/;
+
+/**
+ * Resolves plain whole-value message/attribute references — `{ ent-Foo }` (the target
+ * message's own .value) and `{ ent-Foo.attr }` (one of its attributes) — in place, across
+ * every message's .value and .attributes. Only a reference that is the ENTIRE field value
+ * is resolved (matching how SS14 content actually uses this: a child copying its parent's
+ * whole name/desc/suffix verbatim), not references embedded inside a longer string — those
+ * would need general Fluent interpolation, which entity/tile names don't otherwise need.
+ * Cyclic or dangling references are left as their raw `{ ... }` text rather than throwing,
+ * since a malformed/unusual .ftl shouldn't take down the whole registry.
+ */
+export function resolveMessageReferences(index: Map<string, FluentMessage>): void {
+  function resolve(raw: string, visiting: Set<string>): string {
+    const match = raw.match(REFERENCE_RE);
+    if (!match) return raw;
+    const [, targetKey, targetAttr] = match;
+    const visitKey = `${targetKey}.${targetAttr ?? ''}`;
+    if (visiting.has(visitKey)) return raw; // cycle guard
+    const target = index.get(targetKey);
+    if (!target) return raw;
+
+    const nextVisiting = new Set(visiting).add(visitKey);
+    if (targetAttr) {
+      const attrValue = target.attributes[targetAttr];
+      return attrValue !== undefined ? resolve(attrValue, nextVisiting) : raw;
+    }
+    return target.value !== null ? resolve(target.value, nextVisiting) : raw;
+  }
+
+  for (const message of index.values()) {
+    if (message.value !== null) {
+      message.value = resolve(message.value, new Set());
+    }
+    for (const attrName of Object.keys(message.attributes)) {
+      message.attributes[attrName] = resolve(message.attributes[attrName], new Set());
+    }
+  }
 }
 
 /**

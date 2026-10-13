@@ -802,6 +802,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return { ...state, grids: newGrids, undoStack: renameUndoStack, redoStack: [], dirty: true };
     }
 
+    case 'MARK_SAVED':
+      return { ...state, dirty: false };
+
     case 'ADD_CONTAINED_ENTITY': {
       markSceneDirty();
       const activeGrid = getActiveGrid(state.grids, state.activeGridIndex);

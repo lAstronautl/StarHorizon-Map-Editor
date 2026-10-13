@@ -45,6 +45,8 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { LayerPanel } from './components/LayerPanel';
 import { useKeyboard } from './hooks/useKeyboard';
 import { useAnimationFrame } from './hooks/useAnimationFrame';
+import { useServiceWorkerUpdate } from './hooks/useServiceWorkerUpdate';
+import { UpdateBanner } from './components/UpdateBanner';
 import { initRegistry } from './loaders/initRegistry';
 import { setActiveProvider, HttpResourceProvider } from './loaders/resourceProvider';
 import type { ResourceProvider } from './loaders/resourceProvider';
@@ -107,6 +109,7 @@ export const App: React.FC = () => {
   const getState = useCallback(() => stateRef.current, []);
   const multiplayer = useMultiplayer(getState, rawDispatch);
   const dispatch = multiplayer.networkDispatch;
+  const { updateAvailable, applyUpdate, dismiss: dismissUpdateBanner } = useServiceWorkerUpdate();
   const [showDisclaimer, setShowDisclaimer] = useState(() => !localStorage.getItem('space-station-14-map-editor-disclaimer-dismissed'));
   const [statusMessage, setStatusMessage] = useState(() => t('app.status.ready'));
   const [loadingMessage, setLoadingMessage] = useState(() => t('app.loading.discoveringPrototypes'));
@@ -373,11 +376,17 @@ export const App: React.FC = () => {
         entityOrder: state.entityOrder,
       }, state.decalsDirty);
       downloadYAML(yaml, 'station.yml');
+      dispatch({ type: 'MARK_SAVED' });
       setStatusMessage(t('app.status.exported'));
     } catch (err) {
       setStatusMessage(t('app.status.exportFailed', { error: String(err) }));
     }
-  }, [state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
+  }, [dispatch, state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
+
+  const handleUpdateClick = useCallback(() => {
+    if (state.dirty && !window.confirm(t('app.confirmReloadWithUnsavedChanges'))) return;
+    applyUpdate();
+  }, [state.dirty, applyUpdate, t]);
 
   const handleUndo = useCallback(() => dispatch({ type: 'UNDO' }), []);
   const handleRedo = useCallback(() => dispatch({ type: 'REDO' }), []);
@@ -682,6 +691,9 @@ export const App: React.FC = () => {
     <div
       className="flex flex-col w-full h-full relative"
     >
+      {updateAvailable && (
+        <UpdateBanner onUpdate={handleUpdateClick} onDismiss={dismissUpdateBanner} />
+      )}
 
       {showDisclaimer && (
         <div style={{

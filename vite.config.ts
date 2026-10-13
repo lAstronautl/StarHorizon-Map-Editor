@@ -3,11 +3,16 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const pkg = createRequire(import.meta.url)('./package.json') as { version: string };
 
 export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/StarHorizon-Map-Editor/' : '/',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     tailwindcss(),

@@ -239,6 +239,8 @@ export const MenuBar: React.FC<Props> = ({
         {locale === 'ru' ? 'RU' : 'EN'}
       </button>
 
+      <span className="text-[10px] text-muted mr-1">{t('menuBar.version', { version: __APP_VERSION__ })}</span>
+
       <input
         ref={fileInputRef}
         type="file"

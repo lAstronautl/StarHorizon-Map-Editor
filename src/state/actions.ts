@@ -27,4 +27,5 @@ export type EditorAction =
   | { type: 'SET_ACTIVE_GRID'; index: number }
   | { type: 'ADD_GRID'; name: string; worldPosition?: { x: number; y: number } }
   | { type: 'REMOVE_GRID'; gridUid: number }
-  | { type: 'RENAME_GRID'; gridUid: number; name: string };
+  | { type: 'RENAME_GRID'; gridUid: number; name: string }
+  | { type: 'MARK_SAVED' };

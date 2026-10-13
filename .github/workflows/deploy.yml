@@ -41,6 +41,13 @@ jobs:
       - name: Prebuild resources
         run: node scripts/prebuild-resources.mjs --textures=minimal --resources-path=../StarHorizon/Resources --fork-name=StarHorizon
 
+      - name: Stamp service worker with build ID
+        # Changing the service worker's own bytes on every deploy is what makes the
+        # browser notice it's "new" and go through install/activate again — without
+        # this, an unmodified public/sw.js is byte-identical across deploys and never
+        # triggers an update (see public/sw.js's own comment for the full mechanism).
+        run: sed -i "s/__BUILD_ID__/${GITHUB_SHA}/" public/sw.js
+
       - name: Build
         run: npx tsc && npx vite build
         env:

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { parseFtl, buildLocIndex, discoverLocale } from '../fluentLoc';
+import { parseFtl, buildLocIndex, discoverLocale, resolveMessageReferences } from '../fluentLoc';
+import type { FluentMessage } from '../fluentLoc';
 import type { ResourceProvider } from '../resourceProvider';
 
 describe('parseFtl', () => {
@@ -55,6 +56,70 @@ describe('parseFtl', () => {
   it('handles CRLF line endings', () => {
     const result = parseFtl('ent-Foo = Фу\r\n    .desc = Описание\r\n');
     expect(result.get('ent-Foo')).toEqual({ value: 'Фу', attributes: { desc: 'Описание' } });
+  });
+});
+
+describe('resolveMessageReferences', () => {
+  it('resolves a whole-value reference to the target message\'s own value', () => {
+    const index = new Map<string, FluentMessage>([
+      ['ent-BusSchedule', { value: 'расписание автобуса', attributes: { suffix: 'Авто' } }],
+      ['ent-BusScheduleRoute1', { value: '{ ent-BusSchedule }', attributes: { suffix: 'Маршрут 1' } }],
+    ]);
+    resolveMessageReferences(index);
+    expect(index.get('ent-BusScheduleRoute1')?.value).toBe('расписание автобуса');
+    expect(index.get('ent-BusScheduleRoute1')?.attributes.suffix).toBe('Маршрут 1'); // untouched, not a reference
+  });
+
+  it('resolves a whole-value reference to a specific attribute (ent-Foo.desc)', () => {
+    const index = new Map<string, FluentMessage>([
+      ['ent-BusSchedule', { value: 'расписание автобуса', attributes: { desc: 'Не пропустите!' } }],
+      ['ent-BusScheduleRoute1', { value: '{ ent-BusSchedule }', attributes: { desc: '{ ent-BusSchedule.desc }' } }],
+    ]);
+    resolveMessageReferences(index);
+    expect(index.get('ent-BusScheduleRoute1')?.attributes.desc).toBe('Не пропустите!');
+  });
+
+  it('reproduces the real bus_schedule.ftl case end to end via buildLocIndex', () => {
+    const ftl = [
+      'ent-BusSchedule = расписание автобуса',
+      '    .desc = Не пропустите!',
+      '    .suffix = Авто',
+      'ent-BusScheduleRoute1 = { ent-BusSchedule }',
+      '    .suffix = Маршрут 1, Точки появления',
+      '    .desc = { ent-BusSchedule.desc }',
+    ].join('\n');
+    const index = buildLocIndex([{ path: 'bus_schedule.ftl', content: ftl }]);
+    const route1 = index.get('ent-BusScheduleRoute1')!;
+    expect(route1.value).toBe('расписание автобуса');
+    expect(route1.attributes.desc).toBe('Не пропустите!');
+    expect(route1.attributes.suffix).toBe('Маршрут 1, Точки появления');
+  });
+
+  it('leaves a dangling reference (target not found) as raw text instead of throwing', () => {
+    const index = new Map<string, FluentMessage>([
+      ['ent-Orphan', { value: '{ ent-DoesNotExist }', attributes: {} }],
+    ]);
+    resolveMessageReferences(index);
+    expect(index.get('ent-Orphan')?.value).toBe('{ ent-DoesNotExist }');
+  });
+
+  it('leaves a cyclic reference as raw text instead of infinite-looping', () => {
+    const index = new Map<string, FluentMessage>([
+      ['ent-A', { value: '{ ent-B }', attributes: {} }],
+      ['ent-B', { value: '{ ent-A }', attributes: {} }],
+    ]);
+    resolveMessageReferences(index);
+    // Whichever one it lands on, it must terminate with the raw reference text, not throw/hang.
+    expect(index.get('ent-A')?.value).toMatch(/^\{ ent-[AB] \}$/);
+  });
+
+  it('does not touch a value that merely contains a reference alongside other text', () => {
+    const index = new Map<string, FluentMessage>([
+      ['ent-Base', { value: 'база', attributes: {} }],
+      ['ent-Combined', { value: 'префикс { ent-Base } суффикс', attributes: {} }],
+    ]);
+    resolveMessageReferences(index);
+    expect(index.get('ent-Combined')?.value).toBe('префикс { ent-Base } суффикс');
   });
 });
 
