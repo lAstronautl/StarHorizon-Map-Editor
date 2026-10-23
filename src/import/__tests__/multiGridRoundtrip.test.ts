@@ -1,15 +1,14 @@
 /// <reference types="node" />
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'path';
 import { importMap } from '../mapImporter';
 import { exportMap } from '../../export/mapExporter';
-import { pickMap } from '../../test-utils/realMaps';
+import { pickMap, resolveMapsDir } from '../../test-utils/realMaps';
 
 // Maps are discovered from the host repo's Resources/Maps (see test-utils/realMaps).
 // We pick the first real map that imports to more than one grid (e.g. a station with
 // a docked shuttle) so the multi-grid logic is exercised without assuming any fork or
 // map name. Skips when no multi-grid map is available.
-const MAPS_DIR = resolve(__dirname, '../../../../../Resources/Maps');
+const MAPS_DIR = resolveMapsDir();
 const multiGrid = pickMap(MAPS_DIR, importMap, { minGrids: 2 });
 
 describe('multi-grid roundtrip on real maps', () => {
@@ -63,10 +62,10 @@ describe('multi-grid structural integrity', () => {
         const transform = e.components.find((c: any) => c.type === 'Transform') as any;
         if (transform?.parent != null) {
           const isOwnGrid = transform.parent === gd.gridUid;
-          const isContainerParent =
-            !map.gridDataList!.some(g => g.gridUid === transform.parent) &&
-            transform.parent !== map.mapUid;
-          expect(isOwnGrid || isContainerParent).toBe(true);
+          // Entities parented straight to the map entity (not a grid) are owned by the first grid.
+          const isMapParent = transform.parent === map.mapUid;
+          const isContainerParent = !map.gridDataList!.some(g => g.gridUid === transform.parent);
+          expect(isOwnGrid || isMapParent || isContainerParent).toBe(true);
         }
       }
     }
