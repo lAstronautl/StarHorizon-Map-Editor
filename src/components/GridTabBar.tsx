@@ -14,6 +14,7 @@ interface Props {
   onAddGrid: () => void;
   onDeleteGrid: (gridUid: number) => void;
   onRenameGrid: (gridUid: number, newName: string) => void;
+  onExportGrid: (gridUid: number) => void;
   onFocusGrid: (index: number) => void;
   entities: ImportedEntity[];
   registry: IPrototypeRegistry | null;
@@ -24,7 +25,7 @@ interface Props {
 }
 
 export const GridTabBar: React.FC<Props> = ({
-  grids, activeGridIndex, onSelectGrid, onAddGrid, onDeleteGrid, onRenameGrid, onFocusGrid,
+  grids, activeGridIndex, onSelectGrid, onAddGrid, onDeleteGrid, onRenameGrid, onExportGrid, onFocusGrid,
   entities, registry, onSearchNavigate, searchInputRef, onValidate, multiplayer,
 }) => {
   const { t } = useT();
@@ -73,6 +74,13 @@ export const GridTabBar: React.FC<Props> = ({
             >
               <span>{gd.name}</span>
               <span className="text-muted text-[10px]">({gd.gridUid})</span>
+              <button
+                className="text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                title={t('gridTabBar.exportGrid')}
+                onClick={(e) => { e.stopPropagation(); onExportGrid(gd.gridUid); }}
+              >
+                ⤓
+              </button>
               {grids.length > 1 && (
                 <button
                   className="ml-1 text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"

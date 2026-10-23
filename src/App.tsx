@@ -54,6 +54,7 @@ import { ForkSelector } from './components/ForkSelector';
 import { importMap } from './import/mapImporter';
 import type { ImportedEntity } from './import/mapImporter';
 import { exportMap } from './export/mapExporter';
+import { exportGrid, gridFileName } from './export/gridExporter';
 import { stateToImportedMap } from './export/stateToMap';
 import { DEFAULT_LAYER_VISIBILITY } from './rendering/entityRenderer';
 import type { LayerVisibility } from './rendering/entityRenderer';
@@ -365,6 +366,19 @@ export const App: React.FC = () => {
       setStatusMessage(t('app.status.exportFailed', { error: String(err) }));
     }
   }, [dispatch, state]);
+
+  const handleExportGrid = useCallback((gridUid?: number) => {
+    const grid = state.grids.find(g => g.gridUid === gridUid) ?? state.grids[state.activeGridIndex];
+    if (!grid) return;
+    try {
+      const yaml = exportGrid(stateToImportedMap(state), grid.gridUid);
+      const file = gridFileName(grid);
+      downloadYAML(yaml, file);
+      setStatusMessage(t('app.status.gridExported', { file }));
+    } catch (err) {
+      setStatusMessage(t('app.status.gridExportFailed', { error: err instanceof Error ? err.message : String(err) }));
+    }
+  }, [state, t]);
 
   const handleUpdateClick = useCallback(() => {
     if (state.dirty && !window.confirm(t('app.confirmReloadWithUnsavedChanges'))) return;
@@ -753,6 +767,7 @@ export const App: React.FC = () => {
         onNewMap={handleNewMap}
         onImport={handleImport}
         onExport={handleExport}
+        onExportGrid={() => handleExportGrid()}
         onUndo={handleUndo}
         onRedo={handleRedo}
         canUndo={state.undoStack.length > 0}
@@ -786,6 +801,7 @@ export const App: React.FC = () => {
             onAddGrid={handleAddGrid}
             onDeleteGrid={handleDeleteGrid}
             onRenameGrid={handleRenameGrid}
+            onExportGrid={handleExportGrid}
             onFocusGrid={handleFocusGrid}
             entities={state.entities}
             registry={state.registry}

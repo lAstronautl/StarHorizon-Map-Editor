@@ -5,6 +5,7 @@ interface Props {
   onNewMap: () => void;
   onImport: (content: string) => void;
   onExport: () => void;
+  onExportGrid: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -97,7 +98,7 @@ const MenuDropdown: React.FC<{
 };
 
 export const MenuBar: React.FC<Props> = ({
-  onNewMap, onImport, onExport, onUndo, onRedo, canUndo, canRedo, dirty,
+  onNewMap, onImport, onExport, onExportGrid, onUndo, onRedo, canUndo, canRedo, dirty,
   showGrid, onToggleGrid, showEntities, onToggleEntities,
   showSpaceBackground, onToggleSpaceBackground,
   showLighting, onToggleLighting,
@@ -159,6 +160,7 @@ export const MenuBar: React.FC<Props> = ({
     { label: 'separator', separator: true },
     { label: t('menuBar.file.import'), shortcut: 'Ctrl+O', action: handleImportClick },
     { label: t('menuBar.file.export'), shortcut: 'Ctrl+S', action: onExport },
+    { label: t('menuBar.file.exportGrid'), action: onExportGrid },
   ];
 
   const editItems: MenuItem[] = [
