@@ -27,6 +27,8 @@ function makeSource(): GridData {
     { type: 'Physics', bodyType: 'Dynamic' },
     { type: 'BecomesStation', id: 'Test' },
     { type: 'GridAtmosphere' },
+    // docked to another grid of the source map: only meaningful there
+    { type: 'Joint', joints: { docking7: { _ss14Tag: '!type:WeldJoint', bodyA: 2, bodyB: 77, id: 'docking7' } } },
   ];
   gd.entities = [
     { uid: 10, prototype: 'WallSolid', position: { x: 4.5, y: 3.5 }, rotation: 0, components: [{ type: 'Transform', pos: '4.5,3.5', parent: 2 }] },
@@ -119,6 +121,7 @@ describe('a grid cut from a selection, as a file', () => {
     expect(yaml).toContain('type: Physics'); // copied from the source grid
     expect(yaml).not.toContain('BecomesStation'); // would create a second station
     expect(yaml).not.toContain('GridAtmosphere');
+    expect(yaml).not.toContain('Joint'); // welded to a grid that is not in this file; the engine refuses it
     expect(yaml).toContain('entity_storage: !type:Container');
     expect(yaml).toContain('Bot');
     const back = importMap(yaml);
@@ -184,6 +187,19 @@ describe('SelectTool grid actions', () => {
     expect(state.localEntityCounter).toBe(15);
     const yaml = exportMap(stateToImportedMap(state), state.decalsDirty);
     expect(validateEngineYaml(yaml).errors).toEqual([]);
+  });
+
+  it('a grid moved into the map does not take the source grid\'s joint with it', () => {
+    const source = makeSource();
+    const { gridData, entities } = extractGridFromSelection({ source, selectedTiles: rect(4, 3, 6, 4), gridUid: 50, name: 'Wing' });
+    let state = { ...createInitialState(), grids: [makeSource()], nextEntityId: 14, localEntityCounter: 14 };
+    // like the tool: take the selection off the source grid, then add the new grid
+    state = editorReducer(state, { type: 'APPLY_COMMAND', command: { label: 'cut', tileChanges: [], entityChanges: entities.map(e => ({ action: 'remove' as const, entity: e })) } });
+    state = editorReducer(state, { type: 'ADD_GRID', name: 'Wing', gridData });
+    const yaml = exportMap(stateToImportedMap(state), state.decalsDirty);
+    expect(validateEngineYaml(yaml).errors).toEqual([]);
+    expect(yaml).not.toContain('type: Joint');
+    expect(yaml).not.toContain('BecomesStation');
   });
 
   it('"save as grid" does nothing without a name', () => {

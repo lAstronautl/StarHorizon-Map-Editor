@@ -10,17 +10,12 @@
 import type { ImportedMap } from '../import/mapImporter';
 import type { GridData } from '../state/gridData';
 import { exportMap } from './mapExporter';
-import { findComponent, synthesizeGridComponents, type Component } from './gridStructure';
+import { findComponent, synthesizeGridComponents, GRID_TIE_COMPONENTS, type Component } from './gridStructure';
 import { remapEntityRefs } from '../grid/entityRefs';
 
 /** Thrown when the requested grid can't be written as a file; the message is shown to the user. */
 export class GridExportError extends Error {}
 
-/**
- * Components that do not belong on a plain grid in a grid file: joints to other grids, and the map
- * components of a "grid-map" (a grid that is also its own map), which the game refuses to save as a grid.
- */
-const GRID_LINK_COMPONENTS = new Set(['Joint', 'Map', 'GridTree', 'LoadedMap', 'MovedGrids', 'PhysicsMap']);
 
 function hasTiles(gd: GridData): boolean {
   return gd.grid.cells.some(c => c.tileId !== 'Space');
@@ -32,7 +27,7 @@ function rootGridComponents(map: ImportedMap, gd: GridData): Component[] {
   if (!stored) return synthesizeGridComponents(gd, 'invalid');
 
   const components = stored
-    .filter(c => !(typeof c.type === 'string' && GRID_LINK_COMPONENTS.has(c.type)))
+    .filter(c => !(typeof c.type === 'string' && GRID_TIE_COMPONENTS.has(c.type)))
     .map(c => (c.type === 'Transform' ? { ...c, parent: 'invalid' } : c));
   if (!findComponent(components, 'Transform')) {
     components.splice(1, 0, { type: 'Transform', parent: 'invalid' });

@@ -81,8 +81,21 @@ export function isAutoGridName(name: string | undefined): boolean {
   return !name || /^Grid \d+$/.test(name);
 }
 
-/** Grid components that hold data derived from the tiles/station of the *source* grid; never copy them. */
-const NON_COPYABLE_GRID_COMPONENTS = new Set([
+/**
+ * Components that tie a grid to the map or to the grids around it. A `Joint` welds it to a docked
+ * grid by uid, which the engine can't resolve in another file, and a grid-map's `Map` makes it
+ * unsaveable as a plain grid. They never belong in a grid file or on a grid copied elsewhere.
+ */
+export const GRID_TIE_COMPONENTS: ReadonlySet<string> = new Set([
+  'Joint', 'Map', 'GridTree', 'LoadedMap', 'MovedGrids', 'PhysicsMap',
+]);
+
+/**
+ * Components that must not be copied onto a *different* grid: the ties above, plus data derived
+ * from the source grid's own tiles/station.
+ */
+export const NON_COPYABLE_GRID_COMPONENTS: ReadonlySet<string> = new Set([
+  ...GRID_TIE_COMPONENTS,
   'DecalGrid', 'BecomesStation', 'GridAtmosphere', 'GasTileOverlay', 'RadiationGridResistance',
 ]);
 

@@ -16,6 +16,7 @@ import type { GridData } from '../state/gridData';
 import type { TileGrid } from '../types';
 import type { DecalInstance } from '../import/decalParser';
 import { serializeDecalGrid } from './decalExporter';
+import { remapEntityRefs } from '../grid/entityRefs';
 import {
   ENGINE_VERSION,
   collectUsedUids,
@@ -210,11 +211,14 @@ function buildStructuralEntries(map: ImportedMap): StructuralEntry[] {
     }
   }
 
+  // A grid built in the editor may carry components copied from another grid; references they hold
+  // to entities that are not in this file would point at nothing (or at something unrelated).
+  const inFile = new Set<number>([...used, mapUid]);
   for (const gd of grids) {
     if (byUid(gd.gridUid)) continue;
     entries.push({
       uid: gd.gridUid,
-      components: synthesizeGridComponents(gd, isGridFile ? 'invalid' : mapUid),
+      components: remapEntityRefs(synthesizeGridComponents(gd, isGridFile ? 'invalid' : mapUid), uid => (inFile.has(uid) ? uid : undefined)),
       raw: false,
       synthesized: true,
     });
