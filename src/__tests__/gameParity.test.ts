@@ -41,7 +41,7 @@ describe.skipIf(files.length === 0)('game parity (import -> export -> engine rul
 
       const map = importMap(yamlText);
       const exported = exportMap(map);
-      const result = validateEngineYaml(exported);
+      const result = validateEngineYaml(exported, { checkOrdering: true });
 
       expect(result.errors, 'exported YAML breaks engine load rules').toEqual([]);
       expect(result.entityCount, 'entities lost or duplicated').toBe(original.entityCount);

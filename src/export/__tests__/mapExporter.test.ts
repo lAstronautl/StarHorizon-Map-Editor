@@ -58,8 +58,8 @@ describe('exportMap', () => {
 
     it('overrides an inconsistent explicit category with the one the content implies', () => {
       const map = makeMinimalMap();
-      map.meta = { format: 7, category: 'Grid' };
-      // fallback structure = a map entity plus a grid, so this is a Map file
+      map.meta = { format: 7, category: 'Entity' };
+      // no preserved structure => the exporter builds a map entity plus a grid, so this is a Map file
       expect(exportMap(map)).toMatch(/^meta:\n {2}format: 7\n {2}category: Map\n/);
     });
 
@@ -342,13 +342,15 @@ describe('exportMap', () => {
       const chunkGrid2 = makeChunkBase64F7({ 0: 7 });
       const chunkGrid100 = makeChunkBase64F7({ 0: 3 });
 
-      // Meta field order matches exporter emission order:
-      // format, category, entityCount, postmapinit
+      // Meta field order matches the engine: format, category, engineVersion, forkId, forkVersion, time, entityCount
       return `meta:
   format: 7
   category: Map
+  engineVersion: 267.3.0
+  forkId: ""
+  forkVersion: ""
+  time: 01/02/2026 03:04:05
   entityCount: 5
-  postmapinit: false
 maps:
 - 1
 grids:
@@ -396,13 +398,6 @@ entities:
           ind: 0,0
           tiles: ${chunkGrid100}
           version: 7
-- proto: WallSolid
-  entities:
-  - uid: 3
-    components:
-    - type: Transform
-      pos: 5.5,3.5
-      parent: 2
 - proto: APCBasic
   entities:
   - uid: 4
@@ -410,6 +405,14 @@ entities:
     - type: Transform
       pos: 2.5,1.5
       parent: 100
+- proto: WallSolid
+  entities:
+  - uid: 3
+    components:
+    - type: Transform
+      pos: 5.5,3.5
+      parent: 2
+...
 `;
     }
 
@@ -432,7 +435,7 @@ entities:
       expect(reimported.gridDataList![1].entities[0].uid).toBe(4);
     });
 
-    it('multi-grid roundtrip produces identical bytes', () => {
+    it('multi-grid roundtrip produces identical bytes (prototype groups sorted, `...` terminator)', () => {
       const original = buildTwoGridMap();
       const map = importMap(original);
       const exported = exportMap(map);

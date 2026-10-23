@@ -44,7 +44,7 @@ describe('mintEntityUid', () => {
     const state = createInitialState();
     const { uid } = mintEntityUid(state);
     expect(uid).toBe(state.localEntityCounter);
-    expect(uid).toBe(2); // reserved UIDs 0/1, first real entity is 2
+    expect(uid).toBe(3); // uid 1 is the map, 2 its grid; the first real entity is 3
   });
 
   it('namespaces minted UIDs by localPeerIndex for non-host peers', () => {
@@ -56,11 +56,14 @@ describe('mintEntityUid', () => {
 });
 
 describe('mintGridUid', () => {
-  it('mints sequential grid UIDs independent of entity UID counter', () => {
+  it('shares the entity counter so a grid never gets an entity\'s uid', () => {
     const state = createInitialState();
-    const { uid, localGridCounter } = mintGridUid(state);
-    expect(uid).toBe(state.localGridCounter);
-    const next = mintGridUid({ ...state, localGridCounter });
-    expect(next.uid).toBe(uid + 1);
+    const entity = mintEntityUid(state);
+    const afterEntity = { ...state, localEntityCounter: entity.localEntityCounter };
+    const grid = mintGridUid(afterEntity);
+    expect(grid.uid).toBe(entity.uid + 1);
+    expect(grid.localEntityCounter).toBe(grid.uid + 1);
+    const nextEntity = mintEntityUid({ ...afterEntity, localEntityCounter: grid.localEntityCounter });
+    expect(nextEntity.uid).toBe(grid.uid + 1);
   });
 });

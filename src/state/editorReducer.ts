@@ -525,9 +525,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       // Rebuild spatial index from first grid
       rebuildSpatialIndex(grids[0]?.entities ?? []);
 
-      // Compute nextEntityId across all grids (min 2 to reserve UIDs 0/1 for structural entities)
-      let nextEntityId = 2;
+      // Compute nextEntityId across everything in the file: the map, the grids (and the structural
+      // entities that never appear in a grid's entity list) must not be handed out again.
+      let nextEntityId = Math.max(3, map.mapUid + 1, map.gridUid + 1);
+      for (const uidStr of Object.keys(map.structuralEntityData ?? {})) {
+        nextEntityId = Math.max(nextEntityId, Number(uidStr) + 1);
+      }
       for (const gd of grids) {
+        if (gd.gridUid >= nextEntityId) nextEntityId = gd.gridUid + 1;
         for (const e of gd.entities) {
           if (e.uid >= nextEntityId) nextEntityId = e.uid + 1;
         }
@@ -564,7 +569,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         nextEntityId,
         localPeerIndex: 0,
         localEntityCounter: nextEntityId,
-        localGridCounter: grids.reduce((max, g) => Math.max(max, g.gridUid + 1), 2),
+        localGridCounter: nextEntityId,
         undoStack: [],
         redoStack: [],
         selectedEntityUids: [],
@@ -609,7 +614,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'NEW_MAP': {
       markAllDirty();
       rebuildSpatialIndex([]);
-      const emptyGrid = createEmptyGridData(1, 'Grid 1');
+      // Saved files number entities from 1: the map is uid 1, its grid uid 2.
+      const emptyGrid = createEmptyGridData(2, 'Grid 1');
       return {
         ...state,
         grids: [emptyGrid],
@@ -618,9 +624,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         grid: emptyGrid.grid,
         entities: emptyGrid.entities,
         containedEntities: emptyGrid.containedEntities,
-        mapUid: 0,
-        gridUid: 1,
-        meta: { format: 7, postmapinit: false },
+        mapUid: 1,
+        gridUid: 2,
+        meta: { format: 7 },
         maps: undefined,
         gridUidList: undefined,
         orphans: undefined,
@@ -633,10 +639,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         lineEnding: undefined,
         hasDocumentTerminator: undefined,
         entityOrder: undefined,
-        nextEntityId: 2,  // UIDs 0 (map) and 1 (grid) reserved for structural entities
+        nextEntityId: 3,  // UIDs 1 (map) and 2 (grid) reserved for structural entities
         localPeerIndex: 0,
-        localEntityCounter: 2,
-        localGridCounter: 2,
+        localEntityCounter: 3,
+        localGridCounter: 3,
         undoStack: [],
         redoStack: [],
         selectedDecalIds: [],
@@ -744,7 +750,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'ADD_GRID': {
       markAllDirty();
-      const { uid: newGridUid, localGridCounter } = mintGridUid(state);
+      const { uid: newGridUid, localEntityCounter: gridEntityCounter, localGridCounter } = mintGridUid(state);
       const newGrid = createEmptyGridData(newGridUid, action.name);
       if (action.worldPosition) {
         newGrid.worldPosition = action.worldPosition;
@@ -755,7 +761,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...state,
         grids: [...state.grids, newGrid],
+        localEntityCounter: gridEntityCounter,
         localGridCounter,
+        nextEntityId: Math.max(state.nextEntityId, newGridUid + 1),
         undoStack: addUndoStack,
         redoStack: [],
         dirty: true,

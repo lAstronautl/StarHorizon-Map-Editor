@@ -54,6 +54,7 @@ import { ForkSelector } from './components/ForkSelector';
 import { importMap } from './import/mapImporter';
 import type { ImportedEntity } from './import/mapImporter';
 import { exportMap } from './export/mapExporter';
+import { stateToImportedMap } from './export/stateToMap';
 import { DEFAULT_LAYER_VISIBILITY } from './rendering/entityRenderer';
 import type { LayerVisibility } from './rendering/entityRenderer';
 import { InfrastructurePanel } from './components/InfrastructurePanel';
@@ -356,34 +357,14 @@ export const App: React.FC = () => {
 
   const handleExport = useCallback(() => {
     try {
-      const yaml = exportMap({
-        meta: state.meta,
-        tilemap: state.tilemap ?? {},
-        grid: state.grid,
-        entities: state.entities,
-        containedEntities: state.containedEntities,
-        gridUid: state.gridUid,
-        mapUid: state.mapUid,
-        maps: state.maps,
-        grids: state.gridUidList,
-        orphans: state.orphans,
-        nullspace: state.nullspace,
-        gridDataList: state.grids,
-        structuralEntityData: state.structuralEntityData,
-        entityRawComponents: state.entityRawComponents,
-        entityRawPreamble: state.entityRawPreamble,
-        chunkKeyOrder: state.chunkKeyOrder,
-        lineEnding: state.lineEnding,
-        hasDocumentTerminator: state.hasDocumentTerminator,
-        entityOrder: state.entityOrder,
-      }, state.decalsDirty);
+      const yaml = exportMap(stateToImportedMap(state), state.decalsDirty);
       downloadYAML(yaml, 'station.yml');
       dispatch({ type: 'MARK_SAVED' });
       setStatusMessage(t('app.status.exported'));
     } catch (err) {
       setStatusMessage(t('app.status.exportFailed', { error: String(err) }));
     }
-  }, [dispatch, state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.orphans, state.nullspace, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
+  }, [dispatch, state]);
 
   const handleUpdateClick = useCallback(() => {
     if (state.dirty && !window.confirm(t('app.confirmReloadWithUnsavedChanges'))) return;

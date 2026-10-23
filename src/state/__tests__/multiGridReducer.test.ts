@@ -404,7 +404,7 @@ describe('multi-grid reducer', () => {
       const state = makeTwoGridState();
       const result = editorReducer(state, { type: 'NEW_MAP' });
       expect(result.grids).toHaveLength(1);
-      expect(result.grids[0].gridUid).toBe(1);
+      expect(result.grids[0].gridUid).toBe(2); // uid 1 is the map entity
       expect(result.grids[0].name).toBe('Grid 1');
       expect(result.grids[0].entities).toEqual([]);
       expect(result.activeGridIndex).toBe(0);
@@ -426,7 +426,7 @@ describe('multi-grid reducer', () => {
       const result = editorReducer(state, { type: 'NEW_MAP' });
       expect(result.grid).toBe(result.grids[0].grid);
       expect(result.entities).toBe(result.grids[0].entities);
-      expect(result.gridUid).toBe(1);
+      expect(result.gridUid).toBe(2);
     });
   });
 
@@ -436,7 +436,7 @@ describe('multi-grid reducer', () => {
       const result = editorReducer(state, { type: 'ADD_GRID', name: 'Shuttle' });
       expect(result.grids).toHaveLength(2);
       expect(result.grids[1].name).toBe('Shuttle');
-      expect(result.grids[1].gridUid).toBe(2); // next after uid=1
+      expect(result.grids[1].gridUid).toBe(3); // 1 = map, 2 = first grid
     });
 
     it('uses world position when provided', () => {
