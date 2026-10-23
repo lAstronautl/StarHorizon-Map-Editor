@@ -327,6 +327,8 @@ The editor now fully supports multiple grids per map:
 4. **Grid creation/deletion**, users can add new empty grids and remove existing ones via the grid tab bar
 5. **Grid renaming**, grids can be given display names for easier identification
 6. **Entity grid parenting**, entities are assigned to grids by Transform `parent` field; all tools operate on the active grid's entities only
-7. **Export all grids**, each grid's tiles are encoded into separate chunk sets under the corresponding grid entity
+7. **Export all grids**, each grid's tiles are encoded into separate chunk sets under the corresponding grid entity. Grids added in the editor get a complete grid entity (Physics, Shuttle, Gravity, ...); a grid without tiles is not written, because the game deletes empty grids
 8. **Roundtrip fidelity**, byte-exact roundtrip verified for multi-grid maps (Bagel, Box, Cork, Oasis, Fland)
 9. **Edit isolation**, editing one grid does not affect other grids' data
+10. **Position and rotation**, a grid's `Transform` position/rotation come from the file; a grid cut from a selection is placed where the selection was
+11. **Grid files**, any grid can be saved as a stand-alone `category: Grid` file (File > Export Grid, or the save button on its tab), and a selection can be saved as one or moved into a new grid; see `import-export.md`

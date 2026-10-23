@@ -30,6 +30,7 @@ The active fork name is shown in the menu bar. Click it and select "Switch Fork.
 - **File > New Map** creates a blank canvas
 - **File > Import .yml** loads an existing SS14 map file
 - **File > Export .yml** saves the map as a `.yml` file that SS14 can load
+- **File > Export Grid (.yml)** (or the ⤓ button on a grid's tab) saves just that grid as a shuttle-style grid file (`category: Grid`) that can be loaded with `loadgrid` or added to the shipyard. Grids without tiles can't be saved, and the game doesn't keep them in a map either
 
 ### Navigation
 
@@ -220,7 +221,16 @@ Prefabs let you save and reuse map regions as `.prefab.json` template files.
 4. Enter a name in the dialog
 5. The file downloads as `name.prefab.json`
 
-The prefab captures all non-Space tiles, entities (with their raw YAML data for export correctness), and device links within the selection. Links to entities outside the selection are dropped.
+The prefab captures the selected non-Space tiles, the entities on them (with the contents of containers) and their decals, and device links within the selection. Links to entities outside the selection are dropped. When it is placed on a map, the entities get new uids and are attached to the grid they land on.
+
+### Saving a selection as a grid
+
+Right-click a selection for two more options:
+
+- **Save as Grid (.yml)...** writes the selection as a stand-alone grid file (like a shuttle) and leaves the map as is.
+- **Move to new Grid...** moves the selection into a new grid tab, at the same place in the map.
+
+The new grid keeps the tiles (including their variants), the entities and decals, and the physics/shuttle setup of the grid it came from.
 
 ### Placing a Prefab
 
@@ -393,4 +403,4 @@ Results are grouped by rule type with error/warning counts. Click any issue to c
 - **Stack picker**, Multiple entities on the same tile? Select one, then scroll the mouse wheel to pick the exact entity you want. It's selected immediately so you can drag it right away.
 - **Box select**, With Entity Select (V), drag on empty space to select all entities in a rectangle. Shift+click to add/remove from the selection.
 - **Build a prefab library**, Save common room designs (medbay, engineering, etc.) as prefabs. Keep them in a folder and use the Prefabs panel's directory browser for quick access.
-- **Prefabs preserve export fidelity**, Entities saved in prefabs carry their raw YAML data, so stamping a prefab and exporting produces valid SS14 map files with byte-exact entity data.
+- **Prefabs export cleanly**, Stamping a prefab on any map gives its entities fresh uids, attaches them to the grid and keeps links between them, so the exported file loads in the game without fixing.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Prefabs are reusable map regions saved as `.prefab.json` files. They capture tiles, entities, raw YAML component data, decals, and device links from a rectangular selection, and can be stamped onto any map with full SS14 export correctness.
+Prefabs are reusable map regions saved as `.prefab.json` files. They capture tiles, entities (with the contents of their containers), decals, and device links from a selection, and can be stamped onto any map with full SS14 export correctness. To keep a region as a real grid instead of a stamp, see *Selection → grid* in `import-export.md`.
 
 ## File Format
 
@@ -10,6 +10,7 @@ A `.prefab.json` file containing a self-contained room/region:
 
 ```json
 {
+  "version": 2,
   "name": "Surgery Room",
   "width": 7,
   "height": 5,
@@ -19,11 +20,19 @@ A `.prefab.json` file containing a self-contained room/region:
   ],
   "entities": [
     {
-      "dx": 2, "dy": 1,
+      "dx": 2.5, "dy": 1.5,
       "prototype": "OperatingTable",
       "rotation": 0,
       "components": [{ "type": "Transform" }],
-      "rawYamlLines": ["    - type: Transform"]
+      "srcUid": 412
+    },
+    {
+      "dx": 0, "dy": 0,
+      "prototype": "Scalpel",
+      "rotation": 0,
+      "components": [{ "type": "Transform" }],
+      "srcUid": 413,
+      "containerIdx": 0
     }
   ],
   "deviceLinks": [
@@ -39,12 +48,16 @@ Key design points:
 
 - **Sprite state overrides**, `PrefabEntity` includes an optional `spriteStateOverride?: string` field. If present, it is serialized into the `.prefab.json` file and restored on placement, preserving the visual state chosen via the Sprite State Selector.
 - **Sparse tiles**, Only non-Space tiles are stored. Space tiles are omitted.
-- **Relative offsets**, Tile/entity `dx`/`dy` are integer tile offsets from the prefab's top-left corner (entity positions stored as `Math.floor(position) - minBound`). Decal `dx`/`dy` keep the fractional part (`position - minBound`), since decals aren't tile-centered.
+- **Versions**, `version: 2` files store exact offsets: entity and decal `dx`/`dy` are `position - minBound`, so an entity keeps its place inside the tile (a wall light at `x.25` stays there). Files without `version` (saved by older editors) store whole-tile entity offsets; they are centered on the tile when placed, as before. Tile `dx`/`dy` are always whole tiles.
+- **Selection mask**, only the selected tiles are captured (an L-shaped selection gives an L-shaped prefab), plus the entities and decals on them.
+- **Containers**, entities inside containers (`containerIdx` = index of the container entity) are saved and placed with it. They have no position of their own.
+- **Source uids**, `srcUid` is the uid the entity had where it was saved. On placement it lets references between prefab entities (container contents, `DeviceList`, `DeviceLinkSource`, ...) follow them to their new uids.
 - **Decals**, Optional `decals` array, omitted entirely from the file when the selection contains none. Older `.prefab.json` files without this field still load fine, they just place no decals.
-- **Raw YAML lines**, `rawYamlLines` on entities carry verbatim YAML for byte-exact export roundtrip. On placement, these are stored in `entityRawComponents` so the exporter emits them unchanged.
+- **No raw YAML**, `rawYamlLines` is no longer written: the lines carry the source map's uids and positions, so a placed entity is always exported from its components. Older files that still contain it load fine (the field is ignored).
 - **Index-based device links**, Links reference entities by array index, not UIDs. New UIDs are assigned when the prefab is stamped.
 - **Device link serialization**, Uses `DeviceLinkSource.linkedPorts` (not `DeviceList.devices`) to capture port/sink pairs. Each entry in `linkedPorts` maps a target UID to an array of `[port, sink]` pairs.
-- **Entity position on placement**, When stamped, entity world position is `placeX + dx + 0.5, placeY + dy + 0.5` (center of tile).
+- **Entity position on placement**, When stamped, entity world position is `placeX + dx, placeY + dy` (version 2) or `placeX + dx + 0.5, placeY + dy + 0.5` (older files).
+- **Parent and references on placement**, `Transform.parent` is set to the grid the prefab is placed on (the one in the file belongs to the map it was saved from). References to other entities are translated to the new uids; references to entities outside the prefab are dropped, since that uid would mean something else in the destination map. Prefabs without `srcUid` lose such references but get their device links rebuilt from `deviceLinks`.
 
 ### Validation
 
@@ -56,6 +69,8 @@ Key design points:
 2. Right-click → "Save as Prefab..."
 3. Enter a name in the prompt dialog
 4. File downloads as `name.prefab.json`
+
+The prefab image import (`ImageImportPanel`) builds version 2 prefabs, so a pixel's entity sits on the pixel's own tile.
 
 ## Placing a Prefab
 
@@ -92,7 +107,7 @@ Stamping overwrites the footprint: tiles are replaced, existing entities in the 
 
 ## Export Correctness
 
-Prefab entities carry `rawYamlLines` which are stored in `entityRawComponents` on placement. The exporter (`src/export/mapExporter.ts`) emits these lines verbatim, producing valid SS14 YAML identical to entities imported from a real map file.
+Placed entities are exported by the component re-serializer in `src/export/mapExporter.ts`, which was checked against every map in the game (see `import-export.md`): parents point at the destination grid, uids don't collide with anything in the map, container contents are listed once, and references are valid.
 
 ## Source Files
 
