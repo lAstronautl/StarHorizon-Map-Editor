@@ -813,21 +813,13 @@ function emitStructuralEntityRawWithReplacements(
   }
 }
 
-/**
- * Emit a single component as YAML lines.
- * Components are Record<string, unknown> objects with a `type` field.
- * We write them verbatim, preserving all keys.
- */
 function emitComponent(lines: string[], comp: Record<string, unknown>): void {
-  const keys = Object.keys(comp);
-
   // `type` always comes first
   lines.push(`    - type: ${comp.type}`);
 
-  for (const key of keys) {
+  for (const key of Object.keys(comp)) {
     if (key === 'type') continue;
-    const value = comp[key];
-    emitValue(lines, key, value, 6);
+    emitEntry(lines, key, comp[key], 6, ' '.repeat(6));
   }
 }
 
@@ -840,92 +832,94 @@ function emitValue(
   value: unknown,
   indent: number,
 ): void {
-  const prefix = ' '.repeat(indent);
+  emitEntry(lines, key, value, indent, ' '.repeat(indent));
+}
+
+const spaces = (n: number): string => ' '.repeat(n);
+
+function tagOf(record: Record<string, unknown>): string | undefined {
+  return record._ss14Tag as string | undefined;
+}
+
+function dataEntries(record: Record<string, unknown>): [string, unknown][] {
+  return Object.entries(record).filter(([k]) => k !== '_ss14Tag');
+}
+
+/**
+ * Emit one `key: value` mapping entry whose key sits at column `col`. `lead` is the text in
+ * front of the key on its first line (`col` spaces, or `<spaces>- ` for the first entry of a
+ * sequence item). Sequences are not indented under their key, matching the engine's emitter.
+ */
+function emitEntry(lines: string[], key: string, value: unknown, col: number, lead: string): void {
+  const head = `${lead}${formatKey(key)}:`;
 
   if (value === null || value === undefined) {
-    lines.push(`${prefix}${key}:`);
-  } else if (typeof value === 'object' && !Array.isArray(value)) {
-    // Nested object, check for SS14 YAML type tag
-    const record = value as Record<string, unknown>;
-    const tag = record._ss14Tag as string | undefined;
-    const entries = Object.entries(record).filter(([k]) => k !== '_ss14Tag');
-
-    if (entries.length === 0 && !tag) {
-      // Empty object, emit as {} to preserve the mapping type
-      lines.push(`${prefix}${key}: {}`);
-    } else {
-      if (tag) {
-        lines.push(`${prefix}${key}: ${tag}`);
-      } else {
-        lines.push(`${prefix}${key}:`);
-      }
-      for (const [k, v] of entries) {
-        emitValue(lines, k, v, indent + 2);
-      }
-    }
+    lines.push(`${head} null`);
   } else if (Array.isArray(value)) {
-    lines.push(`${prefix}${key}:`);
     if (value.length === 0) {
-      // Replace last line to show empty array
-      lines[lines.length - 1] = `${prefix}${key}: []`;
+      lines.push(`${head} []`);
     } else {
-      for (const item of value) {
-        if (Array.isArray(item)) {
-          // Nested sequence: emit as "- - val1\n  - val2"
-          emitNestedSequence(lines, item, indent);
-        } else if (typeof item === 'object' && item !== null) {
-          // First key of the object gets the "- " prefix; skip _ss14Tag
-          const entries = Object.entries(item as Record<string, unknown>)
-            .filter(([k]) => k !== '_ss14Tag');
-          if (entries.length > 0) {
-            const [firstKey, firstVal] = entries[0];
-            const itemPrefix = prefix + '- ';
-            if (isPrimitive(firstVal)) {
-              lines.push(`${itemPrefix}${firstKey}: ${formatPrimitive(firstVal)}`);
-            } else if (Array.isArray(firstVal)) {
-              // First value is an array
-              if (firstVal.length === 0) {
-                lines.push(`${itemPrefix}${firstKey}: []`);
-              } else {
-                lines.push(`${itemPrefix}${firstKey}:`);
-                emitArrayItems(lines, firstVal, indent + 2);
-              }
-            } else if (typeof firstVal === 'object' && firstVal !== null) {
-              const objEntries = Object.entries(firstVal as Record<string, unknown>)
-                .filter(([k]) => k !== '_ss14Tag');
-              if (objEntries.length === 0) {
-                lines.push(`${itemPrefix}${firstKey}: {}`);
-              } else {
-                const tag = (firstVal as Record<string, unknown>)._ss14Tag as string | undefined;
-                if (tag) {
-                  lines.push(`${itemPrefix}${firstKey}: ${tag}`);
-                } else {
-                  lines.push(`${itemPrefix}${firstKey}:`);
-                }
-                for (const [k, v] of objEntries) {
-                  emitValue(lines, k, v, indent + 4);
-                }
-              }
-            } else {
-              lines.push(`${itemPrefix}${firstKey}:`);
-            }
-            for (let i = 1; i < entries.length; i++) {
-              emitValue(lines, entries[i][0], entries[i][1], indent + 2);
-            }
-          }
-        } else if (typeof item === 'string' && item.includes('\n')) {
-          // Multiline string in array, use block scalar with "- " prefix
-          emitBlockScalar(lines, '-', item, indent, true);
-        } else {
-          lines.push(`${prefix}- ${formatPrimitive(item)}`);
-        }
-      }
+      lines.push(head);
+      emitSequence(lines, value, col);
     }
-  } else if (typeof value === 'string' && value.includes('\n')) {
-    // Multiline string, use YAML literal block scalar
-    emitBlockScalar(lines, key, value, indent);
+  } else if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const tag = tagOf(record);
+    const entries = dataEntries(record);
+    if (entries.length === 0) {
+      // `{}` keeps it a mapping; a bare tag would parse as an (empty) scalar and not load.
+      lines.push(`${head} ${tag ? `${tag} ` : ''}{}`);
+    } else {
+      lines.push(tag ? `${head} ${tag}` : head);
+      for (const [k, v] of entries) emitEntry(lines, k, v, col + 2, spaces(col + 2));
+    }
+  } else if (typeof value === 'string' && value.includes('\n') && !value.includes('\r')) {
+    // Multiline string, use YAML literal block scalar. Content is indented relative to the key column.
+    const block: string[] = [];
+    emitBlockScalar(block, key, value, col);
+    block[0] = lead + block[0].slice(col);
+    lines.push(...block);
   } else {
-    lines.push(`${prefix}${key}: ${formatPrimitive(value)}`);
+    lines.push(`${head} ${formatPrimitive(value)}`);
+  }
+}
+
+/** Emit sequence items with their `- ` at column `col`. */
+function emitSequence(lines: string[], items: unknown[], col: number): void {
+  for (const item of items) emitSequenceItem(lines, item, col);
+}
+
+function emitSequenceItem(lines: string[], item: unknown, col: number): void {
+  const lead = `${spaces(col)}- `;
+
+  if (Array.isArray(item)) {
+    if (item.length === 0) {
+      lines.push(`${lead}[]`);
+      return;
+    }
+    // Nested sequence: `- - a` then `  - b`; render at col + 2 and fold the first dash in.
+    const nested: string[] = [];
+    emitSequence(nested, item, col + 2);
+    nested[0] = lead + nested[0].slice(col + 2);
+    lines.push(...nested);
+  } else if (item !== null && typeof item === 'object') {
+    const record = item as Record<string, unknown>;
+    const tag = tagOf(record);
+    const entries = dataEntries(record);
+    if (entries.length === 0) {
+      lines.push(`${lead}${tag ? `${tag} ` : ''}{}`);
+    } else if (tag) {
+      // Polymorphic item: `- !type:Foo` with its fields underneath.
+      lines.push(`${lead}${tag}`);
+      for (const [k, v] of entries) emitEntry(lines, k, v, col + 2, spaces(col + 2));
+    } else {
+      entries.forEach(([k, v], i) => emitEntry(lines, k, v, col + 2, i === 0 ? lead : spaces(col + 2)));
+    }
+  } else if (typeof item === 'string' && item.includes('\n') && !item.includes('\r')) {
+    // Multiline string in array, use block scalar with "- " prefix
+    emitBlockScalar(lines, '-', item, col, true);
+  } else {
+    lines.push(`${lead}${item === null || item === undefined ? 'null' : formatPrimitive(item)}`);
   }
 }
 
@@ -966,82 +960,6 @@ function stripInternalTags(obj: unknown): unknown {
 }
 
 /**
- * Emit a nested sequence item: "- - val1\n  - val2" for arrays within arrays.
- */
-function emitNestedSequence(lines: string[], arr: unknown[], indent: number): void {
-  const prefix = ' '.repeat(indent);
-  if (arr.length === 0) {
-    lines.push(`${prefix}- []`);
-    return;
-  }
-  // First item gets "- - " prefix
-  const firstItem = arr[0];
-  if (Array.isArray(firstItem)) {
-    lines.push(`${prefix}- - ...`); // Deeply nested, unlikely in SS14 but handle gracefully
-  } else if (typeof firstItem === 'object' && firstItem !== null) {
-    // Object item in nested sequence
-    const entries = Object.entries(firstItem as Record<string, unknown>)
-      .filter(([k]) => k !== '_ss14Tag');
-    if (entries.length > 0) {
-      const [fk, fv] = entries[0];
-      lines.push(`${prefix}- - ${fk}: ${formatPrimitive(fv)}`);
-      for (let i = 1; i < entries.length; i++) {
-        emitValue(lines, entries[i][0], entries[i][1], indent + 4);
-      }
-    }
-  } else {
-    lines.push(`${prefix}- - ${formatPrimitive(firstItem)}`);
-  }
-  // Remaining items get "  - " prefix (aligned with first)
-  for (let i = 1; i < arr.length; i++) {
-    const item = arr[i];
-    if (Array.isArray(item)) {
-      emitNestedSequence(lines, item, indent + 2);
-    } else if (typeof item === 'object' && item !== null) {
-      const entries = Object.entries(item as Record<string, unknown>)
-        .filter(([k]) => k !== '_ss14Tag');
-      if (entries.length > 0) {
-        const [fk, fv] = entries[0];
-        lines.push(`${prefix}  - ${fk}: ${formatPrimitive(fv)}`);
-        for (let j = 1; j < entries.length; j++) {
-          emitValue(lines, entries[j][0], entries[j][1], indent + 4);
-        }
-      }
-    } else {
-      lines.push(`${prefix}  - ${formatPrimitive(item)}`);
-    }
-  }
-}
-
-/**
- * Emit array items as YAML sequence entries at the given indent.
- */
-function emitArrayItems(lines: string[], arr: unknown[], indent: number): void {
-  const prefix = ' '.repeat(indent);
-  for (const item of arr) {
-    if (Array.isArray(item)) {
-      emitNestedSequence(lines, item, indent);
-    } else if (typeof item === 'object' && item !== null) {
-      const entries = Object.entries(item as Record<string, unknown>)
-        .filter(([k]) => k !== '_ss14Tag');
-      if (entries.length > 0) {
-        const [fk, fv] = entries[0];
-        if (isPrimitive(fv)) {
-          lines.push(`${prefix}- ${fk}: ${formatPrimitive(fv)}`);
-        } else {
-          lines.push(`${prefix}- ${fk}:`);
-        }
-        for (let i = 1; i < entries.length; i++) {
-          emitValue(lines, entries[i][0], entries[i][1], indent + 2);
-        }
-      }
-    } else {
-      lines.push(`${prefix}- ${formatPrimitive(item)}`);
-    }
-  }
-}
-
-/**
  * Emit a multiline string as a YAML literal block scalar (|).
  * Uses |- (strip) if the string doesn't end with newline, | (clip) if it does.
  * The indentation indicator is computed from the content.
@@ -1057,8 +975,8 @@ function emitBlockScalar(
   const contentIndent = indent + 2;
   const contentPrefix = ' '.repeat(contentIndent);
 
-  // Determine chomping: strip (-) if no trailing newline, clip (default) if ends with \n
-  const chomp = value.endsWith('\n') ? '' : '-';
+  // Chomping: strip (-) without a trailing newline, clip (default) with exactly one, keep (+) with more.
+  const chomp = !value.endsWith('\n') ? '-' : value.endsWith('\n\n') ? '+' : '';
 
   // Check if any content line starts with spaces, if so, we need an explicit indentation indicator
   const contentLines = value.split('\n');
@@ -1076,7 +994,8 @@ function emitBlockScalar(
     }
   }
 
-  const indicator = needsIndicator ? `${contentIndent}` : '';
+  // The indentation indicator is relative to the parent node, so it is always 2 here.
+  const indicator = needsIndicator ? '2' : '';
 
   if (isArrayItem) {
     lines.push(`${prefix}- |${indicator}${chomp}`);
@@ -1098,11 +1017,32 @@ function isPrimitive(value: unknown): boolean {
   return value === null || value === undefined || typeof value !== 'object';
 }
 
+function doubleQuote(str: string): string {
+  const escaped = str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, c => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
+  return `"${escaped}"`;
+}
+
+/** Mapping keys follow the same quoting rules as scalars (e.g. a key written as "UID: 31739"). */
+function formatKey(key: string): string {
+  if (key.length > 0 && !needsQuoting(key) && !key.endsWith(':') && !/^[-?](\s|$)/.test(key)) return key;
+  return formatPrimitive(key);
+}
+
 function formatPrimitive(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'True' : 'False';
   const str = String(value);
   if (str.length === 0) return '""';
+  // Carriage returns and other control characters can't survive a plain, single-quoted or block
+  // scalar (the parser normalizes them), so escape them in a double-quoted scalar.
+  if (/[\r\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(str)) return doubleQuote(str);
   // Quote strings that contain YAML-special characters
   if (needsQuoting(str)) {
     // Use single quotes by default (matching SS14 engine convention).
