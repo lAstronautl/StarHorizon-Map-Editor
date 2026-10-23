@@ -90,6 +90,20 @@ export function exportGrid(map: ImportedMap, gridUid: number): string {
   return exportMap(buildGridFileMap(map, gridUid), new Set([gridUid]));
 }
 
+/** Serialize a grid that exists only as editor data (e.g. cut from a selection) as a grid file. */
+export function exportStandaloneGrid(gd: GridData): string {
+  const map: ImportedMap = {
+    meta: { format: 7, category: 'Grid' },
+    tilemap: {},
+    grid: gd.grid,
+    entities: gd.entities,
+    gridUid: gd.gridUid,
+    mapUid: 0,
+    gridDataList: [gd],
+  };
+  return exportGrid(map, gd.gridUid);
+}
+
 /** A file name for the grid ("My Shuttle" -> "My_Shuttle.yml"). */
 export function gridFileName(gd: Pick<GridData, 'name' | 'gridUid'>): string {
   const base = gd.name.trim().replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '');

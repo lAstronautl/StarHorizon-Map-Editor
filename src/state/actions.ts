@@ -2,6 +2,7 @@ import type { ToolType, PaletteItem, Command } from '../types';
 import type { ImportedMap } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import type { NetworkSnapshot } from '../multiplayer/messages';
+import type { GridData } from './gridData';
 
 export type EditorAction =
   | { type: 'APPLY_COMMAND'; command: Command }
@@ -25,7 +26,7 @@ export type EditorAction =
   | { type: 'REMOVE_CONTAINED_ENTITY'; parentUid: number; entityUid: number }
   | { type: 'SET_LIGHTING_ENABLED'; enabled: boolean }
   | { type: 'SET_ACTIVE_GRID'; index: number }
-  | { type: 'ADD_GRID'; name: string; worldPosition?: { x: number; y: number } }
+  | { type: 'ADD_GRID'; name: string; worldPosition?: { x: number; y: number }; gridData?: GridData }
   | { type: 'REMOVE_GRID'; gridUid: number }
   | { type: 'RENAME_GRID'; gridUid: number; name: string }
   | { type: 'MARK_SAVED' };

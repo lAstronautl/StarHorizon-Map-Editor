@@ -181,6 +181,10 @@ export const strings: Record<string, Record<Locale, string>> = {
   'selectTool.contextMenu.delete': { ru: 'Удалить', en: 'Delete' },
   'selectTool.contextMenu.saveAsPrefab': { ru: 'Сохранить как префаб...', en: 'Save as Prefab...' },
   'selectTool.contextMenu.paste': { ru: 'Вставить', en: 'Paste' },
+  'selectTool.contextMenu.saveAsGrid': { ru: 'Сохранить как грид (.yml)...', en: 'Save as Grid (.yml)...' },
+  'selectTool.contextMenu.moveToNewGrid': { ru: 'Вынести в новый грид...', en: 'Move to new Grid...' },
+  'selectTool.prompt.gridName': { ru: 'Название грида:', en: 'Grid name:' },
+  'selectTool.alert.noTilesSelected': { ru: 'В выделении нет тайлов, грид создать не из чего.', en: 'The selection contains no tiles, so there is nothing to make a grid from.' },
   'selectTool.prompt.prefabName': { ru: 'Название префаба:', en: 'Prefab name:' },
 
   // ContainerContentsEditor

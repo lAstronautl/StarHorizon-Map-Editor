@@ -55,6 +55,7 @@ import { importMap } from './import/mapImporter';
 import type { ImportedEntity } from './import/mapImporter';
 import { exportMap } from './export/mapExporter';
 import { exportGrid, gridFileName } from './export/gridExporter';
+import { downloadYAML } from './export/download';
 import { stateToImportedMap } from './export/stateToMap';
 import { DEFAULT_LAYER_VISIBILITY } from './rendering/entityRenderer';
 import type { LayerVisibility } from './rendering/entityRenderer';
@@ -977,15 +978,3 @@ export const App: React.FC = () => {
     </div>
   );
 };
-
-function downloadYAML(yaml: string, filename: string): void {
-  const blob = new Blob([yaml], { type: 'text/yaml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}

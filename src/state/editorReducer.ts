@@ -758,10 +758,30 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'ADD_GRID': {
       markAllDirty();
-      const { uid: newGridUid, localEntityCounter: gridEntityCounter, localGridCounter } = mintGridUid(state);
-      const newGrid = createEmptyGridData(newGridUid, action.name);
-      if (action.worldPosition) {
-        newGrid.worldPosition = action.worldPosition;
+      // A grid can arrive ready-made (cut out of a selection); otherwise mint an empty one.
+      let newGrid: GridData;
+      let localEntityCounter = state.localEntityCounter;
+      let nextEntityId = state.nextEntityId;
+      if (action.gridData) {
+        newGrid = action.gridData;
+        // Everything in it must stay below the counters so later entities never reuse a uid.
+        const ownFloor = state.localPeerIndex * (2 ** 24);
+        const seen = [newGrid.gridUid, ...newGrid.entities.map(e => e.uid),
+          ...Object.entries(newGrid.containedEntities).flatMap(([parent, kids]) => [Number(parent), ...kids.map(k => k.uid)])];
+        for (const uid of seen) {
+          if (uid >= nextEntityId) nextEntityId = uid + 1;
+          if (uid >= ownFloor && uid < ownFloor + 2 ** 24 && uid - ownFloor >= localEntityCounter) {
+            localEntityCounter = uid - ownFloor + 1;
+          }
+        }
+      } else {
+        const minted = mintGridUid(state);
+        newGrid = createEmptyGridData(minted.uid, action.name);
+        if (action.worldPosition) {
+          newGrid.worldPosition = action.worldPosition;
+        }
+        localEntityCounter = minted.localEntityCounter;
+        nextEntityId = Math.max(nextEntityId, minted.uid + 1);
       }
       const gridCmd: GridCommand = { type: 'ADD_GRID', gridData: newGrid };
       const addUndoStack = [...state.undoStack, gridCmd];
@@ -769,9 +789,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       return {
         ...state,
         grids: [...state.grids, newGrid],
-        localEntityCounter: gridEntityCounter,
-        localGridCounter,
-        nextEntityId: Math.max(state.nextEntityId, newGridUid + 1),
+        localEntityCounter,
+        localGridCounter: localEntityCounter,
+        nextEntityId,
         undoStack: addUndoStack,
         redoStack: [],
         dirty: true,
