@@ -11,6 +11,7 @@ import type { ImportedMap } from '../import/mapImporter';
 import type { GridData } from '../state/gridData';
 import { exportMap } from './mapExporter';
 import { findComponent, synthesizeGridComponents, type Component } from './gridStructure';
+import { remapEntityRefs } from '../grid/entityRefs';
 
 /** Thrown when the requested grid can't be written as a file; the message is shown to the user. */
 export class GridExportError extends Error {}
@@ -39,12 +40,24 @@ function rootGridComponents(map: ImportedMap, gd: GridData): Component[] {
   return components;
 }
 
-/** A docking entity whose partner isn't in the file must not claim to be docked. */
-function undockOutsiders<T extends { uid: number; components: Component[] }>(entity: T, present: Set<number>): T {
-  const docking = findComponent(entity.components, 'Docking');
-  if (!docking || typeof docking.dockedWith !== 'number' || present.has(docking.dockedWith)) return entity;
-  const { dockedWith: _dockedWith, dockJointId: _dockJointId, ...rest } = docking;
-  return { ...entity, components: entity.components.map(c => (c === docking ? rest : c)) };
+function dropRefsOutside(components: Component[], present: Set<number>): Component[] {
+  return remapEntityRefs(components, uid => (present.has(uid) ? uid : undefined)).map((c, i) => {
+    // An undocked door must not keep the id of the joint it no longer has.
+    if (c.type === 'Docking' && c !== components[i] && !('dockedWith' in c) && 'dockJointId' in c) {
+      const { dockJointId: _joint, ...rest } = c;
+      return rest;
+    }
+    return c;
+  });
+}
+
+/**
+ * Entity references that point out of the file (docked partners, links to other grids, items in
+ * containers that stayed behind...) are removed: the uids would mean nothing, or something else.
+ */
+function dropOutsideRefs<T extends { components: Component[] }>(entity: T, present: Set<number>): T {
+  const components = dropRefsOutside(entity.components, present);
+  return components.some((c, i) => c !== entity.components[i]) ? { ...entity, components } : entity;
 }
 
 /**
@@ -62,9 +75,9 @@ export function buildGridFileMap(map: ImportedMap, gridUid: number): ImportedMap
 
   const grid: GridData = {
     ...gd,
-    entities: gd.entities.map(e => undockOutsiders(e, present)),
+    entities: gd.entities.map(e => dropOutsideRefs(e, present)),
     containedEntities: Object.fromEntries(
-      Object.entries(gd.containedEntities).map(([parent, kids]) => [parent, kids.map(e => undockOutsiders(e, present))]),
+      Object.entries(gd.containedEntities).map(([parent, kids]) => [parent, kids.map(e => dropOutsideRefs(e, present))]),
     ),
   };
 
@@ -78,7 +91,7 @@ export function buildGridFileMap(map: ImportedMap, gridUid: number): ImportedMap
     mapUid: 0,
     orphans: [grid.gridUid],
     nullspace: [],
-    structuralEntityData: { [grid.gridUid]: rootGridComponents(map, gd) },
+    structuralEntityData: { [grid.gridUid]: dropRefsOutside(rootGridComponents(map, gd), present) },
     gridDataList: [grid],
     lineEnding: map.lineEnding,
   };

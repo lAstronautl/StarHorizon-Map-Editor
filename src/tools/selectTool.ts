@@ -985,7 +985,8 @@ export class SelectTool implements ITool {
             maxY: this.selMaxY,
             grid: ctx.state.grid,
             entities: ctx.state.entities,
-            entityRawComponents: ctx.state.entityRawComponents ?? {},
+            containedEntities: ctx.state.grids[ctx.state.activeGridIndex].containedEntities,
+            selectedTiles: this.selectedTiles,
             decals: ctx.state.grids[ctx.state.activeGridIndex].decals.decals,
           });
           downloadPrefab(prefab, name);

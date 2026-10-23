@@ -3,12 +3,13 @@
  * dispatched as APPLY_COMMAND to the editor reducer.
  */
 
-import type { TileGrid, TileChange, EntityChange, DecalChange, Command, TileCell } from '../types';
+import type { TileGrid, TileChange, EntityChange, ContainedEntityChange, DecalChange, Command, TileCell } from '../types';
 import type { ImportedEntity } from '../import/mapImporter';
 import type { DecalInstance } from '../import/decalParser';
 import type { PrefabData } from './prefabTypes';
 import { getCell } from '../state/editorState';
 import { cloneComponentsWithPosRot } from '../tools/entityHelpers';
+import { remapEntityRefs } from '../grid/entityRefs';
 
 export interface PlacePrefabInput {
   prefab: PrefabData;
@@ -18,6 +19,8 @@ export interface PlacePrefabInput {
   entities: ImportedEntity[];
   nextEntityId: number;
   nextDecalId?: number;
+  /** Uid of the grid the prefab is placed on; placed entities become its children. */
+  gridUid?: number;
 }
 
 export interface ResolvedDeviceLink {
@@ -66,30 +69,61 @@ export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
 
   // 3. Entity additions, assign fresh UIDs
   const entityAdditions: EntityChange[] = [];
+  const containedAdditions: ContainedEntityChange[] = [];
   const rawComponentsMap: Record<number, string[]> = {};
   let uid = nextEntityId;
 
-  // Map from prefab entity index to new UID for device link resolution
-  const indexToUid: number[] = [];
+  // New uid per prefab entity (by index) and per uid the entity had where the prefab was saved.
+  const indexToUid: number[] = prefab.entities.map(() => uid++);
+  const srcToNew = new Map<number, number>();
+  prefab.entities.forEach((pe, i) => { if (pe.srcUid !== undefined) srcToNew.set(pe.srcUid, indexToUid[i]); });
 
-  for (const pe of prefab.entities) {
-    const newUid = uid++;
-    indexToUid.push(newUid);
+  // Version 2 prefabs store exact offsets; older ones store whole tiles (entity centered on the tile).
+  const exactOffsets = (prefab.version ?? 1) >= 2;
+  const placed: ImportedEntity[] = [];
 
-    const newPos = { x: placeX + pe.dx + 0.5, y: placeY + pe.dy + 0.5 };
+  prefab.entities.forEach((pe, i) => {
+    const newUid = indexToUid[i];
+    const isContained = pe.containerIdx !== undefined;
+    const newPos = isContained
+      ? { x: 0, y: 0 }
+      : exactOffsets
+        ? { x: placeX + pe.dx, y: placeY + pe.dy }
+        : { x: placeX + pe.dx + 0.5, y: placeY + pe.dy + 0.5 };
+
+    let components = isContained
+      ? pe.components.map(c => ({ ...c }))
+      : cloneComponentsWithPosRot(pe.components, newPos, pe.rotation);
+
+    // References between prefab entities follow them to their new uids; anything pointing outside
+    // the prefab is dropped (its uid means something else in this map).
+    components = remapEntityRefs(components, old => srcToNew.get(old));
+
+    // The Transform parent in the file is from the map the prefab was saved on: reattach.
+    const parentUid = isContained ? indexToUid[pe.containerIdx!] : input.gridUid;
+    if (parentUid !== undefined) {
+      components = components.map(c => (c.type === 'Transform' ? { ...c, parent: parentUid } : c));
+    }
+
     const newEntity: ImportedEntity = {
       uid: newUid,
       prototype: pe.prototype,
       position: newPos,
       rotation: pe.rotation,
-      components: cloneComponentsWithPosRot(pe.components, newPos, pe.rotation),
+      components,
       ...(pe.spriteStateOverride ? { spriteStateOverride: pe.spriteStateOverride } : {}),
     };
-    entityAdditions.push({ action: 'add', entity: newEntity });
+    placed.push(newEntity);
+
+    if (isContained) {
+      containedAdditions.push({ action: 'add', parentUid: indexToUid[pe.containerIdx!], entity: newEntity, skipParentUpdate: true });
+    } else {
+      entityAdditions.push({ action: 'add', entity: newEntity });
+    }
 
     // Note: raw YAML lines from the prefab template are NOT preserved here because
     // entity positions have changed, the exporter must re-serialize from components
-  }
+  });
 
   // 5. Device link resolution
   const resolvedDeviceLinks: ResolvedDeviceLink[] = prefab.deviceLinks.map((dl) => ({
@@ -98,6 +132,7 @@ export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
     port: dl.port,
     sink: dl.sink,
   }));
+  applyDeviceLinks(placed, resolvedDeviceLinks);
 
   // 6. Decal additions, assign fresh IDs
   const decalChanges: DecalChange[] = [];
@@ -120,6 +155,7 @@ export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
     label: `Place prefab "${prefab.name}"`,
     tileChanges,
     entityChanges: [...entityRemovals, ...entityAdditions],
+    ...(containedAdditions.length > 0 ? { containedEntityChanges: containedAdditions } : {}),
     decalChanges: decalChanges.length > 0 ? decalChanges : undefined,
   };
 
@@ -129,4 +165,25 @@ export function placePrefab(input: PlacePrefabInput): PlacePrefabResult {
     resolvedDeviceLinks,
     nextEntityId: uid,
   };
+}
+
+/**
+ * Make sure each link is recorded on its source (`DeviceLinkSource.linkedPorts`). Prefabs saved
+ * before entities carried their source uid have no other record of which devices were linked.
+ */
+function applyDeviceLinks(placed: ImportedEntity[], links: ResolvedDeviceLink[]): void {
+  const byUid = new Map(placed.map(e => [e.uid, e]));
+  for (const link of links) {
+    const source = byUid.get(link.sourceUid);
+    if (!source) continue;
+    const idx = source.components.findIndex(c => c.type === 'DeviceLinkSource');
+    if (idx < 0) continue;
+    const comp = source.components[idx];
+    const ports = { ...((comp.linkedPorts as Record<string, unknown[]> | undefined) ?? {}) };
+    const key = String(link.targetUid);
+    const pairs = [...(ports[key] ?? [])];
+    if (!pairs.some(p => Array.isArray(p) && p[0] === link.port && p[1] === link.sink)) pairs.push([link.port, link.sink]);
+    ports[key] = pairs;
+    source.components = source.components.map((c, i) => (i === idx ? { ...comp, linkedPorts: ports } : c));
+  }
 }

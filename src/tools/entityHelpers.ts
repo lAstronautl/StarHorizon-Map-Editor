@@ -1,3 +1,5 @@
+import { formatVector } from '../export/gridStructure';
+
 const TWO_PI = 2 * Math.PI;
 
 /**
@@ -71,7 +73,7 @@ export function updateTransformPos(
 ): Record<string, unknown>[] {
   return components.map(c => {
     if (c.type === 'Transform') {
-      return { ...c, pos: `${newPos.x},${newPos.y}` };
+      return { ...c, pos: formatVector(newPos.x, newPos.y) };
     }
     return c;
   });
@@ -87,7 +89,7 @@ export function cloneComponentsWithPos(
 ): Record<string, unknown>[] {
   return components.map(c => {
     if (c.type === 'Transform') {
-      return { ...c, pos: `${newPos.x},${newPos.y}` };
+      return { ...c, pos: formatVector(newPos.x, newPos.y) };
     }
     return { ...c };
   });
@@ -103,7 +105,7 @@ export function cloneComponentsWithPosRot(
 ): Record<string, unknown>[] {
   return components.map(c => {
     if (c.type === 'Transform') {
-      const updated: Record<string, unknown> = { ...c, pos: `${newPos.x},${newPos.y}` };
+      const updated: Record<string, unknown> = { ...c, pos: formatVector(newPos.x, newPos.y) };
       if (newRot !== 0) {
         updated.rot = `${newRot} rad`;
       } else {

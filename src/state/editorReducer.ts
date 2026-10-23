@@ -169,6 +169,10 @@ function applyCommand(state: EditorState, command: Command): EditorState {
 
   // Update parent entity ContainerContainer ents for contained entity changes
   for (const cec of command.containedEntityChanges ?? []) {
+    if (cec.skipParentUpdate) {
+      if (cec.entity.uid >= nextEntityId) nextEntityId = cec.entity.uid + 1;
+      continue;
+    }
     const pIdx = entities.findIndex(e => e.uid === cec.parentUid);
     if (pIdx < 0) continue;
     const parent = entities[pIdx];
