@@ -31,6 +31,8 @@ function stateToImportedMap(state: ReturnType<typeof createInitialState>): Impor
     mapUid: state.mapUid,
     maps: state.maps,
     grids: state.gridUidList,
+    orphans: state.orphans,
+    nullspace: state.nullspace,
     gridDataList: state.grids,
     structuralEntityData: state.structuralEntityData,
     entityRawComponents: state.entityRawComponents,

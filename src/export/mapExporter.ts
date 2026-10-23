@@ -29,6 +29,7 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   const gridChunksMap = buildGridChunksMap(map, reverseTilemap);
   const gridDecalsMap = buildGridDecalsMap(map, decalsDirty);
   const entityGroupsYaml = buildEntityGroupsYaml(map);
+  const header = computeHeaderLists(map);
 
   const lines: string[] = [];
 
@@ -40,7 +41,7 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   // is gated on Version < 7); an absent category on a v7+ file stays
   // FileCategory.Unknown and loadmap's expected-category checks misbehave.
   if (format >= 7) {
-    lines.push(`  category: ${map.meta.category ?? 'Map'}`);
+    lines.push(`  category: ${resolveCategory(map.meta.category, header)}`);
   } else if (map.meta.category) {
     lines.push(`  category: ${map.meta.category}`);
   }
@@ -48,7 +49,7 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   if (map.meta.forkId !== undefined) lines.push(`  forkId: ${formatPrimitive(map.meta.forkId)}`);
   if (map.meta.forkVersion !== undefined) lines.push(`  forkVersion: ${formatPrimitive(map.meta.forkVersion)}`);
   if (map.meta.time) lines.push(`  time: ${map.meta.time}`);
-  if (map.meta.entityCount !== undefined) {
+  if (map.meta.entityCount !== undefined || format >= 7) {
     // Count entities across all grids
     const allEntities = getAllEntities(map);
     const allContained = getAllContainedEntities(map);
@@ -61,18 +62,14 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
     lines.push(`  postmapinit: ${map.meta.postmapinit ? 'true' : 'false'}`);
   }
 
-  // Format 7+ top-level keys
+  // Format 7+ top-level keys. Derived from what is actually emitted so the lists can never
+  // disagree with the entities (the engine reads them with Get<SequenceDataNode>, so an
+  // empty list must be `[]`, never a bare `key:`).
   if (format >= 7) {
-    lines.push('maps:');
-    for (const uid of (map.maps ?? [map.mapUid])) {
-      lines.push(`- ${uid}`);
-    }
-    lines.push('grids:');
-    for (const uid of (map.grids ?? [map.gridUid])) {
-      lines.push(`- ${uid}`);
-    }
-    lines.push('orphans: []');
-    lines.push('nullspace: []');
+    emitIdList(lines, 'maps', header.maps);
+    emitIdList(lines, 'grids', header.grids);
+    emitIdList(lines, 'orphans', header.orphans);
+    emitIdList(lines, 'nullspace', header.nullspace);
   }
 
   // Tilemap, Space first (index 0), then remaining sorted by name (matching SS14 engine)
@@ -196,6 +193,92 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
 
   const eol = map.lineEnding === '\r\n' ? '\r\n' : '\n';
   return lines.join(eol) + eol;
+}
+
+// ---- Header lists (maps / grids / orphans / nullspace) ----
+
+interface HeaderLists {
+  maps: number[];
+  grids: number[];
+  orphans: number[];
+  nullspace: number[];
+}
+
+function emitIdList(lines: string[], key: string, ids: number[]): void {
+  if (ids.length === 0) {
+    lines.push(`${key}: []`);
+    return;
+  }
+  lines.push(`${key}:`);
+  for (const uid of ids) lines.push(`- ${uid}`);
+}
+
+function findComponent(components: readonly Record<string, unknown>[] | undefined, type: string): Record<string, unknown> | undefined {
+  return components?.find(c => c.type === type);
+}
+
+/**
+ * Derive the format 7 header lists from the entities that are about to be written, the same
+ * way EntitySerializer does: `maps` = entities with Map, `grids` = entities with MapGrid,
+ * `orphans` = entities saved with `parent: invalid`, `nullspace` = entities that were loaded
+ * from the file's nullspace list and are still present.
+ */
+function computeHeaderLists(map: ImportedMap): HeaderLists {
+  const maps: number[] = [];
+  const grids: number[] = [];
+  const orphans: number[] = [];
+
+  const structural = map.structuralEntityData;
+  if (structural && Object.keys(structural).length > 0) {
+    for (const [uidStr, components] of Object.entries(structural)) {
+      const uid = Number(uidStr);
+      if (findComponent(components, 'Map')) maps.push(uid);
+      if (findComponent(components, 'MapGrid')) grids.push(uid);
+      if (findComponent(components, 'Transform')?.parent === 'invalid') orphans.push(uid);
+    }
+  } else {
+    // No preserved structure: the exporter synthesizes a map and the grid(s) itself.
+    maps.push(map.mapUid);
+    const gridUids = map.gridDataList && map.gridDataList.length > 0 ? map.gridDataList.map(g => g.gridUid) : [map.gridUid];
+    grids.push(...gridUids);
+  }
+
+  const emitted = new Set<number>([...maps, ...grids, ...Object.keys(structural ?? {}).map(Number)]);
+  const all: ImportedEntity[] = [...getAllEntities(map), ...Object.values(getAllContainedEntities(map)).flat()];
+  for (const e of all) {
+    emitted.add(e.uid);
+    if (findComponent(e.components, 'Transform')?.parent === 'invalid') orphans.push(e.uid);
+  }
+  // Keep orphans the file declared even if their Transform omits `parent:` (hand-edited maps do this
+  // and the engine accepts it), as long as they still exist and haven't been given a real parent.
+  const parentOf = new Map<number, unknown>();
+  for (const [uidStr, comps] of Object.entries(structural ?? {})) parentOf.set(Number(uidStr), findComponent(comps, 'Transform')?.parent);
+  for (const e of all) parentOf.set(e.uid, findComponent(e.components, 'Transform')?.parent);
+  for (const uid of map.orphans ?? []) {
+    if (emitted.has(uid) && (parentOf.get(uid) == null)) orphans.push(uid);
+  }
+  const nullspace = (map.nullspace ?? []).filter(uid => emitted.has(uid));
+
+  return { maps, grids, orphans: [...new Set(orphans)], nullspace };
+}
+
+/**
+ * Pick the `meta.category` for the exported lists. The original category is kept when it
+ * is consistent with the content (engine: EntitySerializer.InferCategory / TrySave*);
+ * otherwise it is inferred the same way the engine does.
+ */
+function resolveCategory(original: string | undefined, h: HeaderLists): string {
+  const isGrid = h.maps.length === 0 && h.grids.length === 1 && h.orphans.length === 1 && h.orphans[0] === h.grids[0];
+  const isMap = h.maps.length === 1;
+  const isEntity = h.maps.length === 0 && h.grids.length === 0 && h.orphans.length === 1;
+  if (original === 'Save') return 'Save';
+  if (original === 'Grid' && isGrid) return 'Grid';
+  if (original === 'Map' && isMap) return 'Map';
+  if (original === 'Entity' && isEntity) return 'Entity';
+  if (isMap) return 'Map';
+  if (isGrid) return 'Grid';
+  if (isEntity) return 'Entity';
+  return original && original !== 'Unknown' ? original : 'Unknown';
 }
 
 // ---- Tilemap building ----
@@ -341,15 +424,13 @@ function buildChunksYamlForGrid(
       const ly = ((worldY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
       const localIdx = ly * CHUNK_SIZE + lx;
 
-      // Always export variant as 0. The editor has no variant editing capability,
-      // and preserving imported variants is dangerous: the paint tool bug (now fixed)
-      // could leave stale variants from old tile types that exceed the new tile's
-      // variant count, crashing SS14's MapRenderer. The game engine re-randomizes
-      // tile variants at map load time for tiles that support visual variety.
+      // Keep the imported variant byte: the game writes it and reads it back as-is. Tools never
+      // carry it over to a different tile type (they create fresh `{ tileId }` cells), so a
+      // stale variant can't end up on a tile it doesn't belong to.
       chunks.get(key)![localIdx] = {
         typeId: tileIndex,
         flags: cell.flags ?? 0,
-        variant: 0,
+        variant: cell.variant ?? 0,
         rotationMirroring: cell.rotationMirroring ?? 0,
       };
     }

@@ -38,11 +38,29 @@ describe('exportMap', () => {
       expect(yamlStr).toMatch(/^meta:\n {2}format: 7\n {2}category: Map\n/);
     });
 
-    it('preserves an explicit category for format 7+', () => {
+    it('keeps category: Grid for a grid file (no map, grid is the orphan) and writes valid header lists', () => {
       const map = makeMinimalMap();
-      map.meta = { format: 7, postmapinit: false, category: 'Grid' };
+      map.meta = { format: 7, category: 'Grid' };
+      map.maps = [];
+      map.grids = [1];
+      map.orphans = [1];
+      map.structuralEntityData = {
+        1: [
+          { type: 'MetaData', name: 'Shuttle' },
+          { type: 'Transform', pos: '2.5,-3.5', parent: 'invalid' },
+          { type: 'MapGrid' },
+        ],
+      };
       const yamlStr = exportMap(map);
       expect(yamlStr).toMatch(/^meta:\n {2}format: 7\n {2}category: Grid\n/);
+      expect(yamlStr).toContain('\nmaps: []\ngrids:\n- 1\norphans:\n- 1\nnullspace: []\n');
+    });
+
+    it('overrides an inconsistent explicit category with the one the content implies', () => {
+      const map = makeMinimalMap();
+      map.meta = { format: 7, category: 'Grid' };
+      // fallback structure = a map entity plus a grid, so this is a Map file
+      expect(exportMap(map)).toMatch(/^meta:\n {2}format: 7\n {2}category: Map\n/);
     });
 
     it('does not add a category for format < 7 when none was present', () => {
@@ -504,32 +522,25 @@ entities:
     });
   });
 
-  describe('tile variant sanitization', () => {
-    it('exports all tile variants as 0 to prevent MapRenderer crashes', () => {
+  describe('tile variants', () => {
+    it('keeps the variant byte of imported tiles', () => {
       const map = makeMinimalMap();
-      // Even a "legitimate" variant gets reset to 0 on export, because the editor
-      // has no variant editing capability and stale variants from the paint tool bug
-      // can crash SS14's MapRenderer. The game re-randomizes variants at load time.
       map.grid.cells[0] = { tileId: 'FloorSteel', variant: 3 };
-      map.grid.cells[1] = { tileId: 'FloorSteel', variant: 5 };
+      map.grid.cells[1] = { tileId: 'FloorSteel', variant: 5, flags: 1, rotationMirroring: 2 };
 
-      const exported = exportMap(map);
-      const reimported = importMap(exported);
+      const reimported = importMap(exportMap(map));
 
-      expect(reimported.grid.cells[0].tileId).toBe('FloorSteel');
-      expect(reimported.grid.cells[0].variant ?? 0).toBe(0);
-      expect(reimported.grid.cells[1].tileId).toBe('FloorSteel');
-      expect(reimported.grid.cells[1].variant ?? 0).toBe(0);
+      expect(reimported.grid.cells[0].variant).toBe(3);
+      expect(reimported.grid.cells[1]).toMatchObject({ tileId: 'FloorSteel', variant: 5, flags: 1 });
     });
 
-    it('stale variant from paint-over does not survive export', () => {
+    it('writes variant 0 for a tile painted without one', () => {
       const map = makeMinimalMap();
       map.tilemap = { 0: 'Space', 1: 'FloorSteel', 2: 'Plating' };
-      // Simulate stale variant: Plating cell with variant 5 (Plating only has 1 variant)
-      map.grid.cells[0] = { tileId: 'Plating', variant: 5 };
+      // The paint tool replaces a cell with a fresh `{ tileId }`, dropping the old tile's variant.
+      map.grid.cells[0] = { tileId: 'Plating' };
 
-      const exported = exportMap(map);
-      const reimported = importMap(exported);
+      const reimported = importMap(exportMap(map));
 
       expect(reimported.grid.cells[0].tileId).toBe('Plating');
       expect(reimported.grid.cells[0].variant ?? 0).toBe(0);

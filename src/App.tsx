@@ -366,6 +366,8 @@ export const App: React.FC = () => {
         mapUid: state.mapUid,
         maps: state.maps,
         grids: state.gridUidList,
+        orphans: state.orphans,
+        nullspace: state.nullspace,
         gridDataList: state.grids,
         structuralEntityData: state.structuralEntityData,
         entityRawComponents: state.entityRawComponents,
@@ -381,7 +383,7 @@ export const App: React.FC = () => {
     } catch (err) {
       setStatusMessage(t('app.status.exportFailed', { error: String(err) }));
     }
-  }, [dispatch, state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
+  }, [dispatch, state.grid, state.entities, state.containedEntities, state.meta, state.gridUid, state.mapUid, state.tilemap, state.maps, state.gridUidList, state.orphans, state.nullspace, state.grids, state.structuralEntityData, state.entityRawComponents, state.entityRawPreamble, state.chunkKeyOrder, state.lineEnding, state.hasDocumentTerminator, state.entityOrder]);
 
   const handleUpdateClick = useCallback(() => {
     if (state.dirty && !window.confirm(t('app.confirmReloadWithUnsavedChanges'))) return;
