@@ -9,6 +9,14 @@ import { markSceneDirty, markAllDirty, markOverlayDirty, markConnectionsDirty } 
 import { rebuildSpatialIndex } from '../rendering/spatialIndex';
 import { mintEntityUid, mintGridUid } from '../multiplayer/uidAllocation';
 
+/**
+ * An empty `entity_storage` container the way the game saves one. The container type is abstract
+ * in the engine, so the `!type:Container` tag is required for the file to load.
+ */
+function newContainer(): { _ss14Tag: string; showEnts: boolean; occludes: boolean; ents: number[] } {
+  return { _ss14Tag: '!type:Container', showEnts: false, occludes: true, ents: [] };
+}
+
 const MAX_UNDO = 200;
 
 function isGridCommand(cmd: UndoableCommand): cmd is GridCommand {
@@ -168,12 +176,12 @@ function applyCommand(state: EditorState, command: Command): EditorState {
     let ccIdx = newComponents.findIndex((c: any) => c.type === 'ContainerContainer');
     if (cec.action === 'add') {
       if (ccIdx < 0) {
-        newComponents.push({ type: 'ContainerContainer', containers: { entity_storage: { ents: [] } } });
+        newComponents.push({ type: 'ContainerContainer', containers: { entity_storage: newContainer() } });
         ccIdx = newComponents.length - 1;
       }
       const cc = { ...newComponents[ccIdx] } as any;
       const containers = { ...cc.containers };
-      const storage = { ...(containers.entity_storage ?? { ents: [] }) };
+      const storage = { ...(containers.entity_storage ?? newContainer()) };
       storage.ents = [...(storage.ents ?? []), cec.entity.uid];
       containers.entity_storage = storage;
       cc.containers = containers;
@@ -181,7 +189,7 @@ function applyCommand(state: EditorState, command: Command): EditorState {
     } else if (ccIdx >= 0) {
       const cc = { ...newComponents[ccIdx] } as any;
       const containers = { ...cc.containers };
-      const storage = { ...(containers.entity_storage ?? { ents: [] }) };
+      const storage = { ...(containers.entity_storage ?? newContainer()) };
       storage.ents = (storage.ents ?? []).filter((uid: number) => uid !== cec.entity.uid);
       containers.entity_storage = storage;
       cc.containers = containers;
@@ -843,13 +851,13 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (ccIdx < 0) {
         newComponents.push({
           type: 'ContainerContainer',
-          containers: { entity_storage: { ents: [] } },
+          containers: { entity_storage: newContainer() },
         });
         ccIdx = newComponents.length - 1;
       }
       const cc = { ...newComponents[ccIdx] } as any;
       const containers = { ...cc.containers };
-      const storage = { ...(containers.entity_storage ?? { ents: [] }) };
+      const storage = { ...(containers.entity_storage ?? newContainer()) };
       storage.ents = [...(storage.ents ?? []), childUid];
       containers.entity_storage = storage;
       cc.containers = containers;
@@ -945,7 +953,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         if (ccCompIdx >= 0) {
           const cc2 = { ...newComponents[ccCompIdx] } as any;
           const containers2 = { ...cc2.containers };
-          const storage2 = { ...(containers2.entity_storage ?? { ents: [] }) };
+          const storage2 = { ...(containers2.entity_storage ?? newContainer()) };
           storage2.ents = (storage2.ents ?? []).filter((uid: number) => uid !== action.entityUid);
           containers2.entity_storage = storage2;
           cc2.containers = containers2;

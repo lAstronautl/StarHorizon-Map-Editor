@@ -122,6 +122,23 @@ describe('exporting editor-built maps', () => {
   });
 });
 
+describe('containers created in the editor', () => {
+  it('are written as !type:Container so the game can read them', () => {
+    let state = editorReducer(createInitialState(), { type: 'NEW_MAP' });
+    state = paint(state, [[0, 0]]);
+    state = place(state, state.localEntityCounter, 0, 0);
+    state = { ...state, localEntityCounter: state.localEntityCounter + 1 };
+    const locker = state.grids[0].entities[0];
+    state = editorReducer(state, { type: 'ADD_CONTAINED_ENTITY', parentUid: locker.uid, prototypeId: 'Crowbar' });
+
+    const yaml = exportState(state);
+    expectValid(yaml);
+    expect(yaml).toMatch(/entity_storage: !type:Container\n\s+showEnts: False\n\s+occludes: True\n\s+ents:\n\s*- \d+/);
+    const back = importMap(yaml);
+    expect(Object.values(back.gridDataList![0].containedEntities).flat()).toHaveLength(1);
+  });
+});
+
 const GRID_FILE = (tiles: string) => `meta:
   format: 7
   category: Grid
