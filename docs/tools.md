@@ -113,6 +113,13 @@ interface ToolContext {
 - **Preview**: Per-tile highlights on selected tiles. Marching ants (animated black/white dashed border) around bounding box. Color-coded marquee during drag. Move mode shows ghost tiles (blue) and entities (green). Paste mode shows semi-transparent ghost preview.
 - **Clipboard**: Uses `src/state/clipboard.ts` singleton. Stores tiles (row-major) and entities (as relative offsets from selection origin).
 
+### WandTool (`src/tools/wandTool.ts`)
+- **Shortcut**: W
+- **Behavior**: One click selects everything like what was clicked. If the clicked tile has a visible entity (layer visibility respected), the wand selects the entities of the same prototype that are connected through neighbouring tiles (4 directions); the Entity Select tool becomes active. If the tile has no entity, it selects the connected tiles of the same tile type and the Select tool becomes active, so move, copy, delete, "Save as Prefab", "Save as Grid" and "Move to new Grid" work on the result. A click on `Space` or outside the grid does nothing.
+- **Modifier keys**: Shift adds to the selection, Ctrl subtracts, no modifier replaces; Alt selects everywhere on the active grid instead of only the connected region (`ToolContext.altHeld`).
+- **Limit**: a single click collects at most 50,000 tiles/entities in connected mode.
+- **Selection storage**: tiles go through `SelectTool.applyTileSelection()` (the same code the marquee uses); entities through the `SELECT_ENTITY` / `ADD_SELECT_ENTITIES` / `REMOVE_SELECT_ENTITIES` actions.
+
 ### Entity Tools
 
 ### EntitySelectTool (`src/tools/entitySelectTool.ts`)

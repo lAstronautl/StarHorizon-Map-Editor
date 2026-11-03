@@ -18,6 +18,7 @@ import { FillTool } from './tools/fillTool';
 import { RectangleTool } from './tools/rectangleTool';
 import { LineTool } from './tools/lineTool';
 import { SelectTool } from './tools/selectTool';
+import { WandTool } from './tools/wandTool';
 import { CircleTool } from './tools/circleTool';
 import { EntitySelectTool } from './tools/entitySelectTool';
 import { CableDrawTool } from './tools/cableDrawTool';
@@ -77,6 +78,7 @@ import { useT } from './i18n';
 import './App.css';
 
 const entitySelectTool = new EntitySelectTool();
+const selectTool = new SelectTool();
 const paintTool = new PaintTool();
 // Entity placement (rotation, free placement, sprite ghost) now lives inside PaintTool,
 // used whenever the palette selection is an entity — see paintTool.ts's isEntityMode.
@@ -95,7 +97,8 @@ const TOOL_MAP: Record<string, ITool> = {
   fill: new FillTool(),
   rectangle: new RectangleTool(),
   line: new LineTool(),
-  select: new SelectTool(),
+  select: selectTool,
+  wand: new WandTool(selectTool),
   circle: new CircleTool(),
   entitySelect: entitySelectTool,
   cableDraw: cableDrawTool,

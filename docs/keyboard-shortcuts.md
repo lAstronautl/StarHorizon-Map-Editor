@@ -13,6 +13,7 @@
 | L | Line |
 | C | Circle |
 | S | Select (tiles + entities) |
+| W | Magic Wand (click selects similar tiles or entities) |
 | V | Entity Select |
 | P | Entity Place |
 | K | Cable Draw |
@@ -41,6 +42,17 @@ Tool shortcuts are case-insensitive and ignored when typing in input fields.
 | Shift+Drag | Add box contents to existing selection (green marquee) |
 | Ctrl+Drag | Remove box contents from existing selection (red marquee) |
 | Drag (no modifier) | Replace selection with box contents (blue marquee) |
+
+## Magic Wand (W)
+
+| Input | Action |
+|-------|--------|
+| Click on an entity | Select the connected entities of the same prototype (Entity Select tool takes over) |
+| Click on a tile with no entity | Select the connected tiles of the same type (Select tool takes over) |
+| Alt+Click | Same, but everywhere on the grid instead of only the connected region |
+| Shift+Click | Add to the current selection |
+| Ctrl+Click | Remove from the current selection |
+| Click on empty space | Nothing |
 
 ## Clipboard (Select Tool)
 

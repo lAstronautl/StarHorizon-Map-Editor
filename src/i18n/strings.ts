@@ -491,6 +491,8 @@ export const strings: Record<string, Record<Locale, string>> = {
   'toolbar.tool.line': { ru: 'Линия', en: 'Line' },
   'toolbar.tool.circle': { ru: 'Круг', en: 'Circle' },
   'toolbar.tool.select': { ru: 'Выбор', en: 'Select' },
+  'toolbar.tool.wand': { ru: 'Палочка', en: 'Wand' },
+  'toolbar.tool.wand.hint': { ru: 'Волшебная палочка: клик по сущности выбирает такие же рядом, по тайлу такие же тайлы. Shift: добавить, Ctrl: убрать, Alt: везде на гриде', en: 'Magic wand: click an entity to select the same ones nearby, a tile for the same tiles. Shift: add, Ctrl: subtract, Alt: everywhere on the grid' },
   'toolbar.tool.entitySelect': { ru: 'Выбор Э.', en: 'E-Select' },
   'toolbar.tool.deviceLink': { ru: 'Связь', en: 'Link' },
   'toolbar.tool.cableDraw': { ru: 'Кабели', en: 'Cables' },
