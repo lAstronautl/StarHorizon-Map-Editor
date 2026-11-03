@@ -130,6 +130,64 @@ describe('WandTool: tiles', () => {
   });
 });
 
+describe('WandTool: tiles under walls', () => {
+  beforeEach(() => rebuildSpatialIndex([]));
+
+  const tagged = (uid: number, x: number, y: number, tag: string): ImportedEntity => ({
+    uid, prototype: `Thing${uid}`, position: { x: x + 0.5, y: y + 0.5 }, rotation: 0,
+    components: [{ type: 'Tag', tags: [tag] }],
+  });
+
+  /** A 3x3 room (x 2..4, y 2..4) ringed by a one-tile wall of Plating, like a real station. */
+  function room(extra: ImportedEntity[] = []) {
+    const walls: ImportedEntity[] = [];
+    let uid = 100;
+    for (let x = 1; x <= 5; x++) for (let y = 1; y <= 5; y++) {
+      if (x >= 2 && x <= 4 && y >= 2 && y <= 4) continue;
+      walls.push(tagged(uid++, x, y, 'Wall'));
+    }
+    const ctx = setup([...walls, ...extra]);
+    for (let x = 1; x <= 5; x++) for (let y = 1; y <= 5; y++) setCell(ctx.grid, x, y, { tileId: 'Plating' }); // same tile under the walls
+    return ctx;
+  }
+
+  it('selects the room floor and not the tiles the walls stand on', () => {
+    const { selectTool, click } = room();
+    click(3, 3);
+    expect(keys(selectTool.getSelectedTiles())).toEqual(
+      ['2,2', '2,3', '2,4', '3,2', '3,3', '3,4', '4,2', '4,3', '4,4'],
+    );
+  });
+
+  it('does not spread through a doorway or a window into the next room', () => {
+    const { selectTool, click, grid } = setup([tagged(1, 4, 3, 'Window'), tagged(2, 3, 5, 'Wall')]);
+    for (let x = 1; x <= 8; x++) setCell(grid, x, 3, { tileId: 'Plating' });
+    click(2, 3);
+    expect(keys(selectTool.getSelectedTiles())).toEqual(['1,3', '2,3', '3,3']);
+  });
+
+  it('Alt selects every floor tile of the type but still skips wall tiles', () => {
+    const { selectTool, click } = room();
+    click(3, 3, { alt: true });
+    expect(selectTool.getSelectedTiles().size).toBe(9);
+    expect(selectTool.getSelectedTiles().has('1,1')).toBe(false);
+  });
+
+  it('a single wall tile stops the spread', () => {
+    const { selectTool, click, grid } = setup([tagged(1, 3, 3, 'Wall')]);
+    for (let x = 2; x <= 4; x++) setCell(grid, x, 3, { tileId: 'Plating' });
+    click(2, 3);
+    expect(keys(selectTool.getSelectedTiles())).toEqual(['2,3']);
+  });
+
+  it('ordinary furniture on a floor tile does not block the selection', () => {
+    const { selectTool, click, grid } = setup([tagged(1, 3, 3, 'Chair')]);
+    for (let x = 2; x <= 4; x++) setCell(grid, x, 3, { tileId: 'Plating' });
+    click(2, 3);
+    expect(keys(selectTool.getSelectedTiles())).toEqual(['2,3', '3,3', '4,3']);
+  });
+});
+
 describe('WandTool: entities', () => {
   beforeEach(() => rebuildSpatialIndex([]));
 

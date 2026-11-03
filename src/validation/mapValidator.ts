@@ -4,6 +4,7 @@ import type { ImportedEntity } from '../import/mapImporter';
 import type { IPrototypeRegistry } from '../loaders/registryTypes';
 import { getCell } from '../state/editorState';
 import { t } from '../i18n';
+import { getEntityTags } from '../loaders/entityTags';
 import {
   type CardinalDir,
   OPPOSITE_DIR,
@@ -32,23 +33,6 @@ interface ValidationRule {
 // ---- Helper functions ----
 
 /** Get the tags from an entity's Tag component (instance or prototype). */
-function getEntityTags(entity: ImportedEntity, registry: IPrototypeRegistry): string[] {
-  // Check instance components first
-  for (const comp of entity.components) {
-    const c = comp as Record<string, unknown>;
-    if (c.type === 'Tag' && Array.isArray(c.tags)) return c.tags as string[];
-  }
-  // Fall back to prototype definition
-  const resolved = registry.getEntity(entity.prototype);
-  if (resolved) {
-    for (const c of resolved.components) {
-      if (c.type === 'Tag' && Array.isArray((c as Record<string, unknown>).tags)) {
-        return (c as Record<string, unknown>).tags as string[];
-      }
-    }
-  }
-  return [];
-}
 
 /** Get the merged component list for an entity: instance components override/extend prototype defaults. */
 function getEffectiveComponents(entity: ImportedEntity, registry: IPrototypeRegistry): Record<string, unknown>[] {

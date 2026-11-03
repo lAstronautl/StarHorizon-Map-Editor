@@ -81,7 +81,7 @@ Click to set center, drag to set radius. Draws a filled circle. Shows radius lab
 One click selects things that are alike, so you don't have to drag a box around an irregular shape.
 
 - Click on an **entity** (a wall, a window, a chair...) to select the connected entities of the same kind. The Entity Select tool takes over.
-- Click on a **tile** with nothing on it to select the connected tiles of the same type (a whole floor area). The Select tool takes over, so you can copy it, save it as a prefab, or save it as a grid.
+- Click on a **tile** with nothing on it to select the connected tiles of the same type (a whole floor area). Tiles under walls, windows and doors are not taken, so clicking a room's floor selects just the room. The Select tool takes over, so you can copy it, save it as a prefab, or save it as a grid.
 - **Alt+click** selects everything of that kind on the grid, not only the connected part. **Shift+click** adds to the selection, **Ctrl+click** removes from it.
 
 ### Select (S)

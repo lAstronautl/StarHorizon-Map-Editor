@@ -6,6 +6,7 @@ import { spatialGetAt } from '../rendering/spatialIndex';
 import { filterVisibleEntities } from './entitySelectTool';
 import type { SelectTool } from './selectTool';
 import { markOverlayDirty } from '../rendering/dirtyFlags';
+import { isRoomBoundary } from '../loaders/entityTags';
 
 /** Safety limit for one click (a whole station is well below this). */
 const MAX_REGION = 50_000;
@@ -16,7 +17,8 @@ type Mode = 'replace' | 'add' | 'subtract';
  * Magic wand: one click selects everything "like" what was clicked.
  *
  * - Click on an entity: the entities of the same prototype, connected through neighbouring tiles.
- * - Click on a tile with no entity: the connected tiles of the same type.
+ * - Click on a tile with no entity: the connected tiles of the same type. Tiles under walls,
+ *   windows and doors are left out and stop the spread, so a click on a room floor selects the room.
  * - Alt: everywhere on the grid instead of only the connected region.
  * - Shift adds to the selection, Ctrl subtracts from it.
  *
@@ -98,13 +100,16 @@ export class WandTool implements ITool {
   private collectTiles(ctx: ToolContext, x: number, y: number, tileId: string, global: boolean): Set<string> {
     const grid = ctx.state.grid;
     const tiles = new Set<string>();
+    const registry = ctx.state.registry;
+    const isBoundary = (tx: number, ty: number): boolean =>
+      spatialGetAt(tx, ty).some(e => isRoomBoundary(e, registry));
 
     if (global) {
       for (let row = 0; row < grid.height; row++) {
         for (let col = 0; col < grid.width; col++) {
-          if (grid.cells[row * grid.width + col].tileId === tileId) {
-            tiles.add(`${grid.offsetX + col},${grid.offsetY + row}`);
-          }
+          if (grid.cells[row * grid.width + col].tileId !== tileId) continue;
+          const tx = grid.offsetX + col, ty = grid.offsetY + row;
+          if (!isBoundary(tx, ty)) tiles.add(`${tx},${ty}`);
         }
       }
       return tiles;
@@ -118,6 +123,7 @@ export class WandTool implements ITool {
       if (visited.has(key)) continue;
       visited.add(key);
       if (getCell(grid, cx, cy)?.tileId !== tileId) continue;
+      if (isBoundary(cx, cy)) continue; // a wall/window/door: not floor, and the room ends here
       tiles.add(key);
       queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
     }
