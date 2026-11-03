@@ -9,6 +9,7 @@ import {
   faEraser,
   faEyeDropper,
   faFillDrip,
+  faWandMagicSparkles,
   faSquare,
   faGripLines,
   faCircle,
@@ -30,6 +31,8 @@ interface ToolDef {
   label: string;
   shortcut: string;
   icon: IconDefinition;
+  /** Longer tooltip text; the label itself has to fit the narrow toolbar. */
+  hint?: string;
 }
 
 function useToolGroups(): { tileTools: ToolDef[]; entityTools: ToolDef[]; infraTools: ToolDef[] } {
@@ -45,6 +48,7 @@ function useToolGroups(): { tileTools: ToolDef[]; entityTools: ToolDef[]; infraT
     { id: 'line', label: t('toolbar.tool.line'), shortcut: 'L', icon: faGripLines },
     { id: 'circle', label: t('toolbar.tool.circle'), shortcut: 'C', icon: faCircle },
     { id: 'select', label: t('toolbar.tool.select'), shortcut: 'S', icon: faObjectGroup },
+    { id: 'wand', label: t('toolbar.tool.wand'), shortcut: 'W', icon: faWandMagicSparkles, hint: t('toolbar.tool.wand.hint') },
   ];
 
   const entityTools: ToolDef[] = [
@@ -66,7 +70,7 @@ function ToolButton({ tool, active, onSelect }: { tool: ToolDef; active: boolean
       onClick={() => onSelect(tool.id)}
       className={`flex flex-col items-center justify-center w-full py-2 text-[10px] cursor-pointer border-none gap-0.5
                   ${active ? 'bg-active text-accent' : 'bg-transparent text-muted hover:bg-hover hover:text-primary'}`}
-      title={`${tool.label} (${tool.shortcut})`}
+      title={`${tool.hint ?? tool.label} (${tool.shortcut})`}
     >
       <FontAwesomeIcon icon={tool.icon} className="text-sm" />
       <span className="leading-tight">{tool.label}</span>

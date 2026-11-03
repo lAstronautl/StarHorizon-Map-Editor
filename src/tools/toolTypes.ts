@@ -19,6 +19,8 @@ export interface ToolContext {
   paletteItem: PaletteItem | null;
   shiftHeld: boolean;
   ctrlHeld: boolean;
+  /** Alt held; the magic wand uses it for "everywhere on the grid" instead of "connected". */
+  altHeld?: boolean;
   decalSettings?: DecalPlacementOptions;
   /** Update the decal placement color (used by eyedropper to pick decal colors). */
   setDecalColor?: (color: string | null) => void;

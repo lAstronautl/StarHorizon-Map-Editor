@@ -29,6 +29,7 @@ const TOOL_SHORTCUTS: Record<string, ToolType> = {
   'l': 'line',
   'c': 'circle',
   's': 'select',
+  'w': 'wand',
   'v': 'entitySelect',
   'k': 'cableDraw',
   'j': 'pipeDraw',

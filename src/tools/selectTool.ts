@@ -136,29 +136,42 @@ export class SelectTool implements ITool {
         }
       }
 
-      // Apply set operation based on mode
-      if (this.selectMode === 'add') {
-        for (const key of boxTiles) this.selectedTiles.add(key);
-      } else if (this.selectMode === 'subtract') {
-        for (const key of boxTiles) this.selectedTiles.delete(key);
-      } else {
-        this.selectedTiles = boxTiles;
-      }
-
-      // Update bounding rect from tile set for backward compat
-      const bounds = this.computeBounds();
-      if (bounds) {
-        this.selMinX = bounds.minX;
-        this.selMinY = bounds.minY;
-        this.selMaxX = bounds.maxX;
-        this.selMaxY = bounds.maxY;
-        this.phase = 'selected';
-      } else {
-        this.phase = 'idle';
-      }
+      this.applyTileSelection(boxTiles, this.selectMode);
     } else if (this.phase === 'moving') {
       this.commitMove(ctx);
     }
+  }
+
+  /**
+   * Replace, extend or shrink the tile selection ("x,y" keys) and show it as the current selection.
+   * Used by the marquee and by the magic wand.
+   */
+  applyTileSelection(tiles: ReadonlySet<string>, mode: 'replace' | 'add' | 'subtract'): void {
+    if (mode === 'add') {
+      for (const key of tiles) this.selectedTiles.add(key);
+    } else if (mode === 'subtract') {
+      for (const key of tiles) this.selectedTiles.delete(key);
+    } else {
+      this.selectedTiles = new Set(tiles);
+    }
+
+    // Update bounding rect from tile set for backward compat
+    const bounds = this.computeBounds();
+    this.pasteData = null;
+    if (bounds) {
+      this.selMinX = bounds.minX;
+      this.selMinY = bounds.minY;
+      this.selMaxX = bounds.maxX;
+      this.selMaxY = bounds.maxY;
+      this.phase = 'selected';
+    } else {
+      this.phase = 'idle';
+    }
+  }
+
+  /** The tiles currently selected ("x,y" keys). */
+  getSelectedTiles(): ReadonlySet<string> {
+    return this.selectedTiles;
   }
 
   /** Check if a tile is inside the current selection. */

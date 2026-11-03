@@ -18,7 +18,7 @@ function selectedSet(uids: number[]): Set<number> {
 }
 
 /** Filter entities to only those on visible layers. */
-function filterVisibleEntities(
+export function filterVisibleEntities(
   entities: ImportedEntity[],
   layers: LayerVisibility | undefined,
   registry: import('../loaders/registryTypes').IPrototypeRegistry,

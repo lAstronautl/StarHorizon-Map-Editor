@@ -116,6 +116,7 @@ export const EditorCanvas: React.FC<Props> = ({
   presenceByPeerIdRef.current = presenceByPeerId;
   const isShiftHeldRef = useRef(false);
   const isCtrlHeldRef = useRef(false);
+  const isAltHeldRef = useRef(false);
   const showSubFloorRef = useRef(showSubFloor);
   showSubFloorRef.current = showSubFloor;
   const layerVisibilityRef = useRef(layerVisibility);
@@ -179,6 +180,7 @@ export const EditorCanvas: React.FC<Props> = ({
       paletteItem: stateRef.current.selectedPaletteItem,
       shiftHeld: isShiftHeldRef.current,
       ctrlHeld: isCtrlHeldRef.current,
+      altHeld: isAltHeldRef.current,
       decalSettings: decalPlacementSettingsRef.current,
       setDecalColor: (color: string | null) => {
         decalPlacementSettingsRef.current = { ...decalPlacementSettingsRef.current, color };
@@ -228,6 +230,7 @@ export const EditorCanvas: React.FC<Props> = ({
 
     isShiftHeldRef.current = e.shiftKey;
     isCtrlHeldRef.current = e.ctrlKey || e.metaKey;
+    isAltHeldRef.current = e.altKey;
     markOverlayDirty();
     const tool = toolRef.current;
 
@@ -308,6 +311,7 @@ export const EditorCanvas: React.FC<Props> = ({
 
     isShiftHeldRef.current = e.shiftKey;
     isCtrlHeldRef.current = e.ctrlKey || e.metaKey;
+    isAltHeldRef.current = e.altKey;
     const tile = screenToWorld(e.clientX, e.clientY);
     const world = screenToWorld(e.clientX, e.clientY, true);
     cursorTile.current = tile;
@@ -753,6 +757,7 @@ export const EditorCanvas: React.FC<Props> = ({
           paletteItem: s.selectedPaletteItem,
           shiftHeld: isShiftHeldRef.current,
           ctrlHeld: isCtrlHeldRef.current,
+          altHeld: isAltHeldRef.current,
           decalSettings: decalPlacementSettingsRef.current,
           symmetrySettings: symmetrySettingsRef.current,
         };

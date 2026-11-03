@@ -76,6 +76,14 @@ Click and drag to draw a line. Uses Bresenham's algorithm for clean pixel-perfec
 
 Click to set center, drag to set radius. Draws a filled circle. Shows radius label while dragging.
 
+### Magic Wand (W)
+
+One click selects things that are alike, so you don't have to drag a box around an irregular shape.
+
+- Click on an **entity** (a wall, a window, a chair...) to select the connected entities of the same kind. The Entity Select tool takes over.
+- Click on a **tile** with nothing on it to select the connected tiles of the same type (a whole floor area). The Select tool takes over, so you can copy it, save it as a prefab, or save it as a grid.
+- **Alt+click** selects everything of that kind on the grid, not only the connected part. **Shift+click** adds to the selection, **Ctrl+click** removes from it.
+
 ### Select (S)
 
 Click and drag to select tiles and entities. Supports non-rectangular selections via modifier keys.
