@@ -145,6 +145,8 @@ export interface ContainedEntityChange {
   parentUid: number;
   entity: import('./import/mapImporter').ImportedEntity;
   previousParentComponents?: Record<string, unknown>[];
+  /** The parent's ContainerContainer already lists this entity (e.g. a placed prefab); don't touch it. */
+  skipParentUpdate?: boolean;
 }
 
 export interface DecalChange {

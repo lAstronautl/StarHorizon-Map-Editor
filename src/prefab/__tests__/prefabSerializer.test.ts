@@ -70,18 +70,18 @@ describe('serializePrefab', () => {
     });
 
     expect(result.entities).toHaveLength(2);
-    expect(result.entities[0].dx).toBe(0);
-    expect(result.entities[0].dy).toBe(0);
+    // exact distance from the prefab corner (entities stand in the middle of their tile)
+    expect(result.entities[0].dx).toBe(0.5);
+    expect(result.entities[0].dy).toBe(0.5);
     expect(result.entities[0].prototype).toBe('APCBasic');
-    expect(result.entities[1].dx).toBe(2);
-    expect(result.entities[1].dy).toBe(1);
+    expect(result.entities[1].dx).toBe(2.5);
+    expect(result.entities[1].dy).toBe(1.5);
     expect(result.entities[1].prototype).toBe('GasVentPump');
   });
 
-  it('preserves rawYamlLines from entityRawComponents', () => {
+  it('does not store raw YAML lines (they carry the source map\'s uids and positions)', () => {
     const grid = makeGrid(10, 10, 0, 0);
     const ent = makeEntity(50, 'APCBasic', 3, 3, [{ type: 'Transform' }]);
-    const rawLines = ['  - type: Transform', '    pos: 3.5,3.5'];
 
     const result = serializePrefab({
       name: 'RawTest',
@@ -91,11 +91,13 @@ describe('serializePrefab', () => {
       maxY: 3,
       grid,
       entities: [ent],
-      entityRawComponents: { 50: rawLines },
+      entityRawComponents: { 50: ['  - type: Transform', '    pos: 3.5,3.5'] },
     });
 
     expect(result.entities).toHaveLength(1);
-    expect(result.entities[0].rawYamlLines).toEqual(rawLines);
+    expect(result.entities[0].rawYamlLines).toBeUndefined();
+    expect(result.entities[0].srcUid).toBe(50);
+    expect(result.version).toBe(2);
   });
 
   it('does not include rawYamlLines when entity has no raw data', () => {

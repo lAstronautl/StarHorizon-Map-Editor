@@ -1,14 +1,13 @@
 /// <reference types="node" />
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'path';
 import { importMap } from '../import/mapImporter';
 import { exportMap } from '../export/mapExporter';
-import { pickMap } from '../test-utils/realMaps';
+import { pickMap, resolveMapsDir } from '../test-utils/realMaps';
 
 // The editor is designed to live in `<space-station-14>/Tools/space-station-14-map-editor`, so real
 // maps are discovered from the host repo's Resources/Maps. No fork is assumed; tests
 // skip when no maps are present (CI, or a checkout outside a base repo).
-const MAPS_DIR = resolve(__dirname, '../../../../Resources/Maps');
+const MAPS_DIR = resolveMapsDir();
 
 /**
  * End-to-end roundtrip test using a real SS14 map file (the largest available
@@ -76,8 +75,9 @@ describe('real map roundtrip', () => {
 
     expect(reimported.entities.length).toBe(original.entities.length);
 
+    const byUid = new Map(reimported.entities.map(e => [e.uid, e]));
     for (const origEntity of original.entities) {
-      const match = reimported.entities.find(e => e.uid === origEntity.uid);
+      const match = byUid.get(origEntity.uid);
       expect(match, `Entity uid=${origEntity.uid} (${origEntity.prototype}) missing after roundtrip`).toBeDefined();
       expect(match!.prototype).toBe(origEntity.prototype);
     }
@@ -89,8 +89,9 @@ describe('real map roundtrip', () => {
     const exported = exportMap(original);
     const reimported = importMap(exported);
 
+    const byUid = new Map(reimported.entities.map(e => [e.uid, e]));
     for (const origEntity of original.entities) {
-      const match = reimported.entities.find(e => e.uid === origEntity.uid);
+      const match = byUid.get(origEntity.uid);
       if (!match) continue; // covered by previous test
       expect(match.position.x).toBeCloseTo(origEntity.position.x, 1);
       expect(match.position.y).toBeCloseTo(origEntity.position.y, 1);

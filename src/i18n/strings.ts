@@ -25,6 +25,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   'menuBar.file.newMap': { ru: 'Новая карта', en: 'New Map' },
   'menuBar.file.import': { ru: 'Импорт .yml...', en: 'Import .yml...' },
   'menuBar.file.export': { ru: 'Экспорт .yml', en: 'Export .yml' },
+  'menuBar.file.exportGrid': { ru: 'Экспорт грида (.yml)', en: 'Export Grid (.yml)' },
   'menuBar.edit.undo': { ru: 'Отменить', en: 'Undo' },
   'menuBar.edit.redo': { ru: 'Повторить', en: 'Redo' },
   'menuBar.view.showGrid': { ru: 'Показать сетку', en: 'Show Grid' },
@@ -120,6 +121,7 @@ export const strings: Record<string, Record<Locale, string>> = {
   // GridTabBar
   'gridTabBar.renameGridPrompt': { ru: 'Переименовать сетку:', en: 'Rename grid:' },
   'gridTabBar.closeGrid': { ru: 'Закрыть сетку', en: 'Close grid' },
+  'gridTabBar.exportGrid': { ru: 'Сохранить грид как .yml', en: 'Save grid as .yml' },
   'gridTabBar.addNewGrid': { ru: 'Добавить новую сетку', en: 'Add new grid' },
   'gridTabBar.validateMap': { ru: 'Проверить карту', en: 'Validate Map' },
 
@@ -179,6 +181,10 @@ export const strings: Record<string, Record<Locale, string>> = {
   'selectTool.contextMenu.delete': { ru: 'Удалить', en: 'Delete' },
   'selectTool.contextMenu.saveAsPrefab': { ru: 'Сохранить как префаб...', en: 'Save as Prefab...' },
   'selectTool.contextMenu.paste': { ru: 'Вставить', en: 'Paste' },
+  'selectTool.contextMenu.saveAsGrid': { ru: 'Сохранить как грид (.yml)...', en: 'Save as Grid (.yml)...' },
+  'selectTool.contextMenu.moveToNewGrid': { ru: 'Вынести в новый грид...', en: 'Move to new Grid...' },
+  'selectTool.prompt.gridName': { ru: 'Название грида:', en: 'Grid name:' },
+  'selectTool.alert.noTilesSelected': { ru: 'В выделении нет тайлов, грид создать не из чего.', en: 'The selection contains no tiles, so there is nothing to make a grid from.' },
   'selectTool.prompt.prefabName': { ru: 'Название префаба:', en: 'Prefab name:' },
 
   // ContainerContentsEditor
@@ -206,6 +212,8 @@ export const strings: Record<string, Record<Locale, string>> = {
   'app.status.prefabDropFailed': { ru: 'Ошибка загрузки префаба: {error}', en: 'Prefab load failed: {error}' },
   'app.status.unsupportedFileType': { ru: 'Неподдерживаемый тип файла: используйте .json (префаб) или .yml (карта)', en: 'Unsupported file type: use .json (prefab) or .yml (map)' },
   'app.dropOverlay.title': { ru: 'Загрузить карту', en: 'Load map' },
+  'app.status.gridExported': { ru: 'Грид сохранён: {file}', en: 'Grid saved: {file}' },
+  'app.status.gridExportFailed': { ru: 'Не удалось сохранить грид: {error}', en: 'Grid export failed: {error}' },
   'app.status.exported': { ru: 'Экспортировано в station.yml', en: 'Exported station.yml' },
   'app.status.exportFailed': { ru: 'Ошибка экспорта: {error}', en: 'Export failed: {error}' },
   'app.updateBanner.message': { ru: 'Доступна новая версия сайта', en: 'A new version of the site is available' },

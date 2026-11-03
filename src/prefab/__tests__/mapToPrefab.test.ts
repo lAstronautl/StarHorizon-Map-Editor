@@ -81,7 +81,8 @@ describe('mapToPrefab', () => {
     const prefab = mapToPrefab(buildTestMap(), 'MyStation');
     expect(prefab.entities).toHaveLength(1);
     expect(prefab.entities[0].prototype).toBe('APCBasic');
-    expect(prefab.entities[0].dx).toBe(0);
-    expect(prefab.entities[0].dy).toBe(0);
+    // exact offset from the corner: the entity sits in the middle of tile (0,0)
+    expect(prefab.entities[0].dx).toBe(0.5);
+    expect(prefab.entities[0].dy).toBe(0.5);
   });
 });

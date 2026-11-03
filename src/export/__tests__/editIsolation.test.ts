@@ -5,43 +5,20 @@
  * This is the critical multi-grid safety guarantee.
  */
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'path';
 import { importMap } from '../../import/mapImporter';
 import { exportMap } from '../mapExporter';
-import type { ImportedMap } from '../../import/mapImporter';
+import { stateToImportedMap } from '../stateToMap';
 import { editorReducer } from '../../state/editorReducer';
 import { createInitialState } from '../../state/editorState';
 import type { Command } from '../../types';
-import { pickMap } from '../../test-utils/realMaps';
+import { pickMap, resolveMapsDir } from '../../test-utils/realMaps';
 
 // Maps are discovered from the host repo's Resources/Maps (see test-utils/realMaps).
 // We use the first real map that imports to more than one grid; tests skip when none
 // is available. No fork or specific map name is assumed.
-const MAPS_DIR = resolve(__dirname, '../../../../../Resources/Maps');
+const MAPS_DIR = resolveMapsDir();
 const multiGrid = pickMap(MAPS_DIR, importMap, { minGrids: 2 });
 
-/** Build an ImportedMap from EditorState for export. Mirrors App.tsx handleExport. */
-function stateToImportedMap(state: ReturnType<typeof createInitialState>): ImportedMap {
-  return {
-    meta: state.meta,
-    tilemap: state.tilemap ?? {},
-    grid: state.grid,
-    entities: state.entities,
-    containedEntities: state.containedEntities,
-    gridUid: state.gridUid,
-    mapUid: state.mapUid,
-    maps: state.maps,
-    grids: state.gridUidList,
-    gridDataList: state.grids,
-    structuralEntityData: state.structuralEntityData,
-    entityRawComponents: state.entityRawComponents,
-    entityRawPreamble: state.entityRawPreamble,
-    chunkKeyOrder: state.chunkKeyOrder,
-    lineEnding: state.lineEnding,
-    hasDocumentTerminator: state.hasDocumentTerminator,
-    entityOrder: state.entityOrder,
-  };
-}
 
 describe('edit isolation', () => {
   it('editing grid 0 does not change grid 1 on export', () => {

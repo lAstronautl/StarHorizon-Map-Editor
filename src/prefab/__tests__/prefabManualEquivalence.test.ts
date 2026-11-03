@@ -207,7 +207,7 @@ describe('prefab placement equivalence with manual tools', () => {
     expect(transform.pos).toBe('8.5,8.5');
   });
 
-  it('raw YAML lines are never preserved (positions changed from template)', () => {
+  it('raw YAML lines are never stored or preserved (positions changed from template)', () => {
     const grid = makeGrid(10, 10);
     setCell(grid, 0, 0, { tileId: 'FloorSteel' });
 
@@ -223,8 +223,8 @@ describe('prefab placement equivalence with manual tools', () => {
       entityRawComponents: { 1: ['  - type: Transform', '    pos: 0.5,0.5', '    parent: 1'] },
     });
 
-    // rawYamlLines should be stored in the prefab
-    expect(prefab.entities[0].rawYamlLines).toBeDefined();
+    // rawYamlLines are not stored in the prefab at all
+    expect(prefab.entities[0].rawYamlLines).toBeUndefined();
 
     // But after placement at a new location, rawComponentsMap must be empty
     const result = placePrefab({

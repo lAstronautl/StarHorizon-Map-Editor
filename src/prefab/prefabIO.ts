@@ -54,7 +54,7 @@ export function downloadPrefab(prefab: PrefabData, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename.endsWith('.json') ? filename : `${filename}.json`;
+  a.download = filename.endsWith('.prefab.json') ? filename : `${filename.replace(/\.json$/, '')}.prefab.json`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

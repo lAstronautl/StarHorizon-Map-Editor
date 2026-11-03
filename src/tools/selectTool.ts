@@ -8,11 +8,14 @@ import type { ClipboardData, ClipboardEntity, ClipboardDecal } from '../state/cl
 import type { ContextMenuItem } from '../components/ContextMenu';
 import { serializePrefab } from '../prefab/prefabSerializer';
 import { downloadPrefab } from '../prefab/prefabIO';
+import { extractGridFromSelection, EmptySelectionError, type ExtractedGrid } from '../grid/extractGrid';
+import { exportStandaloneGrid, gridFileName } from '../export/gridExporter';
+import { downloadYAML } from '../export/download';
 import { updateTransformPos, updateTransformRot, normalizeRotation, cloneComponentsWithPos, cloneComponentsWithPosRot } from './entityHelpers';
 import { markOverlayDirty } from '../rendering/dirtyFlags';
 import { spatialGetInRect, tileKey } from '../rendering/spatialIndex';
 import { t } from '../i18n';
-import { peerUid } from '../multiplayer/uidAllocation';
+import { peerUid, mintGridUid } from '../multiplayer/uidAllocation';
 import type { SelectPreviewSnapshot } from '../multiplayer/messages';
 
 type SelectPhase = 'idle' | 'selecting' | 'selected' | 'moving' | 'pasting';
@@ -240,6 +243,46 @@ export class SelectTool implements ITool {
       width: w, height: h, tiles, entities: clipEntities, decals: clipDecals,
       originX: bounds.minX, originY: bounds.minY,
     });
+  }
+
+  /** Turn the selected tiles, their entities and decals into a grid. Asks for a name; null if cancelled/empty. */
+  private extractSelectionAsGrid(ctx: ToolContext): ExtractedGrid | null {
+    const source = ctx.state.grids[ctx.state.activeGridIndex];
+    const name = window.prompt(t('selectTool.prompt.gridName'), source.name);
+    if (!name) return null;
+    try {
+      return extractGridFromSelection({
+        source,
+        selectedTiles: this.selectedTiles,
+        gridUid: mintGridUid(ctx.state).uid,
+        name,
+      }, ctx.state.structuralEntityData?.[source.gridUid]);
+    } catch (err) {
+      if (err instanceof EmptySelectionError) {
+        window.alert(t('selectTool.alert.noTilesSelected'));
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /** Save the selection as a stand-alone grid file (`category: Grid`), leaving the map untouched. */
+  saveSelectionAsGridFile(ctx: ToolContext) {
+    if (this.phase !== 'selected') return;
+    const extracted = this.extractSelectionAsGrid(ctx);
+    if (!extracted) return;
+    downloadYAML(exportStandaloneGrid(extracted.gridData), gridFileName(extracted.gridData));
+  }
+
+  /** Move the selection out of this grid into a new grid (its own tab) at the same place in the map. */
+  moveSelectionToNewGrid(ctx: ToolContext) {
+    if (this.phase !== 'selected') return;
+    const extracted = this.extractSelectionAsGrid(ctx);
+    if (!extracted) return;
+    const newIndex = ctx.state.grids.length;
+    this.deleteSelection(ctx);
+    ctx.dispatch({ type: 'ADD_GRID', name: extracted.gridData.name, gridData: extracted.gridData });
+    ctx.dispatch({ type: 'SET_ACTIVE_GRID', index: newIndex });
   }
 
   /** Cut = copy + clear */
@@ -942,12 +985,18 @@ export class SelectTool implements ITool {
             maxY: this.selMaxY,
             grid: ctx.state.grid,
             entities: ctx.state.entities,
-            entityRawComponents: ctx.state.entityRawComponents ?? {},
+            containedEntities: ctx.state.grids[ctx.state.activeGridIndex].containedEntities,
+            selectedTiles: this.selectedTiles,
             decals: ctx.state.grids[ctx.state.activeGridIndex].decals.decals,
           });
           downloadPrefab(prefab, name);
         },
       });
+    }
+
+    if (this.phase === 'selected') {
+      items.push({ label: t('selectTool.contextMenu.saveAsGrid'), action: () => this.saveSelectionAsGridFile(ctx) });
+      items.push({ label: t('selectTool.contextMenu.moveToNewGrid'), action: () => this.moveSelectionToNewGrid(ctx) });
     }
 
     const clip = getClipboard();

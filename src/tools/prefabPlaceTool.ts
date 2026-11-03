@@ -65,6 +65,7 @@ export class PrefabPlaceTool implements ITool {
       entities: ctx.state.entities,
       nextEntityId: peerUid(ctx.state.localPeerIndex, ctx.state.localEntityCounter),
       nextDecalId: activeGrid.decals.nextDecalId,
+      gridUid: activeGrid.gridUid,
     });
 
     // Dispatch the command

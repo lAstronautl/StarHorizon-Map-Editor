@@ -58,5 +58,6 @@ export function buildPrefabFromColorGrid(
     }
   }
 
-  return { name, width, height, tiles, entities, deviceLinks: [] };
+  // Version 2: entity offsets are exact (tile center = tile + 0.5), not whole tiles.
+  return { version: 2, name, width, height, tiles, entities, deviceLinks: [] };
 }

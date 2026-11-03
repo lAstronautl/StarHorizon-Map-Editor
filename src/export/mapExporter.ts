@@ -12,9 +12,20 @@
  */
 
 import type { ImportedMap, ImportedEntity } from '../import/mapImporter';
+import type { GridData } from '../state/gridData';
 import type { TileGrid } from '../types';
 import type { DecalInstance } from '../import/decalParser';
 import { serializeDecalGrid } from './decalExporter';
+import { remapEntityRefs } from '../grid/entityRefs';
+import {
+  ENGINE_VERSION,
+  collectUsedUids,
+  defaultMapComponents,
+  findComponent,
+  makeTransform,
+  nextFreeUid,
+  synthesizeGridComponents,
+} from './gridStructure';
 
 // ---- Constants ----
 
@@ -23,12 +34,33 @@ const TILES_PER_CHUNK = CHUNK_SIZE * CHUNK_SIZE;
 
 // ---- Main entry point ----
 
-export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
-  const format = map.meta.format;
-  const { tilemap, reverseTilemap } = buildTilemap(map);
-  const gridChunksMap = buildGridChunksMap(map, reverseTilemap);
-  const gridDecalsMap = buildGridDecalsMap(map, decalsDirty);
-  const entityGroupsYaml = buildEntityGroupsYaml(map);
+/** A structural (prototype-less) entity about to be written: the map or a grid. */
+interface StructuralEntry {
+  uid: number;
+  components: Record<string, unknown>[];
+  /** Replay the entity's raw YAML lines (only for entities that came from the file and were not restructured). */
+  raw: boolean;
+  /** Not in the file: its DecalGrid must be written from the editor's decal state. */
+  synthesized?: boolean;
+}
+
+export function exportMap(input: ImportedMap, decalsDirty?: Set<number>): string {
+  const full = withGridDataList(input);
+  const format = full.meta.format;
+  const { tilemap, reverseTilemap } = buildTilemap(full);
+  const allChunks = buildGridChunksMap(full, reverseTilemap);
+
+  // The game deletes a grid that has no tiles left (game.delete_empty_grids), so it never saves
+  // one, and an empty `chunks:` would not load. Mirror that: grids without tiles (and their
+  // entities) are left out.
+  const liveGrids = full.gridDataList!.filter(g => (allChunks.get(g.gridUid)?.length ?? 0) > 0);
+  const map: ImportedMap = liveGrids.length === full.gridDataList!.length ? full : { ...full, gridDataList: liveGrids };
+
+  const entries = buildStructuralEntries(map);
+  const decalsByGrid = buildGridDecalsMap(map, decalsDirty, new Set(entries.filter(e => e.synthesized).map(e => e.uid)));
+  const structuralUids = new Set(entries.map(e => e.uid));
+  const entityGroups = buildEntityGroupsYaml(map, structuralUids);
+  const header = computeHeaderLists(entries, map);
 
   const lines: string[] = [];
 
@@ -40,45 +72,39 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
   // is gated on Version < 7); an absent category on a v7+ file stays
   // FileCategory.Unknown and loadmap's expected-category checks misbehave.
   if (format >= 7) {
-    lines.push(`  category: ${map.meta.category ?? 'Map'}`);
+    lines.push(`  category: ${resolveCategory(map.meta.category, header)}`);
   } else if (map.meta.category) {
     lines.push(`  category: ${map.meta.category}`);
   }
-  if (map.meta.engineVersion) lines.push(`  engineVersion: ${map.meta.engineVersion}`);
-  if (map.meta.forkId !== undefined) lines.push(`  forkId: ${formatPrimitive(map.meta.forkId)}`);
-  if (map.meta.forkVersion !== undefined) lines.push(`  forkVersion: ${formatPrimitive(map.meta.forkVersion)}`);
-  if (map.meta.time) lines.push(`  time: ${map.meta.time}`);
-  if (map.meta.entityCount !== undefined) {
-    // Count entities across all grids
-    const allEntities = getAllEntities(map);
-    const allContained = getAllContainedEntities(map);
-    const containedCount = Object.values(allContained).reduce((sum, arr) => sum + arr.length, 0);
-    lines.push(`  entityCount: ${allEntities.length + containedCount + Object.keys(map.structuralEntityData ?? {}).length}`);
+  const engineVersion = map.meta.engineVersion ?? (format >= 7 ? ENGINE_VERSION : undefined);
+  if (engineVersion) lines.push(`  engineVersion: ${engineVersion}`);
+  const forkId = map.meta.forkId ?? (format >= 7 ? '' : undefined);
+  if (forkId !== undefined) lines.push(`  forkId: ${formatPrimitive(forkId)}`);
+  const forkVersion = map.meta.forkVersion ?? (format >= 7 ? '' : undefined);
+  if (forkVersion !== undefined) lines.push(`  forkVersion: ${formatPrimitive(forkVersion)}`);
+  const time = map.meta.time ?? (format >= 7 ? formatSaveTime(new Date()) : undefined);
+  if (time) lines.push(`  time: ${time}`);
+  if (map.meta.entityCount !== undefined || format >= 7) {
+    lines.push(`  entityCount: ${entries.length + entityGroups.count}`);
   }
-  // Only emit postmapinit if it was present in the original file.
-  // SS14 treats absence as "not yet initialized", adding false when absent can change behavior.
-  if (map.meta.postmapinit !== undefined) {
+  // postmapinit only exists before format 7 (the v7 loader ignores it). Keep it where the file had it.
+  if (format < 7 && map.meta.postmapinit !== undefined) {
     lines.push(`  postmapinit: ${map.meta.postmapinit ? 'true' : 'false'}`);
   }
 
-  // Format 7+ top-level keys
+  // Format 7+ top-level keys. Derived from what is actually emitted so the lists can never
+  // disagree with the entities (the engine reads them with Get<SequenceDataNode>, so an
+  // empty list must be `[]`, never a bare `key:`).
   if (format >= 7) {
-    lines.push('maps:');
-    for (const uid of (map.maps ?? [map.mapUid])) {
-      lines.push(`- ${uid}`);
-    }
-    lines.push('grids:');
-    for (const uid of (map.grids ?? [map.gridUid])) {
-      lines.push(`- ${uid}`);
-    }
-    lines.push('orphans: []');
-    lines.push('nullspace: []');
+    emitIdList(lines, 'maps', header.maps);
+    emitIdList(lines, 'grids', header.grids);
+    emitIdList(lines, 'orphans', header.orphans);
+    emitIdList(lines, 'nullspace', header.nullspace);
   }
 
-  // Tilemap, Space first (index 0), then remaining sorted by name (matching SS14 engine)
+  // Tilemap in ascending engine tile id: Space first, then the rest ordinal by name.
   lines.push('tilemap:');
   const tilemapEntries = Object.entries(tilemap).map(([k, v]) => [Number(k), v] as [number, string]);
-  // Space always first, rest alphabetical by name
   tilemapEntries.sort((a, b) => {
     if (a[1] === 'Space') return -1;
     if (b[1] === 'Space') return 1;
@@ -88,114 +114,241 @@ export function exportMap(map: ImportedMap, decalsDirty?: Set<number>): string {
     lines.push(`  ${idx}: ${name}`);
   }
 
-  // Entities section
+  // Entities section: the prototype-less group (map + grids) comes first, in uid order.
   lines.push('entities:');
-
-  // Structural entity group (proto: "")
   lines.push('- proto: ""');
   lines.push('  entities:');
-
-  if (map.structuralEntityData && Object.keys(map.structuralEntityData).length > 0) {
-    // Emit structural entities with preserved components
-    for (const [uidStr, components] of Object.entries(map.structuralEntityData)) {
-      const uid = Number(uidStr);
-      lines.push(`  - uid: ${uid}`);
-      // Emit entity-level preamble lines if present
-      const structPreamble = map.entityRawPreamble?.[uid];
-      if (structPreamble) {
-        for (const pl of structPreamble) lines.push(pl);
-      }
-      lines.push('    components:');
-
-      // Look up per-grid chunks for this entity (if it's a grid entity)
-      const thisGridChunks = gridChunksMap.get(uid) ?? [];
-
-      const rawLines = map.entityRawComponents?.[uid];
-      const decalLines = gridDecalsMap.get(uid);
-      if (rawLines) {
-        // Use raw YAML lines for verbatim roundtrip, replacing MapGrid chunks
-        // and optionally replacing DecalGrid section
-        emitStructuralEntityRawWithReplacements(lines, rawLines, thisGridChunks, decalLines);
-      } else {
-        // Fall back to re-serialization
-        let hasDecalGrid = false;
-        for (const comp of components) {
-          const stripped = stripInternalTags(comp) as Record<string, unknown>;
-          if (stripped.type === 'MapGrid') {
-            // Re-emit MapGrid with rebuilt chunks
-            lines.push('    - type: MapGrid');
-            // Emit any extra MapGrid properties (not chunks)
-            for (const [k, v] of Object.entries(stripped)) {
-              if (k === 'type') continue;
-              emitValue(lines, k, v, 6);
-            }
-            if (thisGridChunks.length > 0) {
-              lines.push('      chunks:');
-              for (const cl of thisGridChunks) lines.push(cl);
-            }
-          } else if (stripped.type === 'DecalGrid' && decalLines) {
-            // Replace DecalGrid with freshly serialized content
-            hasDecalGrid = true;
-            for (const dl of decalLines) lines.push(dl);
-          } else {
-            emitComponent(lines, stripped);
-          }
-        }
-        // Append DecalGrid if not already present but we have dirty decals
-        if (!hasDecalGrid && decalLines) {
-          for (const dl of decalLines) lines.push(dl);
-        }
-      }
-    }
-  } else {
-    // Fallback: generate minimal structural entities
-    const fallbackChunks = gridChunksMap.get(map.gridUid) ?? [];
-
-    lines.push(`  - uid: ${map.mapUid}`);
-    lines.push('    components:');
-    lines.push('    - type: MetaData');
-    lines.push('    - type: Transform');
-    lines.push('    - type: Map');
-    lines.push('      mapPaused: True');
-    lines.push('    - type: GridTree');
-    lines.push('    - type: Broadphase');
-    lines.push('    - type: OccluderTree');
-
-    lines.push(`  - uid: ${map.gridUid}`);
-    lines.push('    components:');
-    lines.push('    - type: MetaData');
-    lines.push('      name: Station');
-    lines.push('    - type: Transform');
-    lines.push(`      parent: ${map.mapUid}`);
-    lines.push('    - type: MapGrid');
-    if (fallbackChunks.length > 0) {
-      lines.push('      chunks:');
-      for (const cl of fallbackChunks) lines.push(cl);
-    }
-    lines.push('    - type: Broadphase');
-    lines.push('    - type: Physics');
-    lines.push('    - type: Fixtures');
-    lines.push('    - type: Gravity');
-    // Append DecalGrid if we have dirty decals for this grid
-    const fallbackDecalLines = gridDecalsMap.get(map.gridUid);
-    if (fallbackDecalLines) {
-      for (const dl of fallbackDecalLines) lines.push(dl);
-    }
-    lines.push('    - type: OccluderTree');
+  for (const entry of entries) {
+    emitStructuralEntry(lines, entry, map, allChunks.get(entry.uid) ?? [], decalsByGrid.get(entry.uid));
   }
 
-  // Entity groups, use concat to avoid stack overflow with large arrays
-  for (const line of entityGroupsYaml) {
+  // Entity groups, use a loop to avoid stack overflow with large arrays
+  for (const line of entityGroups.lines) {
     lines.push(line);
   }
 
-  // Re-emit YAML document terminator if the original file had one
-  if (map.hasDocumentTerminator) {
+  // The engine always terminates format 7+ documents with `...`; older files keep what they had.
+  if (map.hasDocumentTerminator || format >= 7) {
     lines.push('...');
   }
 
   const eol = map.lineEnding === '\r\n' ? '\r\n' : '\n';
   return lines.join(eol) + eol;
+}
+
+/** `MM/dd/yyyy HH:mm:ss` (UTC), the format of `meta.time`. */
+function formatSaveTime(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+
+/** Maps built without `gridDataList` (single legacy grid) get one, so there is a single export path. */
+function withGridDataList(map: ImportedMap): ImportedMap {
+  if (map.gridDataList) return map;
+  return {
+    ...map,
+    gridDataList: [{
+      gridUid: map.gridUid,
+      name: 'Station',
+      grid: map.grid,
+      entities: map.entities,
+      containedEntities: map.containedEntities ?? {},
+      worldPosition: { x: 0, y: 0 },
+      structuralComponents: [],
+      chunkKeyOrder: map.chunkKeyOrder ?? [],
+      decals: { decals: [], nextDecalId: 0 },
+    } satisfies GridData],
+  };
+}
+
+/**
+ * Work out the map and grid entities of the file. Entities that came from the file are kept as
+ * they are (their raw YAML is replayed); everything the editor added is built the way the game
+ * saves it: a map entity if the file had none, and a full grid entity for every grid without one.
+ */
+function buildStructuralEntries(map: ImportedMap): StructuralEntry[] {
+  const grids = map.gridDataList ?? [];
+  const liveUids = new Set(grids.map(g => g.gridUid));
+  const existing = map.structuralEntityData ?? {};
+  const used = collectUsedUids(map);
+
+  const entries: StructuralEntry[] = [];
+  for (const [k, components] of Object.entries(existing)) {
+    const uid = Number(k);
+    if (findComponent(components, 'MapGrid') && !liveUids.has(uid)) continue; // emptied or removed grid
+    entries.push({ uid, components, raw: true });
+  }
+
+  const byUid = (uid: number) => entries.find(e => e.uid === uid);
+  const hasMap = entries.some(e => findComponent(e.components, 'Map'));
+
+  // A grid file: no map, one grid saved as an orphan (`parent: invalid`).
+  let isGridFile = false;
+  if (!hasMap && grids.length === 1) {
+    const only = byUid(grids[0].gridUid);
+    if (only) {
+      // A lone grid with no map and no parent is what a grid file looks like (v6 omits `parent: invalid`).
+      const parent = findComponent(only.components, 'Transform')?.parent;
+      isGridFile = parent === 'invalid' || parent == null;
+    } else {
+      isGridFile = map.meta.category === 'Grid';
+    }
+  }
+
+  let mapUid = entries.find(e => findComponent(e.components, 'Map'))?.uid ?? map.mapUid;
+  if (!hasMap && !isGridFile) {
+    mapUid = map.mapUid > 0 && !used.has(map.mapUid) ? map.mapUid : nextFreeUid(used);
+    entries.push({ uid: mapUid, components: defaultMapComponents(), raw: false });
+    // Grids that were the root of a grid file now hang off the new map.
+    for (const entry of entries) {
+      if (!findComponent(entry.components, 'MapGrid')) continue;
+      const parent = findComponent(entry.components, 'Transform')?.parent;
+      if (parent === 'invalid' || parent == null) {
+        entry.components = entry.components.map(c => (c.type === 'Transform' ? { ...c, parent: mapUid } : c));
+        if (!findComponent(entry.components, 'Transform')) entry.components.splice(1, 0, makeTransform(mapUid));
+        entry.raw = false;
+      }
+    }
+  }
+
+  // A grid built in the editor may carry components copied from another grid; references they hold
+  // to entities that are not in this file would point at nothing (or at something unrelated).
+  const inFile = new Set<number>([...used, mapUid]);
+  for (const gd of grids) {
+    if (byUid(gd.gridUid)) continue;
+    entries.push({
+      uid: gd.gridUid,
+      components: remapEntityRefs(synthesizeGridComponents(gd, isGridFile ? 'invalid' : mapUid), uid => (inFile.has(uid) ? uid : undefined)),
+      raw: false,
+      synthesized: true,
+    });
+  }
+
+  return entries.sort((a, b) => a.uid - b.uid);
+}
+
+function emitStructuralEntry(
+  lines: string[],
+  entry: StructuralEntry,
+  map: ImportedMap,
+  chunkLines: string[],
+  decalLines: string[] | undefined,
+): void {
+  const { uid } = entry;
+  lines.push(`  - uid: ${uid}`);
+  // Entity-level preamble lines (mapInit, paused) are only known for entities from the file.
+  if (entry.raw) {
+    for (const pl of map.entityRawPreamble?.[uid] ?? []) lines.push(pl);
+  }
+  lines.push('    components:');
+
+  const rawLines = entry.raw ? map.entityRawComponents?.[uid] : undefined;
+  if (rawLines) {
+    // Replay the raw lines, swapping in the rebuilt MapGrid chunks and (if dirty) DecalGrid.
+    emitStructuralEntityRawWithReplacements(lines, rawLines, chunkLines, decalLines);
+    return;
+  }
+
+  let hasDecalGrid = false;
+  for (const comp of entry.components) {
+    const stripped = stripInternalTags(comp) as Record<string, unknown>;
+    if (stripped.type === 'MapGrid') {
+      lines.push('    - type: MapGrid');
+      for (const [k, v] of Object.entries(stripped)) {
+        if (k === 'type') continue;
+        emitValue(lines, k, v, 6);
+      }
+      if (chunkLines.length > 0) {
+        lines.push('      chunks:');
+        for (const cl of chunkLines) lines.push(cl);
+      }
+    } else if (stripped.type === 'DecalGrid' && decalLines) {
+      hasDecalGrid = true;
+      for (const dl of decalLines) lines.push(dl);
+    } else {
+      emitComponent(lines, stripped);
+    }
+  }
+  // A grid without a DecalGrid that now has decals gets one.
+  if (!hasDecalGrid && decalLines) {
+    for (const dl of decalLines) lines.push(dl);
+  }
+}
+
+// ---- Header lists (maps / grids / orphans / nullspace) ----
+
+interface HeaderLists {
+  maps: number[];
+  grids: number[];
+  orphans: number[];
+  nullspace: number[];
+}
+
+function emitIdList(lines: string[], key: string, ids: number[]): void {
+  if (ids.length === 0) {
+    lines.push(`${key}: []`);
+    return;
+  }
+  lines.push(`${key}:`);
+  for (const uid of ids) lines.push(`- ${uid}`);
+}
+
+/**
+ * Derive the format 7 header lists from the entities that are about to be written, the same
+ * way EntitySerializer does: `maps` = entities with Map, `grids` = entities with MapGrid,
+ * `orphans` = entities saved with `parent: invalid`, `nullspace` = entities that were loaded
+ * from the file's nullspace list and are still present.
+ */
+function computeHeaderLists(entries: StructuralEntry[], map: ImportedMap): HeaderLists {
+  const maps: number[] = [];
+  const grids: number[] = [];
+  const orphans: number[] = [];
+  const parentOf = new Map<number, unknown>();
+
+  for (const { uid, components } of entries) {
+    if (findComponent(components, 'Map')) maps.push(uid);
+    if (findComponent(components, 'MapGrid')) grids.push(uid);
+    const parent = findComponent(components, 'Transform')?.parent;
+    parentOf.set(uid, parent);
+    if (parent === 'invalid') orphans.push(uid);
+  }
+
+  const emitted = new Set<number>(entries.map(e => e.uid));
+  const all: ImportedEntity[] = [...getAllEntities(map), ...Object.values(getAllContainedEntities(map)).flat()];
+  for (const e of all) {
+    emitted.add(e.uid);
+    const parent = findComponent(e.components, 'Transform')?.parent;
+    parentOf.set(e.uid, parent);
+    if (parent === 'invalid') orphans.push(e.uid);
+  }
+
+  // Keep orphans the file declared even if their Transform omits `parent:` (hand-edited maps do this
+  // and the engine accepts it), as long as they still exist and haven't been given a real parent.
+  for (const uid of map.orphans ?? []) {
+    if (emitted.has(uid) && parentOf.get(uid) == null) orphans.push(uid);
+  }
+  const nullspace = (map.nullspace ?? []).filter(uid => emitted.has(uid));
+
+  return { maps, grids, orphans: [...new Set(orphans)], nullspace };
+}
+
+/**
+ * Pick the `meta.category` for the exported lists. The original category is kept when it
+ * is consistent with the content (engine: EntitySerializer.InferCategory / TrySave*);
+ * otherwise it is inferred the same way the engine does.
+ */
+function resolveCategory(original: string | undefined, h: HeaderLists): string {
+  const isGrid = h.maps.length === 0 && h.grids.length === 1 && h.orphans.length === 1 && h.orphans[0] === h.grids[0];
+  const isMap = h.maps.length === 1;
+  const isEntity = h.maps.length === 0 && h.grids.length === 0 && h.orphans.length === 1;
+  if (original === 'Save') return 'Save';
+  if (original === 'Grid' && isGrid) return 'Grid';
+  if (original === 'Map' && isMap) return 'Map';
+  if (original === 'Entity' && isEntity) return 'Entity';
+  if (isMap) return 'Map';
+  if (isGrid) return 'Grid';
+  if (isEntity) return 'Entity';
+  return original && original !== 'Unknown' ? original : 'Unknown';
 }
 
 // ---- Tilemap building ----
@@ -341,15 +494,13 @@ function buildChunksYamlForGrid(
       const ly = ((worldY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
       const localIdx = ly * CHUNK_SIZE + lx;
 
-      // Always export variant as 0. The editor has no variant editing capability,
-      // and preserving imported variants is dangerous: the paint tool bug (now fixed)
-      // could leave stale variants from old tile types that exceed the new tile's
-      // variant count, crashing SS14's MapRenderer. The game engine re-randomizes
-      // tile variants at map load time for tiles that support visual variety.
+      // Keep the imported variant byte: the game writes it and reads it back as-is. Tools never
+      // carry it over to a different tile type (they create fresh `{ tileId }` cells), so a
+      // stale variant can't end up on a tile it doesn't belong to.
       chunks.get(key)![localIdx] = {
         typeId: tileIndex,
         flags: cell.flags ?? 0,
-        variant: 0,
+        variant: cell.variant ?? 0,
         rotationMirroring: cell.rotationMirroring ?? 0,
       };
     }
@@ -427,18 +578,16 @@ function buildGridChunksMap(
 function buildGridDecalsMap(
   map: ImportedMap,
   decalsDirty?: Set<number>,
+  synthesizedGrids?: Set<number>,
 ): Map<number, string[]> {
   const result = new Map<number, string[]>();
-  if (!decalsDirty || decalsDirty.size === 0) return result;
-
-  if (map.gridDataList && map.gridDataList.length > 0) {
-    for (const gd of map.gridDataList) {
-      if (decalsDirty.has(gd.gridUid)) {
-        result.set(gd.gridUid, serializeDecalGrid(gd.decals.decals));
-      }
+  for (const gd of map.gridDataList ?? []) {
+    const dirty = decalsDirty?.has(gd.gridUid) ?? false;
+    // A grid built from scratch has no DecalGrid in the file to replay, so always write its decals.
+    if (dirty || (synthesizedGrids?.has(gd.gridUid) && gd.decals.decals.length > 0)) {
+      result.set(gd.gridUid, serializeDecalGrid(gd.decals.decals));
     }
   }
-
   return result;
 }
 
@@ -472,9 +621,15 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 
 // ---- Dangling reference cleanup ----
 
+/** A numeric uid must exist in the file; the engine's own `invalid` marker for a deleted entity is kept as is. */
+function isLiveRef(uid: unknown, validUids: Set<number>): boolean {
+  return typeof uid !== 'number' || validUids.has(uid);
+}
+
 /**
  * Remove device UID references that point to non-existent entities.
- * Mutates entities in place for efficiency (called right before export serialization).
+ * Works on copies: entities that needed cleaning are returned as new objects (and listed in
+ * `modified` so their raw YAML is not replayed), the editor state is never touched.
  *
  * Cleans up:
  * - DeviceList.devices: number[], filter out UIDs not in validUids
@@ -484,73 +639,91 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 function stripDanglingDeviceRefs(
   entities: ImportedEntity[],
   validUids: Set<number>,
-  entityRawComponents?: Record<number, string[]>,
-): void {
-  for (const entity of entities) {
-    let modified = false;
-    for (let i = 0; i < entity.components.length; i++) {
-      const comp = entity.components[i] as Record<string, unknown>;
+): { entities: ImportedEntity[]; modified: Set<number> } {
+  const modified = new Set<number>();
+  const result = entities.map(entity => {
+    let components: Record<string, unknown>[] | null = null;
+    entity.components.forEach((raw, i) => {
+      const comp = raw as Record<string, unknown>;
+      let replacement: Record<string, unknown> | null = null;
 
       if (comp.type === 'DeviceList' && Array.isArray(comp.devices)) {
-        const filtered = (comp.devices as number[]).filter(uid => validUids.has(uid));
-        if (filtered.length !== (comp.devices as number[]).length) {
-          entity.components[i] = { ...comp, devices: filtered };
-          modified = true;
-        }
+        const filtered = (comp.devices as number[]).filter(uid => isLiveRef(uid, validUids));
+        if (filtered.length !== (comp.devices as number[]).length) replacement = { ...comp, devices: filtered };
       }
 
       if (comp.type === 'DeviceLinkSource' && comp.linkedPorts && typeof comp.linkedPorts === 'object') {
-        const ports = comp.linkedPorts as Record<string, unknown>;
-        let changed = false;
         const cleaned: Record<string, unknown> = {};
-        for (const [uidStr, value] of Object.entries(ports)) {
+        let changed = false;
+        for (const [uidStr, value] of Object.entries(comp.linkedPorts as Record<string, unknown>)) {
           const uid = parseInt(uidStr, 10);
-          if (!isNaN(uid) && validUids.has(uid)) {
-            cleaned[uidStr] = value;
-          } else {
-            changed = true;
-          }
+          if (isNaN(uid) || validUids.has(uid)) cleaned[uidStr] = value;
+          else changed = true;
         }
-        if (changed) {
-          entity.components[i] = { ...comp, linkedPorts: cleaned };
-          modified = true;
-        }
+        if (changed) replacement = { ...comp, linkedPorts: cleaned };
       }
 
       if (comp.type === 'DeviceNetwork' && Array.isArray(comp.deviceLists)) {
-        const filtered = (comp.deviceLists as number[]).filter(uid => validUids.has(uid));
-        if (filtered.length !== (comp.deviceLists as number[]).length) {
-          entity.components[i] = { ...comp, deviceLists: filtered };
-          modified = true;
-        }
+        const filtered = (comp.deviceLists as number[]).filter(uid => isLiveRef(uid, validUids));
+        if (filtered.length !== (comp.deviceLists as number[]).length) replacement = { ...comp, deviceLists: filtered };
       }
-    }
 
-    // If components were modified, invalidate raw YAML so the exporter
-    // uses component-based serialization instead of the stale raw lines
-    if (modified && entityRawComponents && entityRawComponents[entity.uid]) {
-      delete entityRawComponents[entity.uid];
-    }
-  }
+      if (replacement) {
+        components ??= entity.components.slice();
+        components[i] = replacement;
+      }
+    });
+    if (!components) return entity;
+    modified.add(entity.uid);
+    return { ...entity, components };
+  });
+  return { entities: result, modified };
+}
+
+/**
+ * Make sure an entity written from components (not raw lines) hangs off a serialized entity.
+ * An entity whose Transform has no parent would load into nullspace, and one whose parent isn't in
+ * the file (e.g. a prefab placed from another map) would get an invalid parent, so both are
+ * attached to `fallbackParent` unless the file declared it as an orphan / nullspace entity.
+ */
+function repairTransformParent(
+  components: Record<string, unknown>[],
+  uid: number,
+  fallbackParent: number | undefined,
+  validParents: Set<number>,
+  keepParentless: Set<number>,
+): Record<string, unknown>[] {
+  if (fallbackParent === undefined) return components;
+  const idx = components.findIndex(c => c.type === 'Transform');
+  if (idx < 0) return components;
+  const parent = components[idx].parent;
+  const dangling = typeof parent === 'number' && !validParents.has(parent);
+  const missing = (parent === undefined || parent === null) && !keepParentless.has(uid);
+  if (!dangling && !missing) return components;
+  const repaired = components.slice();
+  repaired[idx] = { ...components[idx], parent: fallbackParent };
+  return repaired;
 }
 
 // ---- Entity group building ----
 
-function buildEntityGroupsYaml(map: ImportedMap): string[] {
-  // Build entity-to-grid mapping for synthesized Transform parent field
-  const entityGridMap = new Map<number, number>();
-  if (map.gridDataList && map.gridDataList.length > 0) {
-    for (const gd of map.gridDataList) {
-      for (const e of gd.entities) {
-        entityGridMap.set(e.uid, gd.gridUid);
-      }
+const protoCollator = new Intl.Collator('en');
+
+function buildEntityGroupsYaml(map: ImportedMap, structuralUids: Set<number>): { lines: string[]; count: number } {
+  // Parent an entity falls back to if its own is missing: its grid, or the container it sits in.
+  const fallbackParent = new Map<number, number>();
+  const gridList = map.gridDataList ?? [];
+  for (const gd of gridList) {
+    for (const e of gd.entities) fallbackParent.set(e.uid, gd.gridUid);
+    for (const [parentUid, children] of Object.entries(gd.containedEntities)) {
+      for (const c of children) fallbackParent.set(c.uid, Number(parentUid));
     }
   }
 
   // Combine grid entities with contained entities for export (from all grids)
   const gridEntities = getAllEntities(map);
   const allContained = getAllContainedEntities(map);
-  const allEntities: ImportedEntity[] = [...gridEntities];
+  const exported: ImportedEntity[] = [...gridEntities];
 
   if (Object.keys(allContained).length > 0) {
     // Build set of valid parent UIDs, grid entities are always valid
@@ -572,40 +745,24 @@ function buildEntityGroupsYaml(map: ImportedMap): string[] {
     }
     for (const [parentUidStr, children] of Object.entries(allContained)) {
       if (validUids.has(Number(parentUidStr))) {
-        allEntities.push(...children);
+        exported.push(...children);
       }
     }
   }
 
-  // Restore original file order using entityOrder (preserves YAML encounter order)
-  if (map.entityOrder) {
-    const orderMap = new Map<number, number>();
-    for (let i = 0; i < map.entityOrder.length; i++) {
-      orderMap.set(map.entityOrder[i], i);
-    }
-    allEntities.sort((a, b) => {
-      const oa = orderMap.get(a.uid) ?? Number.MAX_SAFE_INTEGER;
-      const ob = orderMap.get(b.uid) ?? Number.MAX_SAFE_INTEGER;
-      return oa - ob;
-    });
-  }
-
-  if (allEntities.length === 0) return [];
+  if (exported.length === 0) return { lines: [], count: 0 };
 
   // Strip dangling device references (UIDs pointing to entities that don't exist).
   // This can happen when a linked entity is deleted but the DeviceList/DeviceLinkSource
   // on the other entity isn't cleaned up, or when DeviceNetwork.deviceLists references
   // a deleted alarm entity.
-  const validUidSet = new Set(allEntities.map(e => e.uid));
-  // Also include structural UIDs (map entity, grid entities) that aren't in allEntities
-  validUidSet.add(map.mapUid);
-  validUidSet.add(map.gridUid);
-  if (map.gridDataList) {
-    for (const gd of map.gridDataList) validUidSet.add(gd.gridUid);
-  }
-  stripDanglingDeviceRefs(allEntities, validUidSet, map.entityRawComponents);
+  const validUidSet = new Set<number>([...structuralUids, ...exported.map(e => e.uid)]);
+  const { entities: allEntities, modified } = stripDanglingDeviceRefs(exported, validUidSet);
 
-  // Group entities by prototype
+  // Entities the file itself declared parentless (orphans / nullspace) keep having no parent.
+  const keepParentless = new Set<number>([...(map.orphans ?? []), ...(map.nullspace ?? [])]);
+
+  // Group by prototype
   const groups = new Map<string, ImportedEntity[]>();
   for (const entity of allEntities) {
     const proto = entity.prototype;
@@ -617,9 +774,10 @@ function buildEntityGroupsYaml(map: ImportedMap): string[] {
 
   const lines: string[] = [];
 
-  // Preserve original group ordering (Map insertion order matches import order)
-  for (const proto of groups.keys()) {
-    const entities = groups.get(proto)!;
+  // Same order as EntitySerializer: groups by prototype id (InvariantCulture), entities by ascending uid.
+  const protos = [...groups.keys()].sort((a, b) => protoCollator.compare(a, b));
+  for (const proto of protos) {
+    const entities = groups.get(proto)!.sort((a, b) => a.uid - b.uid);
     lines.push(`- proto: ${proto}`);
     lines.push('  entities:');
 
@@ -632,39 +790,34 @@ function buildEntityGroupsYaml(map: ImportedMap): string[] {
       }
       lines.push('    components:');
 
-      const rawLines = map.entityRawComponents?.[entity.uid];
+      const rawLines = modified.has(entity.uid) ? undefined : map.entityRawComponents?.[entity.uid];
       if (rawLines) {
         // Emit raw YAML lines verbatim for byte-exact roundtrip
         for (const rl of rawLines) lines.push(rl);
       } else {
-        // Check if entity already has a Transform component in its components array
-        const hasTransform = entity.components.some(
-          (c: Record<string, unknown>) => c.type === 'Transform',
-        );
+        let components = entity.components;
+        const hasTransform = components.some(c => c.type === 'Transform');
 
         if (!hasTransform) {
           // Synthesize Transform from entity position/rotation for editor-placed entities
-          // Use the correct grid UID for this entity's grid
-          const parentUid = entityGridMap.get(entity.uid) ?? map.gridUid;
-          const transformComp: Record<string, unknown> = {
-            type: 'Transform',
-            pos: `${entity.position.x},${entity.position.y}`,
-            parent: parentUid,
-          };
-          if (entity.rotation !== 0) {
-            transformComp.rot = `${entity.rotation} rad`;
-          }
-          emitComponent(lines, transformComp);
+          const parentUid = fallbackParent.get(entity.uid) ?? gridList[0]?.gridUid;
+          emitComponent(lines, makeTransform(
+            parentUid,
+            entity.position,
+            entity.rotation,
+          ));
+        } else {
+          components = repairTransformParent(components, entity.uid, fallbackParent.get(entity.uid), validUidSet, keepParentless);
         }
 
-        for (const comp of entity.components) {
+        for (const comp of components) {
           emitComponent(lines, stripInternalTags(comp) as Record<string, unknown>);
         }
       }
     }
   }
 
-  return lines;
+  return { lines, count: allEntities.length };
 }
 
 /**
@@ -732,21 +885,13 @@ function emitStructuralEntityRawWithReplacements(
   }
 }
 
-/**
- * Emit a single component as YAML lines.
- * Components are Record<string, unknown> objects with a `type` field.
- * We write them verbatim, preserving all keys.
- */
 function emitComponent(lines: string[], comp: Record<string, unknown>): void {
-  const keys = Object.keys(comp);
-
   // `type` always comes first
   lines.push(`    - type: ${comp.type}`);
 
-  for (const key of keys) {
+  for (const key of Object.keys(comp)) {
     if (key === 'type') continue;
-    const value = comp[key];
-    emitValue(lines, key, value, 6);
+    emitEntry(lines, key, comp[key], 6, ' '.repeat(6));
   }
 }
 
@@ -759,92 +904,94 @@ function emitValue(
   value: unknown,
   indent: number,
 ): void {
-  const prefix = ' '.repeat(indent);
+  emitEntry(lines, key, value, indent, ' '.repeat(indent));
+}
+
+const spaces = (n: number): string => ' '.repeat(n);
+
+function tagOf(record: Record<string, unknown>): string | undefined {
+  return record._ss14Tag as string | undefined;
+}
+
+function dataEntries(record: Record<string, unknown>): [string, unknown][] {
+  return Object.entries(record).filter(([k]) => k !== '_ss14Tag');
+}
+
+/**
+ * Emit one `key: value` mapping entry whose key sits at column `col`. `lead` is the text in
+ * front of the key on its first line (`col` spaces, or `<spaces>- ` for the first entry of a
+ * sequence item). Sequences are not indented under their key, matching the engine's emitter.
+ */
+function emitEntry(lines: string[], key: string, value: unknown, col: number, lead: string): void {
+  const head = `${lead}${formatKey(key)}:`;
 
   if (value === null || value === undefined) {
-    lines.push(`${prefix}${key}:`);
-  } else if (typeof value === 'object' && !Array.isArray(value)) {
-    // Nested object, check for SS14 YAML type tag
-    const record = value as Record<string, unknown>;
-    const tag = record._ss14Tag as string | undefined;
-    const entries = Object.entries(record).filter(([k]) => k !== '_ss14Tag');
-
-    if (entries.length === 0 && !tag) {
-      // Empty object, emit as {} to preserve the mapping type
-      lines.push(`${prefix}${key}: {}`);
-    } else {
-      if (tag) {
-        lines.push(`${prefix}${key}: ${tag}`);
-      } else {
-        lines.push(`${prefix}${key}:`);
-      }
-      for (const [k, v] of entries) {
-        emitValue(lines, k, v, indent + 2);
-      }
-    }
+    lines.push(`${head} null`);
   } else if (Array.isArray(value)) {
-    lines.push(`${prefix}${key}:`);
     if (value.length === 0) {
-      // Replace last line to show empty array
-      lines[lines.length - 1] = `${prefix}${key}: []`;
+      lines.push(`${head} []`);
     } else {
-      for (const item of value) {
-        if (Array.isArray(item)) {
-          // Nested sequence: emit as "- - val1\n  - val2"
-          emitNestedSequence(lines, item, indent);
-        } else if (typeof item === 'object' && item !== null) {
-          // First key of the object gets the "- " prefix; skip _ss14Tag
-          const entries = Object.entries(item as Record<string, unknown>)
-            .filter(([k]) => k !== '_ss14Tag');
-          if (entries.length > 0) {
-            const [firstKey, firstVal] = entries[0];
-            const itemPrefix = prefix + '- ';
-            if (isPrimitive(firstVal)) {
-              lines.push(`${itemPrefix}${firstKey}: ${formatPrimitive(firstVal)}`);
-            } else if (Array.isArray(firstVal)) {
-              // First value is an array
-              if (firstVal.length === 0) {
-                lines.push(`${itemPrefix}${firstKey}: []`);
-              } else {
-                lines.push(`${itemPrefix}${firstKey}:`);
-                emitArrayItems(lines, firstVal, indent + 2);
-              }
-            } else if (typeof firstVal === 'object' && firstVal !== null) {
-              const objEntries = Object.entries(firstVal as Record<string, unknown>)
-                .filter(([k]) => k !== '_ss14Tag');
-              if (objEntries.length === 0) {
-                lines.push(`${itemPrefix}${firstKey}: {}`);
-              } else {
-                const tag = (firstVal as Record<string, unknown>)._ss14Tag as string | undefined;
-                if (tag) {
-                  lines.push(`${itemPrefix}${firstKey}: ${tag}`);
-                } else {
-                  lines.push(`${itemPrefix}${firstKey}:`);
-                }
-                for (const [k, v] of objEntries) {
-                  emitValue(lines, k, v, indent + 4);
-                }
-              }
-            } else {
-              lines.push(`${itemPrefix}${firstKey}:`);
-            }
-            for (let i = 1; i < entries.length; i++) {
-              emitValue(lines, entries[i][0], entries[i][1], indent + 2);
-            }
-          }
-        } else if (typeof item === 'string' && item.includes('\n')) {
-          // Multiline string in array, use block scalar with "- " prefix
-          emitBlockScalar(lines, '-', item, indent, true);
-        } else {
-          lines.push(`${prefix}- ${formatPrimitive(item)}`);
-        }
-      }
+      lines.push(head);
+      emitSequence(lines, value, col);
     }
-  } else if (typeof value === 'string' && value.includes('\n')) {
-    // Multiline string, use YAML literal block scalar
-    emitBlockScalar(lines, key, value, indent);
+  } else if (typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const tag = tagOf(record);
+    const entries = dataEntries(record);
+    if (entries.length === 0) {
+      // `{}` keeps it a mapping; a bare tag would parse as an (empty) scalar and not load.
+      lines.push(`${head} ${tag ? `${tag} ` : ''}{}`);
+    } else {
+      lines.push(tag ? `${head} ${tag}` : head);
+      for (const [k, v] of entries) emitEntry(lines, k, v, col + 2, spaces(col + 2));
+    }
+  } else if (typeof value === 'string' && value.includes('\n') && !value.includes('\r')) {
+    // Multiline string, use YAML literal block scalar. Content is indented relative to the key column.
+    const block: string[] = [];
+    emitBlockScalar(block, key, value, col);
+    block[0] = lead + block[0].slice(col);
+    lines.push(...block);
   } else {
-    lines.push(`${prefix}${key}: ${formatPrimitive(value)}`);
+    lines.push(`${head} ${formatPrimitive(value)}`);
+  }
+}
+
+/** Emit sequence items with their `- ` at column `col`. */
+function emitSequence(lines: string[], items: unknown[], col: number): void {
+  for (const item of items) emitSequenceItem(lines, item, col);
+}
+
+function emitSequenceItem(lines: string[], item: unknown, col: number): void {
+  const lead = `${spaces(col)}- `;
+
+  if (Array.isArray(item)) {
+    if (item.length === 0) {
+      lines.push(`${lead}[]`);
+      return;
+    }
+    // Nested sequence: `- - a` then `  - b`; render at col + 2 and fold the first dash in.
+    const nested: string[] = [];
+    emitSequence(nested, item, col + 2);
+    nested[0] = lead + nested[0].slice(col + 2);
+    lines.push(...nested);
+  } else if (item !== null && typeof item === 'object') {
+    const record = item as Record<string, unknown>;
+    const tag = tagOf(record);
+    const entries = dataEntries(record);
+    if (entries.length === 0) {
+      lines.push(`${lead}${tag ? `${tag} ` : ''}{}`);
+    } else if (tag) {
+      // Polymorphic item: `- !type:Foo` with its fields underneath.
+      lines.push(`${lead}${tag}`);
+      for (const [k, v] of entries) emitEntry(lines, k, v, col + 2, spaces(col + 2));
+    } else {
+      entries.forEach(([k, v], i) => emitEntry(lines, k, v, col + 2, i === 0 ? lead : spaces(col + 2)));
+    }
+  } else if (typeof item === 'string' && item.includes('\n') && !item.includes('\r')) {
+    // Multiline string in array, use block scalar with "- " prefix
+    emitBlockScalar(lines, '-', item, col, true);
+  } else {
+    lines.push(`${lead}${item === null || item === undefined ? 'null' : formatPrimitive(item)}`);
   }
 }
 
@@ -885,82 +1032,6 @@ function stripInternalTags(obj: unknown): unknown {
 }
 
 /**
- * Emit a nested sequence item: "- - val1\n  - val2" for arrays within arrays.
- */
-function emitNestedSequence(lines: string[], arr: unknown[], indent: number): void {
-  const prefix = ' '.repeat(indent);
-  if (arr.length === 0) {
-    lines.push(`${prefix}- []`);
-    return;
-  }
-  // First item gets "- - " prefix
-  const firstItem = arr[0];
-  if (Array.isArray(firstItem)) {
-    lines.push(`${prefix}- - ...`); // Deeply nested, unlikely in SS14 but handle gracefully
-  } else if (typeof firstItem === 'object' && firstItem !== null) {
-    // Object item in nested sequence
-    const entries = Object.entries(firstItem as Record<string, unknown>)
-      .filter(([k]) => k !== '_ss14Tag');
-    if (entries.length > 0) {
-      const [fk, fv] = entries[0];
-      lines.push(`${prefix}- - ${fk}: ${formatPrimitive(fv)}`);
-      for (let i = 1; i < entries.length; i++) {
-        emitValue(lines, entries[i][0], entries[i][1], indent + 4);
-      }
-    }
-  } else {
-    lines.push(`${prefix}- - ${formatPrimitive(firstItem)}`);
-  }
-  // Remaining items get "  - " prefix (aligned with first)
-  for (let i = 1; i < arr.length; i++) {
-    const item = arr[i];
-    if (Array.isArray(item)) {
-      emitNestedSequence(lines, item, indent + 2);
-    } else if (typeof item === 'object' && item !== null) {
-      const entries = Object.entries(item as Record<string, unknown>)
-        .filter(([k]) => k !== '_ss14Tag');
-      if (entries.length > 0) {
-        const [fk, fv] = entries[0];
-        lines.push(`${prefix}  - ${fk}: ${formatPrimitive(fv)}`);
-        for (let j = 1; j < entries.length; j++) {
-          emitValue(lines, entries[j][0], entries[j][1], indent + 4);
-        }
-      }
-    } else {
-      lines.push(`${prefix}  - ${formatPrimitive(item)}`);
-    }
-  }
-}
-
-/**
- * Emit array items as YAML sequence entries at the given indent.
- */
-function emitArrayItems(lines: string[], arr: unknown[], indent: number): void {
-  const prefix = ' '.repeat(indent);
-  for (const item of arr) {
-    if (Array.isArray(item)) {
-      emitNestedSequence(lines, item, indent);
-    } else if (typeof item === 'object' && item !== null) {
-      const entries = Object.entries(item as Record<string, unknown>)
-        .filter(([k]) => k !== '_ss14Tag');
-      if (entries.length > 0) {
-        const [fk, fv] = entries[0];
-        if (isPrimitive(fv)) {
-          lines.push(`${prefix}- ${fk}: ${formatPrimitive(fv)}`);
-        } else {
-          lines.push(`${prefix}- ${fk}:`);
-        }
-        for (let i = 1; i < entries.length; i++) {
-          emitValue(lines, entries[i][0], entries[i][1], indent + 2);
-        }
-      }
-    } else {
-      lines.push(`${prefix}- ${formatPrimitive(item)}`);
-    }
-  }
-}
-
-/**
  * Emit a multiline string as a YAML literal block scalar (|).
  * Uses |- (strip) if the string doesn't end with newline, | (clip) if it does.
  * The indentation indicator is computed from the content.
@@ -976,8 +1047,8 @@ function emitBlockScalar(
   const contentIndent = indent + 2;
   const contentPrefix = ' '.repeat(contentIndent);
 
-  // Determine chomping: strip (-) if no trailing newline, clip (default) if ends with \n
-  const chomp = value.endsWith('\n') ? '' : '-';
+  // Chomping: strip (-) without a trailing newline, clip (default) with exactly one, keep (+) with more.
+  const chomp = !value.endsWith('\n') ? '-' : value.endsWith('\n\n') ? '+' : '';
 
   // Check if any content line starts with spaces, if so, we need an explicit indentation indicator
   const contentLines = value.split('\n');
@@ -995,7 +1066,8 @@ function emitBlockScalar(
     }
   }
 
-  const indicator = needsIndicator ? `${contentIndent}` : '';
+  // The indentation indicator is relative to the parent node, so it is always 2 here.
+  const indicator = needsIndicator ? '2' : '';
 
   if (isArrayItem) {
     lines.push(`${prefix}- |${indicator}${chomp}`);
@@ -1017,11 +1089,32 @@ function isPrimitive(value: unknown): boolean {
   return value === null || value === undefined || typeof value !== 'object';
 }
 
+function doubleQuote(str: string): string {
+  const escaped = str
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f]/g, c => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
+  return `"${escaped}"`;
+}
+
+/** Mapping keys follow the same quoting rules as scalars (e.g. a key written as "UID: 31739"). */
+function formatKey(key: string): string {
+  if (key.length > 0 && !needsQuoting(key) && !key.endsWith(':') && !/^[-?](\s|$)/.test(key)) return key;
+  return formatPrimitive(key);
+}
+
 function formatPrimitive(value: unknown): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'True' : 'False';
   const str = String(value);
   if (str.length === 0) return '""';
+  // Carriage returns and other control characters can't survive a plain, single-quoted or block
+  // scalar (the parser normalizes them), so escape them in a double-quoted scalar.
+  if (/[\r\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(str)) return doubleQuote(str);
   // Quote strings that contain YAML-special characters
   if (needsQuoting(str)) {
     // Use single quotes by default (matching SS14 engine convention).

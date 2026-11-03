@@ -23,8 +23,13 @@ export function mintEntityUid(state: EditorState): { uid: number; localEntityCou
   return { uid, localEntityCounter: state.localEntityCounter + 1 };
 }
 
-/** Same scheme as mintEntityUid, for grid UIDs. */
-export function mintGridUid(state: EditorState): { uid: number; localGridCounter: number } {
-  const uid = peerUid(state.localPeerIndex, state.localGridCounter);
-  return { uid, localGridCounter: state.localGridCounter + 1 };
+/**
+ * Same scheme as mintEntityUid, for grid UIDs. Grids and entities share one uid space in a saved
+ * file, so they share one counter too (separate counters handed out the same uid twice).
+ * `localGridCounter` is only kept in step for the multiplayer snapshot format.
+ */
+export function mintGridUid(state: EditorState): { uid: number; localEntityCounter: number; localGridCounter: number } {
+  const uid = peerUid(state.localPeerIndex, state.localEntityCounter);
+  const next = state.localEntityCounter + 1;
+  return { uid, localEntityCounter: next, localGridCounter: next };
 }

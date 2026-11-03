@@ -44,6 +44,9 @@ export interface EditorState {
   maps?: number[];
   /** Grid UID list from the YAML file's top-level `grids:` key */
   gridUidList?: number[];
+  /** `orphans:` / `nullspace:` from the loaded file (format 7+) */
+  orphans?: number[];
+  nullspace?: number[];
   structuralEntityData?: Record<number, Record<string, unknown>[]>;
   entityRawComponents?: Record<number, string[]>;
   entityRawPreamble?: Record<number, string[]>;
@@ -139,7 +142,7 @@ export function createEmptyGrid(): TileGrid {
 }
 
 export function createInitialState(): EditorState {
-  const emptyGrid = createEmptyGridData(1, 'Grid 1');
+  const emptyGrid = createEmptyGridData(2, 'Grid 1');
   return {
     grids: [emptyGrid],
     activeGridIndex: 0,
@@ -149,18 +152,18 @@ export function createInitialState(): EditorState {
     containedEntities: emptyGrid.containedEntities,
     activeTool: 'pan',
     selectedPaletteItem: { type: 'tile', id: 'Plating' },
-    nextEntityId: 2,  // UIDs 0 (map) and 1 (grid) are reserved for structural entities
+    nextEntityId: 3,  // UIDs 1 (map) and 2 (grid) are reserved for structural entities
     localPeerIndex: 0,
-    localEntityCounter: 2,
-    localGridCounter: 2,
+    localEntityCounter: 3,
+    localGridCounter: 3,
     selectedEntityUids: [],
     selectedDecalIds: [],
     decalsDirty: new Set(),
     undoStack: [],
     redoStack: [],
     registry: null,
-    mapUid: 0,
-    gridUid: 1,
+    mapUid: 1,
+    gridUid: 2,
     meta: { format: 7 },
     lightingEnabled: false,
     dirty: false,

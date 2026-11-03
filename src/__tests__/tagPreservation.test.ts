@@ -1,12 +1,11 @@
 /// <reference types="node" />
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'path';
 import { importMap } from '../import/mapImporter';
 import { exportMap } from '../export/mapExporter';
-import { pickMap } from '../test-utils/realMaps';
+import { pickMap, resolveMapsDir } from '../test-utils/realMaps';
 
 // Maps are discovered from the host repo's Resources/Maps (see test-utils/realMaps).
-const MAPS_DIR = resolve(__dirname, '../../../../Resources/Maps');
+const MAPS_DIR = resolveMapsDir();
 
 describe('YAML type tag preservation', () => {
   // Pick the first importable map that actually uses YAML !type: tags.

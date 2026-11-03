@@ -9,8 +9,23 @@
  * imports (and matches any requested criteria). When no suitable map is present
  * (e.g. CI, or a checkout outside a base repo), callers skip: they never hard-fail.
  */
-import { readdirSync, readFileSync, statSync } from 'fs';
-import { join } from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { join, resolve } from 'path';
+
+/**
+ * Locate the game's `Resources/Maps`. Order: `SS14_MAPS_DIR` env, the host repo the
+ * editor lives in (`<repo>/Tools/<editor>`), then a sibling `StarHorizon` checkout.
+ * Falls back to the host-repo path so callers skip cleanly when nothing exists.
+ */
+export function resolveMapsDir(): string {
+  const candidates = [
+    process.env.SS14_MAPS_DIR,
+    resolve(__dirname, '../../../../Resources/Maps'),
+    resolve(__dirname, '../../../StarHorizon/Resources/Maps'),
+    resolve(__dirname, '../../../starhorizon/Resources/Maps'),
+  ].filter((c): c is string => !!c);
+  return candidates.find(c => existsSync(c)) ?? candidates[candidates.length - 1];
+}
 
 /** Recursively collect all `.yml` files under `mapsDir`, sorted for determinism. */
 export function findMapFiles(mapsDir: string): string[] {
